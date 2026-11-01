@@ -84,20 +84,34 @@ function Save-Url([string]$Url, [string]$Dest, [string]$Referer) {
     # SourceForge serves an HTML page to browsers but a direct redirect to download tools
     $agent = if ($Url -match 'sourceforge\.net') { 'Wget/1.21.4' } else { $UA }
     $done = $false
+    $last = 0
     if ($haveCurl) {
-        & curl.exe -L --fail --retry 3 --retry-delay 5 --connect-timeout 30 -A $agent -C - -o $part $Url
-        if ($LASTEXITCODE -eq 33) {
-            # 33 = server does not support resume: retry from scratch
-            Remove-Item $part -Force -ErrorAction SilentlyContinue
-            & curl.exe -L --fail --retry 3 --retry-delay 5 --connect-timeout 30 -A $agent -o $part $Url
+        # resume after dropped / stalled connections instead of starting over
+        # (--speed-limit/--speed-time abort a transfer that is stuck below 1 KB/s for 60 s, then we resume it)
+        for ($i = 1; $i -le 8; $i++) {
+            & curl.exe -L --fail --connect-timeout 30 --speed-limit 1024 --speed-time 60 -A $agent -C - -o $part $Url
+            $last = $LASTEXITCODE
+            if ($last -eq 0) { $done = $true; break }
+            if ($last -eq 33) { Remove-Item $part -Force -ErrorAction SilentlyContinue; continue }   # server can't resume: start over
+            if ($last -eq 22) { break }                                                             # HTTP error (403/404): resuming won't help
+            Warn "     connection dropped (curl $last) - resuming from where it stopped ($i/8) ..."
+            Start-Sleep -Seconds ([math]::Min(30, 5 * $i))
         }
-        if ($LASTEXITCODE -eq 0) { $done = $true }
-        else {
+        if (-not $done -and $last -eq 22) {
             # some sites (e.g. hirensbootcd.org) refuse non-browser downloads (403): retry like a browser
-            Warn "     retrying as a browser (curl $LASTEXITCODE) ..."
+            Warn "     retrying as a browser ..."
             $ref = if ($Referer) { $Referer } else { $Url }
-            & curl.exe -L --fail --retry 2 --retry-delay 5 --connect-timeout 30 -A $BrowserUA -e $ref -H 'Accept: */*' -H 'Accept-Language: en-IN,en;q=0.9' -C - -o $part $Url
-            if ($LASTEXITCODE -eq 0) { $done = $true }
+            for ($i = 1; $i -le 4; $i++) {
+                & curl.exe -L --fail --connect-timeout 30 --speed-limit 1024 --speed-time 60 -A $BrowserUA -e $ref -H 'Accept: */*' -H 'Accept-Language: en-IN,en;q=0.9' -C - -o $part $Url
+                $last = $LASTEXITCODE
+                if ($last -eq 0) { $done = $true; break }
+                if ($last -eq 22) { break }
+                Start-Sleep -Seconds 5
+            }
+        }
+        if (-not $done -and $last -ne 22 -and (Test-Path $part)) {
+            # still failing after many resumes: keep the partial file so the next UPDATE.cmd continues it
+            throw "connection keeps dropping (curl $last) - run UPDATE.cmd again later, it will continue from $([math]::Round((Get-Item $part).Length / 1MB)) MB"
         }
     }
     if (-not $done) {
