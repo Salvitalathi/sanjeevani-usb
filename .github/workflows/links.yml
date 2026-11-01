@@ -1,0 +1,33 @@
+name: Download links check
+
+# Weekly: makes sure every tool's official download link still works.
+on:
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['kit/Sanjeevani/tools.json', 'Setup-Sanjeevani.ps1', '.github/workflows/links.yml']
+
+jobs:
+  links:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve latest version of every download
+        shell: powershell
+        run: |
+          .\Setup-Sanjeevani.ps1 -ResolveOnly
+          $code = $LASTEXITCODE
+          $rep = Get-Content "$env:TEMP\SanjeevaniSetup\link-report.json" -Raw | ConvertFrom-Json
+          $md = "## Download links`n`n| Status | Tool | Detail |`n|---|---|---|`n"
+          foreach ($r in $rep) { $md += "| $($r.status) | $($r.id) | $(($r.detail + ' ' + $r.url) -replace '\|','/') |`n" }
+          $md | Out-File $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          Copy-Item "$env:TEMP\SanjeevaniSetup\link-report.json" .
+          if ($code -gt 0) { Write-Host "::warning::$code download link(s) failed - see summary" }
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: link-report
+          path: link-report.json

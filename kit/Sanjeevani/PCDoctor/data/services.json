@@ -1,0 +1,12 @@
+{
+  "_comment": "Conservative list. onlyIfHdd / maxRamGB limit a rule to weak PCs. Every change is recorded for Undo.",
+  "services": [
+    { "name": "DiagTrack",        "label": "Telemetry (Connected User Experiences)", "startType": "Disabled" },
+    { "name": "dmwappushservice", "label": "WAP push (telemetry routing)",           "startType": "Manual" },
+    { "name": "RetailDemo",       "label": "Retail Demo",                            "startType": "Disabled" },
+    { "name": "MapsBroker",       "label": "Downloaded Maps Manager",                "startType": "Manual" },
+    { "name": "Fax",              "label": "Fax",                                    "startType": "Manual" },
+    { "name": "SysMain",          "label": "SysMain / Superfetch (HDD + low RAM)",   "startType": "Disabled", "onlyIfHdd": true, "maxRamGB": 4 },
+    { "name": "WSearch",          "label": "Search indexing (HDD + low RAM)",        "startType": "Manual",   "onlyIfHdd": true, "maxRamGB": 4 }
+  ]
+}

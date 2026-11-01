@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="mr"><head><meta charset="utf-8"><title>Screen test - Sanjeevani</title>
+<style>
+html,body{margin:0;height:100%;font-family:'Nirmala UI','Segoe UI',sans-serif;cursor:pointer;user-select:none}
+#s{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#help{background:rgba(0,0,0,.75);color:#fff;padding:22px 28px;border-radius:14px;max-width:560px;line-height:1.6}
+#help b{color:#5eead4}
+.grad{background:linear-gradient(90deg,#000,#fff)}
+.grid{background-color:#000;background-image:linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px);background-size:40px 40px}
+</style></head><body>
+<div id="s"><div id="help">
+<h2 style="margin-top:0">Screen / Dead-pixel test</h2>
+<b>Click</b> किंवा <b>Space / →</b> = पुढचा रंग · <b>←</b> = मागचा · <b>F</b> = full screen · <b>H</b> = ही माहिती लपवा/दाखवा<br>
+प्रत्येक रंगात screen नीट पाहा: काळा/पांढरा ठिपका (dead / stuck pixel), रेषा, light bleed (काळ्या रंगात कडेने प्रकाश), रंग फिका होणे.
+</div></div>
+<script>
+var modes=['#000000','#ffffff','#ff0000','#00ff00','#0000ff','#ffff00','#00ffff','#ff00ff','#808080','grad','grid'];
+var i=0,s=document.getElementById('s'),h=document.getElementById('help');
+function show(){var m=modes[i];s.className='';s.style.background='';if(m==='grad'||m==='grid'){s.className=m}else{s.style.background=m}}
+function next(d){i=(i+d+modes.length)%modes.length;show()}
+document.addEventListener('click',function(){h.style.display='none';next(1)});
+document.addEventListener('keydown',function(e){
+ if(e.key===' '||e.key==='ArrowRight'){h.style.display='none';next(1);e.preventDefault()}
+ else if(e.key==='ArrowLeft'){next(-1)}
+ else if(e.key==='h'||e.key==='H'){h.style.display=h.style.display==='none'?'':'none'}
+ else if(e.key==='f'||e.key==='F'){if(!document.fullscreenElement){document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen()}else{document.exitFullscreen()}}
+});
+show();
+</script></body></html>

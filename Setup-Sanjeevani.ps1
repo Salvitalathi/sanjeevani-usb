@@ -1,0 +1,464 @@
+﻿#Requires -Version 5.1
+<#
+.SYNOPSIS
+    Builds / updates the Sanjeevani Rescue USB.
+.DESCRIPTION
+    1. Installs (or updates) Ventoy on the chosen USB disk.
+    2. Copies the Sanjeevani kit (boot theme, PC Doctor, docs).
+    3. Downloads the latest versions of all free rescue ISOs and portable tools.
+    4. Writes ventoy.json (menu names, icons, tips, theme) for whatever was downloaded.
+    Run again any time to update everything - only changed files are downloaded.
+.EXAMPLE
+    .\Setup-Sanjeevani.ps1                       # interactive
+    .\Setup-Sanjeevani.ps1 -UpdateOnly -Usb E:   # just refresh tools on an existing Sanjeevani USB
+#>
+param(
+    [string]$Usb,                 # drive letter of an existing Ventoy data partition, e.g. E:
+    [switch]$UpdateOnly,          # skip Ventoy install, just copy kit + download
+    [switch]$GPT,                 # install Ventoy with GPT instead of MBR
+    [switch]$WithWindows,         # also download the Windows 11 ISO (~7.5 GB)
+    [switch]$WithMint,            # also download Linux Mint XFCE (~3 GB)
+    [switch]$SkipDownloads,
+    [string[]]$Only,              # only these ids, e.g. -Only hbcd,cpuz
+    [switch]$ResolveOnly          # CI / check: only find the latest download link of every item, download nothing
+)
+
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Off
+if ($Only -and $Only.Count -eq 1 -and $Only[0] -match ',') { $Only = $Only[0].Split(',') | ForEach-Object { $_.Trim() } }
+$ProgressPreference = 'SilentlyContinue'
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+$UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) SanjeevaniSetup/1.0'
+
+function Say([string]$m, [string]$c = 'Gray') { Write-Host $m -ForegroundColor $c }
+function Step([string]$m) { Write-Host ''; Write-Host "==> $m" -ForegroundColor Cyan }
+function Ok([string]$m) { Write-Host "    [OK]  $m" -ForegroundColor Green }
+function Warn([string]$m) { Write-Host "    [!!]  $m" -ForegroundColor Yellow }
+function Fail([string]$m) { Write-Host "    [XX]  $m" -ForegroundColor Red }
+
+# ------------------------------------------------------------------ admin
+$admin = $ResolveOnly -or ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $admin) {
+    $argList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$PSCommandPath`"")
+    foreach ($k in $PSBoundParameters.Keys) {
+        $v = $PSBoundParameters[$k]
+        if ($v -is [switch]) { if ($v) { $argList += "-$k" } } elseif ($v -is [array]) { $argList += "-$k"; $argList += ($v -join ',') } else { $argList += "-$k"; $argList += "`"$v`"" }
+    }
+    Start-Process powershell.exe -Verb RunAs -ArgumentList $argList
+    exit
+}
+$Host.UI.RawUI.WindowTitle = 'Sanjeevani Rescue USB - Setup'
+
+Clear-Host
+Say '  ================================================================' Cyan
+Say '     SANJEEVANI RESCUE USB  -  Setup / Update' Cyan
+Say '     Free & legal PC repair toolkit  (Ventoy based)' DarkCyan
+Say '  ================================================================' Cyan
+
+# ------------------------------------------------------------------ where is the kit?
+$ScriptDir = $PSScriptRoot
+$KitDir = Join-Path $ScriptDir 'kit'
+$RunningFromUsb = $false
+if (-not (Test-Path (Join-Path $KitDir 'Sanjeevani\tools.json'))) {
+    # running from <USB>\Sanjeevani\Setup\ : the USB itself is the kit
+    $cand = (Resolve-Path (Join-Path $ScriptDir '..\..')).Path
+    if (Test-Path (Join-Path $cand 'Sanjeevani\tools.json')) { $KitDir = $cand; $RunningFromUsb = $true }
+    else { Fail 'Kit files not found next to this script.'; Read-Host 'Press Enter'; exit 1 }
+}
+$Work = Join-Path $env:TEMP 'SanjeevaniSetup'
+New-Item -ItemType Directory -Path $Work -Force | Out-Null
+$haveCurl = [bool](Get-Command curl.exe -ErrorAction SilentlyContinue)
+
+# ------------------------------------------------------------------ web helpers
+function Get-WebText([string]$Url, [hashtable]$Headers = @{}) {
+    $h = @{ 'User-Agent' = $UA } + $Headers
+    return (Invoke-WebRequest -Uri $Url -UseBasicParsing -Headers $h -TimeoutSec 60).Content
+}
+
+function Save-Url([string]$Url, [string]$Dest) {
+    $part = "$Dest.part"
+    New-Item -ItemType Directory -Path (Split-Path $Dest) -Force | Out-Null
+    # SourceForge serves an HTML page to browsers but a direct redirect to download tools
+    $agent = if ($Url -match 'sourceforge\.net') { 'Wget/1.21.4' } else { $UA }
+    if ($haveCurl) {
+        & curl.exe -L --fail --retry 3 --retry-delay 5 --connect-timeout 30 -A $agent -C - -o $part $Url
+        if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 33) {
+            # 33 = server does not support resume: retry from scratch
+            Remove-Item $part -Force -ErrorAction SilentlyContinue
+            & curl.exe -L --fail --retry 3 --retry-delay 5 --connect-timeout 30 -A $agent -o $part $Url
+        }
+        if ($LASTEXITCODE -ne 0) { Remove-Item $part -Force -ErrorAction SilentlyContinue; throw "download failed (curl $LASTEXITCODE)" }
+    } else {
+        Invoke-WebRequest -Uri $Url -OutFile $part -UseBasicParsing -UserAgent $agent
+    }
+    if ((Get-Item $part).Length -lt 1024) { $t = Get-Content $part -Raw -ErrorAction SilentlyContinue; Remove-Item $part -Force; throw "file too small - not a real download ($t)" }
+    $fs = [IO.File]::OpenRead($part); $head = New-Object byte[] 64; [void]$fs.Read($head, 0, 64); $fs.Close()
+    $txt = [Text.Encoding]::ASCII.GetString($head).TrimStart()
+    if ($txt -match '^(?i)<(!DOCTYPE|html)') { Remove-Item $part -Force; throw 'got a web page instead of the file (site changed?)' }
+    Move-Item -LiteralPath $part -Destination $Dest -Force
+}
+
+function Resolve-Source($e) {
+    $s = $e.source
+    switch ($s.kind) {
+        'url' {
+            $leaf = if ($e.file) { $e.file } else { [IO.Path]::GetFileName(([Uri]$s.url).AbsolutePath) }
+            return @{ Url = $s.url; Name = $leaf }
+        }
+        'github' {
+            $j = Get-WebText "https://api.github.com/repos/$($s.repo)/releases/latest" @{ Accept = 'application/vnd.github+json' } | ConvertFrom-Json
+            $a = $j.assets | Where-Object { $_.name -match $s.asset } | Select-Object -First 1
+            if (-not $a) { throw "no asset matching '$($s.asset)' in $($s.repo) $($j.tag_name)" }
+            return @{ Url = $a.browser_download_url; Name = $a.name; Version = $j.tag_name }
+        }
+        'sourceforge' {
+            $rss = [xml](Get-WebText "https://sourceforge.net/projects/$($s.project)/rss?limit=200")
+            foreach ($it in $rss.rss.channel.item) {
+                $leaf = ([string]$it.title).Split('/')[-1]
+                if ($leaf -match $s.file) { return @{ Url = [string]$it.link; Name = $leaf } }
+            }
+            throw "no file matching '$($s.file)' in sourceforge/$($s.project)"
+        }
+        'scrape' {
+            $html = Get-WebText $s.page
+            $m = [regex]::Match($html, $s.regex)
+            if (-not $m.Success) { throw "link not found on $($s.page)" }
+            $href = [Net.WebUtility]::HtmlDecode($m.Value)
+            $abs = (New-Object Uri ([Uri]$s.page), $href).AbsoluteUri
+            return @{ Url = $abs; Name = [IO.Path]::GetFileName(([Uri]$abs).AbsolutePath) }
+        }
+        'dirlatest' {
+            $html = Get-WebText $s.page
+            $vers = [regex]::Matches($html, $s.dirRegex) | ForEach-Object { $_.Groups[1].Value } | Sort-Object { [version]($(if ($_ -match '\.') { $_ } else { "$_.0" })) } -Descending
+            if (-not $vers) { throw "no versions found on $($s.page)" }
+            $v = @($vers)[0]
+            $f = $s.file.Replace('{v}', $v)
+            return @{ Url = ($s.page.TrimEnd('/') + "/$v/$f"); Name = $f; Version = $v }
+        }
+        'fido' {
+            $fido = Join-Path $Work 'Fido.ps1'
+            Save-Url 'https://raw.githubusercontent.com/pbatard/Fido/master/Fido.ps1' $fido
+            $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $fido -Win $s.win -Rel Latest -Ed Pro -Lang English -Arch x64 -GetUrl 2>&1
+            $url = @($out | ForEach-Object { "$_" } | Where-Object { $_ -match '^https://' })[-1]
+            if (-not $url) { throw ("Microsoft did not give a link: " + (($out | Select-Object -Last 2) -join ' ')) }
+            return @{ Url = $url; Name = "Win$($s.win).iso" }
+        }
+        default { return $null }
+    }
+}
+
+# ------------------------------------------------------------------ link check (CI)
+if ($ResolveOnly) {
+    $cat = Get-Content (Join-Path $KitDir 'Sanjeevani\tools.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+    $res = @()
+    foreach ($e in @($cat.isos) + @($cat.tools)) {
+        if ($Only -and $Only -notcontains $e.id) { continue }
+        $row = [ordered]@{ id = $e.id; kind = $e.source.kind; status = ''; url = ''; detail = '' }
+        if ($e.source.kind -eq 'manual') { $row.status = 'manual' }
+        else {
+            try {
+                $r = Resolve-Source $e
+                $row.url = $r.Url
+                # fetch the first KB to prove the link really serves a file
+                $probe = Join-Path $Work ('probe_' + $e.id)
+                $agent = if ($r.Url -match 'sourceforge\.net') { 'Wget/1.21.4' } else { $UA }
+                & curl.exe -sS -L --fail --max-time 60 -A $agent -r 0-1023 -o $probe $r.Url 2>&1 | Out-Null
+                if ($LASTEXITCODE -ne 0) { throw "curl $LASTEXITCODE" }
+                $head = [IO.File]::ReadAllBytes($probe); Remove-Item $probe -Force
+                $txt = [Text.Encoding]::ASCII.GetString($head, 0, [math]::Min(64, $head.Length)).TrimStart()
+                if ($txt -match '^(?i)<(!DOCTYPE|html)') { throw 'web page instead of file' }
+                $row.status = 'ok'; $row.detail = $r.Name
+            } catch { $row.status = 'FAIL'; $row.detail = $_.Exception.Message }
+        }
+        $res += [pscustomobject]$row
+        Write-Host ("{0,-6} {1,-16} {2}" -f $row.status, $row.id, $(if ($row.status -eq 'ok') { $row.detail } else { $row.detail }))
+    }
+    $res | ConvertTo-Json -Depth 3 | Set-Content (Join-Path $Work 'link-report.json') -Encoding UTF8
+    $bad = @($res | Where-Object { $_.status -eq 'FAIL' })
+    Write-Host ("`n{0} ok, {1} failed, {2} manual. Report: {3}" -f @($res | Where-Object status -eq 'ok').Count, $bad.Count, @($res | Where-Object status -eq 'manual').Count, (Join-Path $Work 'link-report.json'))
+    exit $bad.Count
+}
+
+# ------------------------------------------------------------------ choose USB
+function Get-VentoyVolume([int]$DiskNumber) {
+    Get-Partition -DiskNumber $DiskNumber -ErrorAction SilentlyContinue | ForEach-Object {
+        $v = $_ | Get-Volume -ErrorAction SilentlyContinue
+        if ($v -and $v.FileSystemLabel -eq 'Ventoy') { [pscustomobject]@{ Partition = $_; Volume = $v } }
+    } | Select-Object -First 1
+}
+
+function Install-Ventoy([int]$DiskNumber, [bool]$Update) {
+    Step 'Downloading latest Ventoy'
+    $r = Resolve-Source ([pscustomobject]@{ source = [pscustomobject]@{ kind = 'github'; repo = 'ventoy/Ventoy'; asset = 'windows\.zip$' } })
+    $zip = Join-Path $Work $r.Name
+    if (-not (Test-Path $zip)) { Save-Url $r.Url $zip }
+    $dir = Join-Path $Work 'ventoy'
+    Remove-Item $dir -Recurse -Force -ErrorAction SilentlyContinue
+    Expand-Archive -LiteralPath $zip -DestinationPath $dir -Force
+    $exe = Get-ChildItem $dir -Recurse -Filter 'Ventoy2Disk.exe' | Where-Object { $_.Directory.Name -notmatch 'altexe' } | Select-Object -First 1
+    if (-not $exe) { throw 'Ventoy2Disk.exe not found in the Ventoy package' }
+    Ok "Ventoy $($r.Version)"
+    $cwd = $exe.DirectoryName
+    Remove-Item (Join-Path $cwd 'cli_*.txt') -Force -ErrorAction SilentlyContinue
+    $cmd = if ($Update) { '/U' } else { '/I' }
+    $args2 = "VTOYCLI $cmd /PhyDrive:$DiskNumber"
+    if (-not $Update -and $GPT) { $args2 += ' /GPT' }
+    Step ("{0} Ventoy on disk {1} ..." -f $(if ($Update) { 'Updating' } else { 'Installing' }), $DiskNumber)
+    Start-Process -FilePath $exe.FullName -ArgumentList $args2 -WorkingDirectory $cwd -Wait
+    $done = Join-Path $cwd 'cli_done.txt'
+    for ($i = 0; $i -lt 60 -and -not (Test-Path $done); $i++) { Start-Sleep 1 }
+    $res = if (Test-Path $done) { (Get-Content $done -Raw).Trim() } else { '?' }
+    if ($res -ne '0') {
+        Fail 'Ventoy reported an error. Log:'
+        Get-Content (Join-Path $cwd 'cli_log.txt') -Tail 20 -ErrorAction SilentlyContinue | ForEach-Object { Say "      $_" DarkGray }
+        throw 'Ventoy install/update failed'
+    }
+    Ok 'Ventoy done'
+}
+
+$UsbRoot = $null
+if ($Usb) {
+    $UsbRoot = $Usb.TrimEnd('\').TrimEnd(':') + ':\'
+    if (-not (Test-Path $UsbRoot)) { Fail "$Usb not found"; exit 1 }
+    $UpdateOnly = $true
+} elseif ($RunningFromUsb) {
+    $UsbRoot = $KitDir.TrimEnd('\') + '\'
+    $UpdateOnly = $true
+    Ok "Updating this Sanjeevani USB: $UsbRoot"
+} else {
+    Step 'USB disks connected to this PC'
+    $disks = @(Get-Disk | Where-Object { $_.BusType -eq 'USB' } | Sort-Object Number)
+    if (-not $disks.Count) { Fail 'No USB disk found. Insert the pendrive and run again.'; Read-Host 'Press Enter'; exit 1 }
+    foreach ($d in $disks) {
+        $vt = Get-VentoyVolume $d.Number
+        $tag = if ($vt) { "  [Ventoy already installed - $($vt.Volume.DriveLetter):]" } else { '' }
+        Say ("    Disk {0}:  {1,-34} {2,8:N1} GB{3}" -f $d.Number, $d.FriendlyName, ($d.Size / 1GB), $tag) White
+    }
+    $n = Read-Host "`n    Type the Disk number of your pendrive"
+    $disk = $disks | Where-Object { [string]$_.Number -eq $n.Trim() }
+    if (-not $disk) { Fail 'Invalid disk number.'; Read-Host 'Press Enter'; exit 1 }
+    if ($disk.Size -lt 30GB) { Warn 'This pendrive is smaller than 32 GB - not everything will fit. 64-128 GB recommended.' }
+    $vt = Get-VentoyVolume $disk.Number
+    $doInstall = $true; $isUpdate = $false
+    if ($vt) {
+        $c = Read-Host "    Ventoy is already on this disk. [U]pdate (keeps files) or [R]einstall (ERASES everything)?  U/R"
+        if ($c -match '^[Uu]') { $isUpdate = $true }
+    }
+    if (-not $isUpdate) {
+        Say ''
+        Say "    !!! ALL DATA on  Disk $($disk.Number) - $($disk.FriendlyName) ($([math]::Round($disk.Size/1GB,1)) GB)  WILL BE ERASED !!!" Red
+        $c = Read-Host '    Type ERASE to continue'
+        if ($c -cne 'ERASE') { Say 'Cancelled.'; exit 0 }
+    }
+    # the disk number can change if something is plugged/unplugged meanwhile: verify identity again
+    $now = Get-Disk -Number $disk.Number -ErrorAction SilentlyContinue
+    if (-not $now -or $now.UniqueId -ne $disk.UniqueId -or $now.SerialNumber -ne $disk.SerialNumber -or $now.Size -ne $disk.Size -or
+        [string]$now.BusType -ne 'USB' -or $now.IsBoot -or $now.IsSystem) {
+        Fail 'The selected disk changed or is not a removable USB disk. Nothing was erased. Run setup again.'
+        Read-Host 'Press Enter'; exit 1
+    }
+    if ($doInstall) { Install-Ventoy -DiskNumber $disk.Number -Update $isUpdate }
+    Step 'Waiting for the Ventoy partition'
+    for ($i = 0; $i -lt 30; $i++) {
+        Update-HostStorageCache -ErrorAction SilentlyContinue
+        $vt = Get-VentoyVolume $disk.Number
+        if ($vt -and $vt.Volume.DriveLetter) { break }
+        if ($vt -and -not $vt.Volume.DriveLetter) { $vt.Partition | Add-PartitionAccessPath -AssignDriveLetter -ErrorAction SilentlyContinue }
+        Start-Sleep 2
+    }
+    if (-not $vt -or -not $vt.Volume.DriveLetter) { Fail 'Ventoy partition did not appear. Re-plug the pendrive and run with -Usb X:'; exit 1 }
+    $UsbRoot = "$($vt.Volume.DriveLetter):\"
+    Ok "USB data partition: $UsbRoot"
+}
+
+# ------------------------------------------------------------------ copy kit
+if (-not $RunningFromUsb) {
+    Step 'Copying Sanjeevani kit (theme, PC Doctor, docs)'
+    & robocopy.exe $KitDir.TrimEnd('\') $UsbRoot.TrimEnd('\') /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
+    if ($LASTEXITCODE -ge 8) { throw "copy failed (robocopy $LASTEXITCODE)" }
+    $setupDir = Join-Path $UsbRoot 'Sanjeevani\Setup'
+    New-Item -ItemType Directory -Path $setupDir -Force | Out-Null
+    Copy-Item -LiteralPath $PSCommandPath -Destination $setupDir -Force
+    $cmd = Join-Path $ScriptDir 'SETUP.cmd'
+    if (Test-Path $cmd) { Copy-Item $cmd (Join-Path $setupDir 'UPDATE.cmd') -Force }
+    Ok 'Kit copied'
+}
+foreach ($d in 'ISO', 'Tools', 'Installers', 'Reports') { New-Item -ItemType Directory -Path (Join-Path $UsbRoot $d) -Force | Out-Null }
+
+# ------------------------------------------------------------------ downloads
+$catalog = Get-Content (Join-Path $UsbRoot 'Sanjeevani\tools.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+$instFile = Join-Path $UsbRoot 'Sanjeevani\installed.json'
+$installed = @{}
+if (Test-Path $instFile) { (Get-Content $instFile -Raw -Encoding UTF8 | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $installed[$_.Name] = $_.Value } }
+$manual = New-Object System.Collections.ArrayList
+$failed = New-Object System.Collections.ArrayList
+
+if (-not $SkipDownloads -and -not $Only) {
+    if (-not $WithWindows -and -not ($installed['win11'])) {
+        $c = Read-Host "`n    Also download the official Windows 11 ISO from Microsoft (~7.5 GB)? Y/N"
+        $WithWindows = $c -match '^[Yy]'
+    }
+    if (-not $WithMint -and -not ($installed['mint-xfce'])) {
+        $c = Read-Host '    Also download Linux Mint XFCE for old PCs (~3 GB)? Y/N'
+        $WithMint = $c -match '^[Yy]'
+    }
+}
+
+function Test-Wanted($e) {
+    if ($Only) { return ($Only -contains $e.id) }
+    if ($e.id -eq 'win11') { return ($WithWindows -or [bool]$installed['win11']) }
+    if ($e.id -eq 'mint-xfce') { return ($WithMint -or [bool]$installed['mint-xfce']) }
+    return $true
+}
+
+function Test-UpToDate($e, $resolvedUrl, $target) {
+    $old = $installed[$e.id]
+    if (-not $old) { return $false }
+    $p = Join-Path $UsbRoot $old.path
+    if (-not (Test-Path -LiteralPath $p)) { return $false }
+    if ($e.refreshDays) {
+        $age = ((Get-Date) - [datetime]$old.date).TotalDays
+        if ($age -ge [double]$e.refreshDays) { return $false }
+    }
+    return ($old.url -eq $resolvedUrl)
+}
+
+function Get-FreeGB { return [math]::Round((Get-PSDrive ($UsbRoot.Substring(0, 1))).Free / 1GB, 1) }
+
+function Install-Item($e, [string]$Kind) {
+    if (-not (Test-Wanted $e)) { return }
+    $label = if ($e.alias) { $e.alias } else { $e.name }
+    Say ''
+    Say "  -- $label" White
+    if ($e.source.kind -eq 'manual') { [void]$manual.Add($e); Warn 'manual download (link in Docs\manual-downloads.html)'; return }
+    if ($e.source.kind -eq 'fido' -and $installed[$e.id] -and (Test-Path -LiteralPath (Join-Path $UsbRoot $installed[$e.id].path))) { Ok 'already on USB (delete the ISO to download a newer one)'; return }
+    try { $r = Resolve-Source $e } catch { Warn ("could not find latest version: " + $_.Exception.Message); [void]$failed.Add($e); return }
+    if (Test-UpToDate $e $r.Url $null) { Ok 'up to date'; return }
+    if ($e.sizeMB -and (Get-FreeGB) -lt ([double]$e.sizeMB / 1024 * 1.1)) { Warn "not enough space on USB ($(Get-FreeGB) GB free)"; [void]$failed.Add($e); return }
+    $tmp = Join-Path $Work ($e.id + '_' + $r.Name)
+    try {
+        Say "     $($r.Url)" DarkGray
+        Save-Url $r.Url $tmp
+        $rel = $null
+        if ($Kind -eq 'iso') {
+            $ext = if ($e.ext) { $e.ext } else { '.iso' }
+            $rel = "ISO\$($e.order)-$($e.id)$ext"
+            $dest = Join-Path $UsbRoot $rel
+            if ($e.extract) {
+                $x = Join-Path $Work ($e.id + '_x')
+                Remove-Item $x -Recurse -Force -ErrorAction SilentlyContinue
+                $zipTmp = $tmp; if ($zipTmp -notmatch '\.zip$') { Rename-Item $tmp ($tmp + '.zip'); $zipTmp = $tmp + '.zip' }
+                Expand-Archive -LiteralPath $zipTmp -DestinationPath $x -Force
+                $inner = Get-ChildItem $x -Recurse -File | Where-Object { $_.Name -match $e.extract } | Select-Object -First 1
+                if (-not $inner) { throw "nothing matching '$($e.extract)' inside the zip" }
+                Move-Item -LiteralPath $inner.FullName -Destination $dest -Force
+                Remove-Item $zipTmp, $x -Recurse -Force -ErrorAction SilentlyContinue
+            } else {
+                Move-Item -LiteralPath $tmp -Destination $dest -Force
+            }
+        } elseif ($e.installer) {
+            $rel = "Installers\$($r.Name)"
+            Move-Item -LiteralPath $tmp -Destination (Join-Path $UsbRoot $rel) -Force
+        } else {
+            $folderRel = "Tools\$($e.category)\$($e.name -replace '[^\w\-\. ]', '')"
+            $folder = Join-Path $UsbRoot $folderRel
+            # extract over the old version (never wipe: SDIO keeps its ~40 GB driver packs here)
+            New-Item -ItemType Directory -Path $folder -Force | Out-Null
+            $isZip = $false
+            $fs = [IO.File]::OpenRead($tmp); $b1 = $fs.ReadByte(); $b2 = $fs.ReadByte(); $fs.Close()
+            if ($b1 -eq 0x50 -and $b2 -eq 0x4B) { $isZip = $true }
+            if ($isZip) {
+                $zipTmp = $tmp; if ($zipTmp -notmatch '\.zip$') { Rename-Item $tmp ($tmp + '.zip'); $zipTmp = $tmp + '.zip' }
+                Expand-Archive -LiteralPath $zipTmp -DestinationPath $folder -Force
+                Remove-Item $zipTmp -Force
+            } else {
+                $name = if ($e.file) { $e.file } else { $r.Name }
+                Move-Item -LiteralPath $tmp -Destination (Join-Path $folder $name) -Force
+            }
+            $exe = Get-ChildItem $folder -Recurse -File | Where-Object { $_.Name -match $e.exe } | Sort-Object { $_.FullName.Length } | Select-Object -First 1
+            $rel = if ($exe) { $exe.FullName.Substring($UsbRoot.Length) } else { $folderRel }
+        }
+        $installed[$e.id] = [pscustomobject]@{ url = $r.Url; path = $rel; date = (Get-Date).ToString('s'); name = $r.Name }
+        Ok "saved: $rel"
+    } catch {
+        Fail $_.Exception.Message
+        Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+        [void]$failed.Add($e)
+    }
+}
+
+if (-not $SkipDownloads) {
+    Step "Downloading rescue ISOs  (USB free: $(Get-FreeGB) GB)"
+    foreach ($e in $catalog.isos) { Install-Item $e 'iso' }
+    Step 'Downloading portable tools'
+    foreach ($e in $catalog.tools) { Install-Item $e 'tool' }
+    $installed | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $instFile -Encoding UTF8
+}
+
+# ------------------------------------------------------------------ ventoy.json
+Step 'Writing boot menu configuration (ventoy.json)'
+$themeDir = '/ventoy/theme/sanjeevani'
+$fonts = @(Get-Content (Join-Path $UsbRoot 'ventoy\theme\sanjeevani\fonts.list') | Where-Object { $_ } | ForEach-Object { "$themeDir/$_" })
+$alias = @(); $class = @(); $tips = @()
+$isoFiles = @(Get-ChildItem (Join-Path $UsbRoot 'ISO') -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -in '.iso', '.img', '.wim', '.vhd', '.vhdx', '.efi' })
+foreach ($f in $isoFiles) {
+    $p = '/ISO/' + $f.Name
+    $e = $catalog.isos | Where-Object { $f.Name -match ('^\d+-' + [regex]::Escape($_.id) + '\.') } | Select-Object -First 1
+    if (-not $e) { $e = $catalog.isos | Where-Object { $f.BaseName -match [regex]::Escape($_.id) } | Select-Object -First 1 }
+    if ($e) {
+        $alias += [ordered]@{ image = $p; alias = $e.alias }
+        $class += [ordered]@{ key = $f.Name; class = $e.class }
+        $tips += [ordered]@{ image = $p; tip = $e.tip }
+    }
+}
+$cfg = [ordered]@{
+    control   = @(
+        [ordered]@{ VTOY_DEFAULT_SEARCH_ROOT = '/ISO' },
+        [ordered]@{ VTOY_FILT_DOT_UNDERSCORE_FILE = '1' },
+        [ordered]@{ VTOY_DEFAULT_MENU_MODE = '0' }
+    )
+    theme     = [ordered]@{
+        file = "$themeDir/theme.txt"; gfxmode = '1920x1080,1600x900,1366x768,1280x1024,1024x768,auto'; display_mode = 'GUI'
+        ventoy_left = '4%'; ventoy_top = '95%'; ventoy_color = '#475569'; fonts = $fonts
+    }
+    menu_alias = $alias
+    menu_class = $class
+    menu_tip   = [ordered]@{ left = '35%'; top = '85%'; color = '#94a3b8'; tips = $tips }
+}
+$json = $cfg | ConvertTo-Json -Depth 6
+[IO.File]::WriteAllText((Join-Path $UsbRoot 'ventoy\ventoy.json'), $json, (New-Object System.Text.UTF8Encoding($false)))
+Ok "$($isoFiles.Count) boot entries configured"
+
+# ------------------------------------------------------------------ manual list
+$all = @($manual) + @($failed)
+$rows = foreach ($e in $all) {
+    $where = if ($e.order) { "ISO\  (any name, e.g. $($e.order)-$($e.id).iso)" } elseif ($e.installer) { 'Installers\' } else { "Tools\$($e.category)\$($e.name)\" }
+    $nm = if ($e.alias) { $e.alias } else { $e.name }
+    "<tr><td>$([Net.WebUtility]::HtmlEncode($nm))</td><td><a href='$($e.page)'>$($e.page)</a></td><td><code>$where</code></td><td>$(if ($failed -contains $e) { 'auto-download failed' } else { 'manual' })</td></tr>"
+}
+$html = @"
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Manual downloads</title>
+<style>body{font-family:'Nirmala UI','Segoe UI',sans-serif;margin:24px;color:#0f172a}table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #e2e8f0;padding:8px;text-align:left}th{background:#f1f5f9}code{background:#f1f5f9;padding:2px 5px}</style></head><body>
+<h2>हे files हाताने download करा</h2>
+<p>खालील tools आपोआप download होत नाहीत (website वर बटण दाबावे लागते) किंवा या वेळी download fail झाले. Link उघडा, file download करा आणि दिलेल्या USB folder मध्ये ठेवा. नंतर <b>Sanjeevani\Setup\UPDATE.cmd</b> पुन्हा चालवा म्हणजे boot menu अपडेट होईल.</p>
+<table><tr><th>Tool</th><th>Download page</th><th>USB वर कुठे ठेवायचे</th><th>कारण</th></tr>
+$($rows -join "`n")
+</table><p>Last setup: $(Get-Date -Format 'dd-MM-yyyy HH:mm')</p></body></html>
+"@
+$manualFile = Join-Path $UsbRoot 'Sanjeevani\Docs\manual-downloads.html'
+[IO.File]::WriteAllText($manualFile, $html, (New-Object System.Text.UTF8Encoding($true)))
+
+Get-ChildItem (Join-Path $UsbRoot 'Sanjeevani'), (Join-Path $UsbRoot 'Tools'), (Join-Path $UsbRoot 'Installers') -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue
+Copy-Item (Join-Path $UsbRoot 'Sanjeevani\Docs\guide-mr.html') (Join-Path $UsbRoot 'READ-ME-मार्गदर्शक.html') -Force -ErrorAction SilentlyContinue
+
+Step 'Finished'
+Ok "USB: $UsbRoot   (free: $(Get-FreeGB) GB)"
+if ($failed.Count) { Warn ("{0} item(s) failed - see Docs\manual-downloads.html, or run UPDATE.cmd again later" -f $failed.Count) }
+if ($manual.Count) { Warn ("{0} item(s) need a manual download - see Docs\manual-downloads.html" -f $manual.Count) }
+Say ''
+Say '  Next: Snappy Driver Installer -> open it once from Toolbox and click "Download all driverpacks"' DarkCyan
+Say '        (~40 GB) if you want offline drivers on the USB.' DarkCyan
+Say '  To boot: plug the USB, press the Boot Menu key (F12/F9/F11/Esc), choose the USB.' DarkCyan
+Say ''
+if ($manual.Count -or $failed.Count) { Start-Process $manualFile }
+Read-Host 'Press Enter to close'

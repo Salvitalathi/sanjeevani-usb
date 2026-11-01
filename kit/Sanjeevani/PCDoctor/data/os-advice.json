@@ -1,0 +1,6 @@
+{
+  "_comment": "Dates used by the advisor. Update here if Microsoft changes them.",
+  "win10EndOfSupport": "14 Oct 2025",
+  "win10EsuConsumerEnd": "12 Oct 2027",
+  "checkedOn": "2026-11-01"
+}

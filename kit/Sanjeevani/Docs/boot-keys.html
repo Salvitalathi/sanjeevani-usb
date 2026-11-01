@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="mr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Boot Menu / BIOS keys - Sanjeevani</title>
+<style>
+body{font-family:'Nirmala UI','Segoe UI',sans-serif;background:#f1f5f9;color:#0f172a;margin:0;padding:24px}
+.w{max-width:900px;margin:auto} h1{margin:0 0 6px} p{color:#475569}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+th,td{padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:left} th{background:#0f766e;color:#fff}
+kbd{background:#0f172a;color:#fff;border-radius:5px;padding:2px 7px;font-family:Consolas,monospace;font-size:13px}
+.tip{background:#fff;border-left:4px solid #2dd4bf;padding:12px 16px;margin:16px 0;border-radius:8px}
+</style></head><body><div class="w">
+<h1>Boot Menu आणि BIOS keys</h1>
+<p>PC चालू करताच (logo दिसताना) key सतत दाबत राहा. Boot Menu मध्ये USB / "UEFI: &lt;pendrive नाव&gt;" निवडा.</p>
+<table>
+<tr><th>Brand</th><th>Boot Menu</th><th>BIOS / Setup</th></tr>
+<tr><td>HP</td><td><kbd>F9</kbd> (किंवा <kbd>Esc</kbd> → F9)</td><td><kbd>F10</kbd></td></tr>
+<tr><td>Dell</td><td><kbd>F12</kbd></td><td><kbd>F2</kbd></td></tr>
+<tr><td>Lenovo ThinkPad</td><td><kbd>F12</kbd> (काहींमध्ये <kbd>Fn</kbd>+F12)</td><td><kbd>F1</kbd></td></tr>
+<tr><td>Lenovo IdeaPad / Legion</td><td><kbd>F12</kbd> किंवा Novo button (बाजूला छोटे छिद्र)</td><td><kbd>F2</kbd></td></tr>
+<tr><td>Acer</td><td><kbd>F12</kbd> (BIOS मध्ये "F12 Boot Menu" Enable करा)</td><td><kbd>F2</kbd></td></tr>
+<tr><td>Asus laptop</td><td><kbd>Esc</kbd></td><td><kbd>F2</kbd></td></tr>
+<tr><td>Asus motherboard</td><td><kbd>F8</kbd></td><td><kbd>Del</kbd></td></tr>
+<tr><td>MSI</td><td><kbd>F11</kbd></td><td><kbd>Del</kbd></td></tr>
+<tr><td>Gigabyte</td><td><kbd>F12</kbd></td><td><kbd>Del</kbd></td></tr>
+<tr><td>ASRock</td><td><kbd>F11</kbd></td><td><kbd>F2</kbd> / <kbd>Del</kbd></td></tr>
+<tr><td>Biostar</td><td><kbd>F9</kbd></td><td><kbd>Del</kbd></td></tr>
+<tr><td>Samsung</td><td><kbd>F10</kbd> / <kbd>Esc</kbd></td><td><kbd>F2</kbd></td></tr>
+<tr><td>Toshiba / Dynabook</td><td><kbd>F12</kbd></td><td><kbd>F2</kbd></td></tr>
+<tr><td>Intel NUC</td><td><kbd>F10</kbd></td><td><kbd>F2</kbd></td></tr>
+<tr><td>Microsoft Surface</td><td colspan="2">Volume Down धरून Power दाबा</td></tr>
+<tr><td>Assembled / इतर</td><td><kbd>F11</kbd> / <kbd>F12</kbd> / <kbd>Esc</kbd> / <kbd>F8</kbd> करून पाहा</td><td><kbd>Del</kbd> / <kbd>F2</kbd></td></tr>
+</table>
+<div class="tip"><b>Windows मधून थेट:</b> Shift धरून Restart → Troubleshoot → Advanced options → UEFI Firmware Settings. किंवा "Use a device" → USB.</div>
+<div class="tip"><b>Secure Boot error (Verification failed / Security violation):</b> पहिल्यांदा Ventoy boot होताना blue screen आल्यास → <i>Enroll key from disk</i> → VTOYEFI → <i>ENROLL_THIS_KEY_IN_MOKMANAGER.cer</i> → Continue → Yes → Reboot. एकदाच करावे लागते. किंवा BIOS मध्ये Secure Boot तात्पुरता Disable करा.</div>
+<div class="tip"><b>USB दिसत नाही?</b> दुसऱ्या USB port (मागचा / USB 2.0) मध्ये लावा. BIOS मध्ये "Fast Boot" Off करा. फार जुन्या PC वर "Legacy / CSM" On करा.</div>
+</div></body></html>

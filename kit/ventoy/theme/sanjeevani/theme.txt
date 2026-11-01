@@ -1,0 +1,142 @@
+# Sanjeevani Rescue USB - Ventoy (GRUB2) theme
+# All positions are percentages so the layout adapts to any resolution.
+title-text: ""
+desktop-image: "background.jpg"
+desktop-color: "#080d1a"
+terminal-font: "Sanjeevani Regular 18"
+terminal-box: "terminal_box_*.png"
+terminal-left: "8%"
+terminal-top: "8%"
+terminal-width: "84%"
+terminal-height: "84%"
+terminal-border: "0"
+
+# ---------- left brand panel ----------
++ image {
+    left = 4%
+    top = 10%
+    file = "logo.png"
+}
++ label {
+    left = 4%
+    top = 27%
+    width = 26%
+    height = 30
+    text = "PC Rescue & Repair Toolkit"
+    font = "Sanjeevani Bold 20"
+    color = "#e2e8f0"
+}
++ label {
+    left = 4%
+    top = 31%
+    width = 26%
+    height = 24
+    text = "Free & legal tools  •  Self-updating"
+    font = "Sanjeevani Regular 16"
+    color = "#64748b"
+}
++ label {
+    left = 4%
+    top = 46%
+    width = 26%
+    height = 24
+    text = "INSIDE WINDOWS"
+    font = "Sanjeevani Bold 20"
+    color = "#2dd4bf"
+}
++ label {
+    left = 4%
+    top = 50%
+    width = 27%
+    height = 24
+    text = "Open the USB drive and run"
+    font = "Sanjeevani Regular 16"
+    color = "#94a3b8"
+}
++ label {
+    left = 4%
+    top = 53%
+    width = 27%
+    height = 24
+    text = "START-Sanjeevani.cmd for PC Doctor"
+    font = "Sanjeevani Regular 16"
+    color = "#94a3b8"
+}
++ label {
+    left = 4%
+    top = 56%
+    width = 27%
+    height = 24
+    text = "and 40+ portable repair tools."
+    font = "Sanjeevani Regular 16"
+    color = "#94a3b8"
+}
+
+# ---------- menu ----------
++ label {
+    left = 35%
+    top = 10%
+    width = 60%
+    height = 40
+    text = "Boot Menu"
+    font = "Sanjeevani Bold 28"
+    color = "#ffffff"
+}
++ label {
+    left = 35%
+    top = 15%
+    width = 60%
+    height = 24
+    text = "Choose a tool with ↑ ↓ and press Enter"
+    font = "Sanjeevani Regular 16"
+    color = "#64748b"
+}
++ boot_menu {
+    left = 35%
+    top = 20%
+    width = 60%
+    height = 62%
+    item_font = "Sanjeevani Regular 22"
+    item_color = "#cbd5e1"
+    selected_item_font = "Sanjeevani Bold 22"
+    selected_item_color = "#ffffff"
+    icon_width = 40
+    icon_height = 40
+    item_icon_space = 18
+    item_height = 56
+    item_padding = 12
+    item_spacing = 6
+    menu_pixmap_style = "menu_*.png"
+    selected_item_pixmap_style = "select_*.png"
+    scrollbar = true
+    scrollbar_width = 8
+    scrollbar_thumb = "scroll_thumb_*.png"
+    scrollbar_frame = "scroll_frame_*.png"
+}
++ progress_bar {
+    id = "__timeout__"
+    left = 35%
+    top = 90%
+    width = 60%
+    height = 4
+    show_text = false
+    fg_color = "#2dd4bf"
+    bg_color = "#1e293b"
+    border_color = "#1e293b"
+}
+
+# ---------- Ventoy specific ----------
++ hbox {
+    left = 35%
+    top = 94%
+    width = 10%
+    height = 25
+    + label {text = "@VTOY_HOTKEY_TIP@" color = "#64748b" align = "left" font = "Sanjeevani Regular 16"}
+}
++ hbox {
+    left = 88%
+    top = 4%
+    width = 10%
+    height = 25
+    + label {text = "@VTOY_MEM_DISK@" color = "#f43f5e" align = "left" font = "Sanjeevani Bold 20"}
+}

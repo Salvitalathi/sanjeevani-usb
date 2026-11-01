@@ -1,0 +1,166 @@
+{
+  "_comment": "Regexes matched against 'name + command'. neverDisable wins. maxRamGB 999 = disable on any PC.",
+  "neverDisable": [
+    "SecurityHealth",
+    "Windows Defender",
+    "MsMpEng",
+    "Realtek",
+    "RtkAud",
+    "RAVCpl",
+    "igfx",
+    "Intel.*Graphics",
+    "NVIDIA",
+    "\\bAMD\\b",
+    "Radeon",
+    "Synaptics",
+    "SynTP",
+    "ETDCtrl",
+    "Elan",
+    "Touchpad",
+    "Bluetooth",
+    "Wacom",
+    "ctfmon",
+    "Quick ?Heal",
+    "\\bK7\\b",
+    "Kaspersky",
+    "Norton",
+    "McAfee",
+    "Avast",
+    "\\bAVG\\b",
+    "Bitdefender",
+    "ESET",
+    "NPAV",
+    "Net ?Protector",
+    "eScan",
+    "Seqrite",
+    "Hotkey",
+    "ATKOSD",
+    "HControl",
+    "FnKey",
+    "Dolby",
+    "Waves",
+    "MaxxAudio",
+    "Nahimic",
+    "\\bVPN\\b",
+    "ePass",
+    "ProxKey",
+    "Watchdata",
+    "eMudhra",
+    "HyperPKI",
+    "SafeNet",
+    "\\bToken\\b",
+    "\\bDSC\\b",
+    "\\bIME\\b",
+    "\\bInput\\b"
+  ],
+  "safeToDisable": [
+    {
+      "match": "Spotify",
+      "maxRamGB": 999
+    },
+    {
+      "match": "Discord",
+      "maxRamGB": 999
+    },
+    {
+      "match": "Steam",
+      "maxRamGB": 999
+    },
+    {
+      "match": "EpicGamesLauncher",
+      "maxRamGB": 999
+    },
+    {
+      "match": "EADM|EA Desktop|Origin",
+      "maxRamGB": 999
+    },
+    {
+      "match": "Ubisoft|Battle\\.net",
+      "maxRamGB": 999
+    },
+    {
+      "match": "Skype",
+      "maxRamGB": 999
+    },
+    {
+      "match": "Zoom",
+      "maxRamGB": 999
+    },
+    {
+      "match": "AdobeAAMUpdater|Adobe Updater|AdobeGCInvoker|Acrobat.*Assistant|Creative Cloud|CCXProcess",
+      "maxRamGB": 999
+    },
+    {
+      "match": "CCleaner",
+      "maxRamGB": 999
+    },
+    {
+      "match": "uTorrent|BitTorrent|qBittorrent",
+      "maxRamGB": 999
+    },
+    {
+      "match": "iTunesHelper",
+      "maxRamGB": 999
+    },
+    {
+      "match": "Opera.*Assistant|OperaGX",
+      "maxRamGB": 999
+    },
+    {
+      "match": "MicrosoftEdgeAutoLaunch",
+      "maxRamGB": 999
+    },
+    {
+      "match": "Cortana",
+      "maxRamGB": 999
+    },
+    {
+      "match": "Messenger",
+      "maxRamGB": 999
+    },
+    {
+      "match": "Wondershare|WsAppService",
+      "maxRamGB": 999
+    },
+    {
+      "match": "jusched|Java Update",
+      "maxRamGB": 999
+    },
+    {
+      "match": "Webex",
+      "maxRamGB": 999
+    },
+    {
+      "match": "SHAREit",
+      "maxRamGB": 999
+    },
+    {
+      "match": "IObit|Driver Booster|Advanced SystemCare",
+      "maxRamGB": 999
+    },
+    {
+      "match": "BlueStacks",
+      "maxRamGB": 999
+    },
+    {
+      "match": "Teams|com\\.squirrel\\.Teams",
+      "maxRamGB": 8
+    },
+    {
+      "match": "OneDrive",
+      "maxRamGB": 4
+    },
+    {
+      "match": "Dropbox|GoogleDriveFS|Google Drive",
+      "maxRamGB": 4
+    },
+    {
+      "match": "WhatsApp|Telegram",
+      "maxRamGB": 4
+    },
+    {
+      "match": "Grammarly",
+      "maxRamGB": 4
+    }
+  ]
+}

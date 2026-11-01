@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="mr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>संजीवनी Rescue USB - मार्गदर्शक</title>
+<style>
+body{font-family:'Nirmala UI','Segoe UI',sans-serif;background:#f8fafc;color:#0f172a;margin:0;line-height:1.65}
+header{background:#0b1220;color:#fff;padding:32px 24px}
+header h1{margin:0;font-size:32px;color:#2dd4bf} header p{margin:6px 0 0;color:#94a3b8}
+.w{max-width:920px;margin:auto;padding:0 24px 40px}
+h2{margin-top:34px;border-bottom:2px solid #2dd4bf;padding-bottom:6px}
+.card{background:#fff;border-radius:12px;padding:14px 18px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin:12px 0}
+.warn{border-left:5px solid #f59e0b} .danger{border-left:5px solid #e11d48}
+table{width:100%;border-collapse:collapse;background:#fff} td,th{border-bottom:1px solid #e2e8f0;padding:8px 10px;text-align:left;vertical-align:top} th{background:#f1f5f9}
+code,kbd{background:#e2e8f0;border-radius:5px;padding:1px 6px;font-family:Consolas,monospace;font-size:13px}
+ol li,ul li{margin:4px 0}
+</style></head><body>
+<header><div class="w" style="padding-bottom:0"><h1>संजीवनी Rescue USB</h1><p>PC तपासणी, दुरुस्ती आणि वेग वाढवण्याचा pendrive · फक्त free आणि legal tools</p></div></header>
+<div class="w">
+
+<h2>1. Pendrive तयार करणे</h2>
+<div class="card">
+<ol>
+<li>64 GB किंवा 128 GB USB 3.x pendrive घ्या. <b>त्यातील सगळा data पुसला जाईल.</b></li>
+<li>Kit ची zip file extract करा (right-click → Extract All).</li>
+<li><code>SETUP.cmd</code> वर double-click करा आणि Administrator परवानगी द्या.</li>
+<li>Pendrive चा <b>Disk number</b> टाका, नंतर <code>ERASE</code> टाइप करा.</li>
+<li>Windows 11 ISO (7.5 GB) आणि Linux Mint (3 GB) हवे का ते विचारले जाईल.</li>
+<li>Internet speed नुसार 30 मिनिटे ते 2 तास लागतात. शेवटी काही tools हाताने download करायचे असतील तर त्यांची यादी (manual-downloads) आपोआप उघडेल.</li>
+</ol>
+<p><b>Update:</b> नंतर कधीही pendrive वरील <code>Sanjeevani\Setup\UPDATE.cmd</code> चालवा. फक्त नवीन versions download होतात आणि data पुसला जात नाही.</p>
+</div>
+
+<h2>2. Pendrive वरून boot करणे</h2>
+<div class="card">
+<ol>
+<li>PC बंद करा आणि pendrive लावा.</li>
+<li>Power दाबताच Boot Menu key दाबत राहा (HP <kbd>F9</kbd>, Dell <kbd>F12</kbd>, Lenovo <kbd>F12</kbd>, Asus <kbd>Esc</kbd>...). पूर्ण यादी <a href="boot-keys.html">boot-keys.html</a> मध्ये आहे.</li>
+<li>संजीवनी menu दिसेल. ↑ ↓ ने tool निवडा आणि Enter दाबा. प्रत्येक tool ची माहिती खाली दिसते.</li>
+<li>Secure Boot error आला तर boot-keys.html मधील "Enroll key" पायऱ्या करा. हे एकदाच करावे लागते.</li>
+</ol>
+</div>
+
+<h2>3. Boot menu मधील tools</h2>
+<table>
+<tr><th>Tool</th><th>कधी वापरायचे</th></tr>
+<tr><td>Hiren's BootCD PE</td><td>Windows सुरू होत नाही, data काढायचा आहे, स्वतःच्या PC चा password reset करायचा आहे. आतून <code>Sanjeevani\PCDoctor\Offline-Repair.cmd</code> चालवा.</td></tr>
+<tr><td>SystemRescue</td><td>Linux toolkit. यात delete झालेले files परत मिळवणे (PhotoRec), partition परत आणणे (TestDisk) आणि disk तपासणी करता येते.</td></tr>
+<tr><td>MemTest86+ / MemTest86</td><td>Blue screen, अचानक restart किंवा hang होत असेल तर RAM तपासा. एकही लाल error आला तर RAM खराब आहे.</td></tr>
+<tr><td>GParted</td><td>Partition बनवणे, लहान/मोठे करणे.</td></tr>
+<tr><td>Clonezilla / Rescuezilla</td><td>HDD वरून नवीन SSD वर पूर्ण Windows clone करणे, किंवा पूर्ण disk चा backup घेणे.</td></tr>
+<tr><td>Super Grub2 / Boot-Repair</td><td>Bootloader खराब झाल्यामुळे "No bootable device" येत असेल तर.</td></tr>
+<tr><td>Kaspersky Rescue Disk</td><td>Windows इतका infected आहे की आतून antivirus चालत नाही तेव्हा.</td></tr>
+<tr><td>ShredOS</td><td><b style="color:#e11d48">धोकादायक:</b> disk कायमची पुसते. फक्त PC विकण्याआधी वापरा.</td></tr>
+<tr><td>Windows 11</td><td>नवीन install करणे, किंवा Windows मध्ये ISO उघडून <code>setup.exe</code> → "Keep files and apps" (data राहून repair होतो).</td></tr>
+<tr><td>Linux Mint XFCE</td><td>जुन्या / कमी RAM च्या PC साठी हलके, free OS. आधी install न करता चालवून पाहता येते.</td></tr>
+</table>
+
+<h2>4. PC Doctor (Windows चालू असताना)</h2>
+<div class="card">
+<p>Pendrive उघडा आणि <code>START-Sanjeevani.cmd</code> वर double-click करा (Admin परवानगी द्या).</p>
+<ul>
+<li><b>तपासणी:</b> Quick Scan (2 मिनिटे) किंवा Deep Scan (system files सह). यात health score आणि सापडलेल्या समस्या दिसतात, आणि प्रत्येक समस्येपुढे "दुरुस्त करा" बटण असते.</li>
+<li><b>One-Click Optimize:</b> restore point → cleanup → अनावश्यक startup बंद → हलके effects → power plan → ads/bloatware काढणे → report.</li>
+<li><b>दुरुस्ती:</b> DISM + SFC (खराब system files), disk check, Windows Update reset, Internet reset, Defender आणि drivers.</li>
+<li><b>वेग वाढवा:</b> startup programs, tweaks, bloatware. <b>सर्व बदल Undo करता येतात.</b></li>
+<li><b>C: drive जागा:</b> Desktop, Documents, Downloads, Photos आणि C:\ मधले स्वतःचे folders दुसऱ्या drive वर हलवा. दुसरा drive नसेल तर C: लहान करून नवीन DATA drive बनवता येतो.</li>
+<li><b>सल्ला:</b> Windows 11 चालेल का, या PC ला कोणते OS योग्य, कोणते apps काढावेत आणि त्यांचे हलके पर्याय कोणते, RAM/SSD upgrade.</li>
+<li><b>Toolbox:</b> 30+ portable tools, screen test आणि keyboard test.</li>
+<li><b>Report:</b> customer ला देण्यासाठी HTML report. तो pendrive वरील <code>Reports\</code> folder मध्ये save होतो.</li>
+</ul>
+</div>
+
+<h2>5. सामान्य समस्या: काय करायचे</h2>
+<table>
+<tr><th>समस्या</th><th>उपाय</th></tr>
+<tr><td>PC खूप slow आहे</td><td>PC Doctor → Scan → One-Click Optimize. Windows HDD वर असेल तर SSD लावा (Rescuezilla ने clone करा). RAM 8 GB करा.</td></tr>
+<tr><td>C: drive भरला आहे</td><td>PC Doctor → C: drive जागा → files दुसऱ्या drive वर हलवा. Speed tab मधील cleanup चालवा.</td></tr>
+<tr><td>Windows सुरू होत नाही / restart loop</td><td>Hiren's PE → Offline-Repair.cmd → आधी 5 (अडकलेले updates revert), मग 1 (SFC), मग 4 (boot files).</td></tr>
+<tr><td>Blue screen</td><td>PC Doctor → Toolbox → BlueScreenView (कोणता driver). Boot menu मधून MemTest86+ चालवा.</td></tr>
+<tr><td>Virus / ads / browser homepage बदलला</td><td>Toolbox → AdwCleaner, KVRT. फार infected असेल तर boot menu मधील Kaspersky Rescue Disk.</td></tr>
+<tr><td>File delete झाली / pendrive format झाला</td><td>त्या drive वर काहीही नवीन लिहू नका. Recuva (Windows मध्ये) किंवा SystemRescue → PhotoRec वापरा.</td></tr>
+<tr><td>Drivers नाहीत (नवीन Windows नंतर)</td><td>Toolbox → Snappy Driver Installer Origin. एकदा internet असताना driver packs download करून ठेवल्यास नंतर internet शिवाय चालते.</td></tr>
+<tr><td>Internet चालत नाही</td><td>PC Doctor → दुरुस्ती → Network reset → restart.</td></tr>
+</table>
+
+<h2>6. सुरक्षितता नियम</h2>
+<div class="card danger">
+<ul>
+<li>Partition बदलण्याआधी आणि disk clone करण्याआधी <b>नेहमी backup घ्या</b>. Laptop charging ला लावून ठेवा.</li>
+<li>Password reset आणि data recovery <b>फक्त मालकाच्या परवानगीने</b> करा.</li>
+<li>ShredOS आणि disk wipe tools disk कायमची पुसतात. Disk number दोनदा तपासा.</li>
+<li>Cracked software किंवा activators कधीही वापरू नका. त्यांच्यासोबत बऱ्याचदा virus येतो.</li>
+</ul>
+</div>
+<div class="card warn"><b>टीप:</b> सर्व tools त्यांच्या निर्मात्यांच्या official websites वरून download होतात. हे tools free आहेत. काहींचा commercial वापर (उदा. दुकानात customer PC साठी) करण्याआधी त्यांचे license तपासा.</div>
+</div></body></html>

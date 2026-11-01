@@ -1,0 +1,9 @@
+* text=auto
+*.ps1  text eol=crlf
+*.psm1 text eol=crlf
+*.cmd  text eol=crlf
+*.txt  text eol=crlf
+kit/ventoy/** text eol=lf
+*.pf2 binary
+*.png binary
+*.jpg binary

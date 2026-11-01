@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows-tests:
+    name: Tests on Windows (PowerShell 5.1)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse, encoding, XAML and PC Doctor smoke tests
+        shell: powershell
+        run: .\tests\Run-Tests.ps1
+
+      - name: PSScriptAnalyzer
+        if: always()
+        shell: powershell
+        run: |
+          if (-not (Get-Module -ListAvailable PSScriptAnalyzer)) {
+            Install-PackageProvider NuGet -Force -Scope CurrentUser | Out-Null
+            Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -SkipPublisherCheck
+          }
+          $exclude = 'PSAvoidUsingWriteHost','PSUseShouldProcessForStateChangingFunctions','PSUseApprovedVerbs',
+                     'PSUseSingularNouns','PSAvoidGlobalVars','PSUseDeclaredVarsMoreThanAssignments',
+                     'PSAvoidUsingPositionalParameters','PSUseBOMForUnicodeEncodedFile','PSAvoidUsingEmptyCatchBlock',
+                     'PSReviewUnusedParameter','PSUseOutputTypeCorrectly','PSAvoidUsingInvokeExpression'
+          $r = Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error,Warning -ExcludeRule $exclude
+          $r | Sort-Object Severity, ScriptName, Line | Format-Table Severity, RuleName, ScriptName, Line, Message -AutoSize -Wrap | Out-String -Width 300 | Write-Host
+          $err = @($r | Where-Object Severity -eq 'Error')
+          "### PSScriptAnalyzer: $($err.Count) errors, $(@($r | Where-Object Severity -eq 'Warning').Count) warnings" | Out-File $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          if ($err.Count) { exit 1 }
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-report
+          path: test-report.html
+          if-no-files-found: ignore
+
+  package:
+    name: Build kit zip
+    needs: windows-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 build/package.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sanjeevani-USB-Kit
+          path: dist/Sanjeevani-USB-Kit/

@@ -1,0 +1,303 @@
+{
+  "_comment": "Rules for the Advisor tab. match = regex on the installed program name. kind: pup | outdated | replace | av | heavy. lowEndOnly = only flag when RAM < 8 GB or Windows is on HDD.",
+  "rules": [
+    {
+      "match": "uTorrent|BitTorrent",
+      "kind": "pup",
+      "reason": "Ads आणि bundled software येतात; antivirus बऱ्याचदा धोकादायक मानतात.",
+      "alternatives": [
+        "qBittorrent (free, ads नाहीत)"
+      ],
+      "action": "uninstall"
+    },
+    {
+      "match": "Driver ?Booster|Driver ?Easy|DriverPack|Driver ?Genius|Smart ?Driver|Driver ?Updater|DriverMax|Driver Support",
+      "kind": "pup",
+      "reason": "असे 'driver updater' चुकीचे drivers टाकतात आणि पैसे मागतात.",
+      "alternatives": [
+        "Windows Update",
+        "PC निर्मात्याची website",
+        "Toolbox मधील Snappy Driver Installer Origin"
+      ],
+      "action": "uninstall"
+    },
+    {
+      "match": "IObit|Advanced SystemCare|Smart Defrag|Wise Care|Wise Registry|PC Optimizer|SpeedUpMyPC|Reimage|Restoro|Fortect|Registry Cleaner|Registry Reviver|Glary|Auslogics|Ashampoo WinOptimizer|PC Cleaner|Clean Master",
+      "kind": "pup",
+      "reason": "'PC optimizer / registry cleaner' स्वतःच background मध्ये चालून PC slow करतात; फायदा नाही.",
+      "alternatives": [
+        "Sanjeevani PC Doctor",
+        "Windows Storage Sense"
+      ],
+      "action": "uninstall"
+    },
+    {
+      "match": "OneLaunch|WebDiscover|Wave Browser|Shift Browser|ByteFence|Segurazo|SAntivirus|PC App Store|Search Protect|MyPCBackup|DealPly|Babylon|Conduit|Ask Toolbar|Baidu|Yahoo.*Toolbar|Hola",
+      "kind": "pup",
+      "reason": "Adware / browser hijacker - search engine बदलतो, ads दाखवतो.",
+      "alternatives": [
+        "काढून टाका",
+        "नंतर Toolbox मधील AdwCleaner चालवा"
+      ],
+      "action": "uninstall"
+    },
+    {
+      "match": "KMSpico|KMSAuto|KMSTools|AAct|Windows Loader|Microsoft Toolkit",
+      "kind": "pup",
+      "reason": "Piracy activator - यांच्यासोबत बऱ्याचदा malware येतो.",
+      "alternatives": [
+        "Genuine Windows / Office license",
+        "LibreOffice (free)"
+      ],
+      "action": "uninstall"
+    },
+    {
+      "match": "SHAREit",
+      "kind": "pup",
+      "reason": "PC version मध्ये भरपूर ads आणि background services.",
+      "alternatives": [
+        "Quick Share / Nearby Share",
+        "Phone Link",
+        "USB cable"
+      ],
+      "action": "uninstall"
+    },
+    {
+      "match": "360 Total Security|Avast Cleanup|AVG TuneUp|Norton Utilities|CCleaner Browser|Avast Secure Browser|AVG Secure Browser",
+      "kind": "pup",
+      "reason": "Optimizer / bundled browser - गरज नाही आणि PC slow करतात.",
+      "alternatives": [
+        "Microsoft Defender",
+        "Edge / Firefox"
+      ],
+      "action": "uninstall"
+    },
+    {
+      "match": "Adobe Flash|Shockwave|Silverlight|QuickTime",
+      "kind": "outdated",
+      "reason": "बंद झालेले software - security धोका.",
+      "alternatives": [
+        "गरज नाही - काढा"
+      ],
+      "action": "uninstall"
+    },
+    {
+      "match": "^Skype",
+      "kind": "outdated",
+      "reason": "Microsoft ने Skype सेवा मे 2025 मध्ये बंद केली.",
+      "alternatives": [
+        "Microsoft Teams (free)",
+        "WhatsApp Desktop"
+      ],
+      "action": "uninstall"
+    },
+    {
+      "match": "Microsoft Office.*(2007|2010|2013)",
+      "kind": "outdated",
+      "reason": "जुने Office - आता security updates नाहीत.",
+      "alternatives": [
+        "LibreOffice (free)",
+        "Office on the web (free)",
+        "Microsoft 365"
+      ],
+      "action": "replace"
+    },
+    {
+      "match": "^Java( \\d+)?( Update \\d+)?|Java\\(TM\\)|Java SE Runtime",
+      "kind": "outdated",
+      "reason": "जुने Java security धोका. पण काही सरकारी DSC / e-filing utilities ना Java लागते - गरज असेल तर ठेवा.",
+      "alternatives": [
+        "गरज नसल्यास काढा"
+      ],
+      "action": "keep-if-needed"
+    },
+    {
+      "match": "Nero ",
+      "kind": "outdated",
+      "reason": "CD/DVD burning suite - आजकाल क्वचितच लागते, भारी आहे.",
+      "alternatives": [
+        "Windows मधले built-in burning",
+        "CDBurnerXP (free)"
+      ],
+      "action": "uninstall"
+    },
+    {
+      "match": "^WinRAR",
+      "kind": "replace",
+      "reason": "Trial software; free पर्याय तितकाच चांगला.",
+      "alternatives": [
+        "7-Zip (free, open-source)"
+      ],
+      "action": "replace"
+    },
+    {
+      "match": "KMPlayer|GOM Player",
+      "kind": "replace",
+      "reason": "Player मध्ये ads आणि bundled offers.",
+      "alternatives": [
+        "VLC",
+        "MPC-BE"
+      ],
+      "action": "replace"
+    },
+    {
+      "match": "WPS Office",
+      "kind": "replace",
+      "reason": "Free version मध्ये ads.",
+      "alternatives": [
+        "LibreOffice",
+        "OnlyOffice",
+        "Office on the web"
+      ],
+      "action": "replace"
+    },
+    {
+      "match": "^CCleaner",
+      "kind": "replace",
+      "reason": "Background मध्ये चालतो आणि upgrade offers दाखवतो; Windows मध्ये cleanup आधीच आहे.",
+      "alternatives": [
+        "Sanjeevani PC Doctor cleanup",
+        "Windows Storage Sense"
+      ],
+      "action": "uninstall"
+    },
+    {
+      "match": "McAfee|Norton|Avast|^AVG|Avira|Quick ?Heal|^K7|Kaspersky|Bitdefender|ESET|Total Defense|Comodo|Panda|Trend Micro|Sophos|Webroot|Net ?Protector|NPAV|eScan|Guardian|Seqrite|Smadav|Total ?AV",
+      "kind": "av",
+      "reason": "हलक्या PC वर third-party antivirus भरपूर RAM आणि disk वापरतो. Windows 10/11 मधला Microsoft Defender free, हलका आणि पुरेसा आहे.",
+      "alternatives": [
+        "Microsoft Defender (built-in)"
+      ],
+      "action": "replace"
+    },
+    {
+      "match": "Adobe Acrobat|Adobe Reader",
+      "kind": "heavy",
+      "lowEndOnly": true,
+      "reason": "PDF वाचण्यासाठी खूप भारी.",
+      "alternatives": [
+        "SumatraPDF (खूप हलका)",
+        "Microsoft Edge (PDF viewer)"
+      ],
+      "action": "replace"
+    },
+    {
+      "match": "Adobe Photoshop",
+      "kind": "heavy",
+      "lowEndOnly": true,
+      "reason": "या hardware साठी खूप भारी.",
+      "alternatives": [
+        "Photopea (web)",
+        "Paint.NET",
+        "GIMP"
+      ],
+      "action": "replace"
+    },
+    {
+      "match": "CorelDRAW",
+      "kind": "heavy",
+      "lowEndOnly": true,
+      "reason": "या hardware साठी भारी.",
+      "alternatives": [
+        "Inkscape (free)"
+      ],
+      "action": "replace"
+    },
+    {
+      "match": "Adobe Creative Cloud",
+      "kind": "heavy",
+      "lowEndOnly": true,
+      "reason": "Background मध्ये सतत चालते.",
+      "alternatives": [
+        "Startup मधून बंद करा"
+      ],
+      "action": "keep-if-needed"
+    },
+    {
+      "match": "^Google Chrome",
+      "kind": "heavy",
+      "lowEndOnly": true,
+      "reason": "Chrome भरपूर RAM वापरतो.",
+      "alternatives": [
+        "Edge (Efficiency mode)",
+        "Firefox",
+        "Chrome मध्ये Memory Saver चालू करा"
+      ],
+      "action": "keep-if-needed"
+    },
+    {
+      "match": "Microsoft Teams classic|Teams Machine-Wide",
+      "kind": "heavy",
+      "lowEndOnly": true,
+      "reason": "जुने Teams खूप भारी.",
+      "alternatives": [
+        "teams.microsoft.com (browser)",
+        "नवीन Teams"
+      ],
+      "action": "replace"
+    },
+    {
+      "match": "^Zoom",
+      "kind": "heavy",
+      "lowEndOnly": true,
+      "reason": "Startup ला चालू होते.",
+      "alternatives": [
+        "Browser मधून Zoom join करा",
+        "Startup बंद करा"
+      ],
+      "action": "keep-if-needed"
+    },
+    {
+      "match": "^Spotify",
+      "kind": "heavy",
+      "lowEndOnly": true,
+      "reason": "Desktop app RAM खाते.",
+      "alternatives": [
+        "open.spotify.com (browser)"
+      ],
+      "action": "replace"
+    },
+    {
+      "match": "^iTunes",
+      "kind": "heavy",
+      "lowEndOnly": true,
+      "reason": "iPhone वापरत नसल्यास गरज नाही.",
+      "alternatives": [
+        "Apple Music / Apple Devices app (Store)"
+      ],
+      "action": "keep-if-needed"
+    },
+    {
+      "match": "BlueStacks|NoxPlayer|LDPlayer|MEmu",
+      "kind": "heavy",
+      "lowEndOnly": true,
+      "reason": "Android emulator या PC साठी खूप भारी.",
+      "alternatives": [
+        "Phone वरच app वापरा"
+      ],
+      "action": "uninstall"
+    },
+    {
+      "match": "^Steam$|Epic Games Launcher|^EA app|^Origin$|Ubisoft Connect|Battle\\.net",
+      "kind": "heavy",
+      "lowEndOnly": true,
+      "reason": "Game launchers background मध्ये चालतात.",
+      "alternatives": [
+        "Startup बंद करा",
+        "वापरत नसल्यास काढा"
+      ],
+      "action": "keep-if-needed"
+    },
+    {
+      "match": "^Dropbox|^Google Drive",
+      "kind": "heavy",
+      "lowEndOnly": true,
+      "reason": "सतत sync करून disk busy ठेवतात.",
+      "alternatives": [
+        "Browser मधून वापरा",
+        "Startup बंद करा"
+      ],
+      "action": "keep-if-needed"
+    }
+  ]
+}
