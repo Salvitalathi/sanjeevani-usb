@@ -161,10 +161,9 @@ function Get-PDUndo {
         try {
             $o = Get-Content -LiteralPath $global:PDCtx.UndoFile -Raw -Encoding UTF8 | ConvertFrom-Json
             $items = @(); foreach ($x in $o) { $items += $x }   # unroll: PS 5.1 emits a JSON array as one object
-            return ,$items
+            return $items     # emitted one by one; callers wrap with @()
         } catch { }
     }
-    return ,@()
 }
 
 function Add-PDUndo {
