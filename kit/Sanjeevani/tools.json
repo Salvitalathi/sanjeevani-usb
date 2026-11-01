@@ -2,137 +2,644 @@
   "_comment": "Catalog used by Setup-Sanjeevani.ps1 (downloads) and PC Doctor Toolbox. order = boot-menu order for ISOs. source.kind: url | github | sourceforge | scrape | dirlatest | fido | manual.",
   "version": 1,
   "isos": [
-    { "id": "hbcd", "order": "01", "alias": "Hiren's BootCD PE  -  Windows Rescue", "class": "rescue",
+    {
+      "id": "hbcd",
+      "order": "01",
+      "alias": "Hiren's BootCD PE  -  Windows Rescue",
+      "class": "rescue",
       "tip": "Windows rescue desktop: password reset, data copy, driver backup, Offline-Repair.cmd",
-      "sizeMB": 3200, "source": { "kind": "url", "url": "https://www.hirensbootcd.org/files/HBCD_PE_x64.iso" },
-      "page": "https://www.hirensbootcd.org/download/" },
-    { "id": "systemrescue", "order": "02", "alias": "SystemRescue  -  Linux Repair Toolkit", "class": "linux",
+      "sizeMB": 3200,
+      "source": {
+        "kind": "url",
+        "url": "https://www.hirensbootcd.org/files/HBCD_PE_x64.iso"
+      },
+      "page": "https://www.hirensbootcd.org/download/"
+    },
+    {
+      "id": "systemrescue",
+      "order": "02",
+      "alias": "SystemRescue  -  Linux Repair Toolkit",
+      "class": "linux",
       "tip": "Linux rescue: TestDisk/PhotoRec data recovery, GParted, disk & boot repair",
-      "sizeMB": 1200, "source": { "kind": "sourceforge", "project": "systemrescuecd", "file": "systemrescue-[\\d.]+-amd64\\.iso" },
-      "page": "https://www.system-rescue.org/Download/" },
-    { "id": "memtest86plus", "order": "03", "alias": "MemTest86+  -  RAM Test", "class": "memory",
+      "sizeMB": 1200,
+      "source": {
+        "kind": "sourceforge",
+        "project": "systemrescuecd",
+        "file": "systemrescue-[\\d.]+-amd64\\.iso$"
+      },
+      "page": "https://www.system-rescue.org/Download/"
+    },
+    {
+      "id": "memtest86plus",
+      "order": "03",
+      "alias": "MemTest86+  -  RAM Test",
+      "class": "memory",
       "tip": "Open-source RAM test. Run at least 1 full pass; any red error = faulty RAM",
-      "sizeMB": 5, "source": { "kind": "scrape", "page": "https://www.memtest.org/", "regex": "[^\"']*mt86plus_[\\d.]+_(?:64|x86_64)\\.iso\\.zip" },
-      "extract": "\\.iso$", "page": "https://www.memtest.org/" },
-    { "id": "memtest86", "order": "04", "alias": "MemTest86  -  RAM Test (UEFI)", "class": "memory",
+      "sizeMB": 5,
+      "source": {
+        "kind": "scrape",
+        "page": "https://www.memtest.org/",
+        "regex": "[^\"']*mt86plus_[\\d.]+_(?:64|x86_64)\\.iso\\.zip"
+      },
+      "extract": "\\.iso$",
+      "page": "https://www.memtest.org/"
+    },
+    {
+      "id": "memtest86",
+      "order": "04",
+      "alias": "MemTest86  -  RAM Test (UEFI)",
+      "class": "memory",
       "tip": "PassMark MemTest86 Free (UEFI PCs). Use if MemTest86+ does not start",
-      "sizeMB": 20, "ext": ".img", "source": { "kind": "url", "url": "https://www.memtest86.com/downloads/memtest86-usb.zip" },
-      "extract": "memtest86-usb\\.img$", "page": "https://www.memtest86.com/download.htm" },
-    { "id": "gparted", "order": "05", "alias": "GParted  -  Partition Manager", "class": "disk",
+      "sizeMB": 20,
+      "ext": ".img",
+      "source": {
+        "kind": "url",
+        "url": "https://www.memtest86.com/downloads/memtest86-usb.zip"
+      },
+      "extract": "memtest86-usb\\.img$",
+      "page": "https://www.memtest86.com/download.htm"
+    },
+    {
+      "id": "gparted",
+      "order": "05",
+      "alias": "GParted  -  Partition Manager",
+      "class": "disk",
       "tip": "Resize, create, fix partitions. Take a backup before changing partitions",
-      "sizeMB": 600, "source": { "kind": "sourceforge", "project": "gparted", "file": "gparted-live-[\\d.\\-]+-amd64\\.iso" },
-      "page": "https://gparted.org/download.php" },
-    { "id": "clonezilla", "order": "06", "alias": "Clonezilla  -  Disk Clone & Image", "class": "backup",
+      "sizeMB": 600,
+      "source": {
+        "kind": "sourceforge",
+        "project": "gparted",
+        "file": "gparted-live-[\\d.\\-]+-amd64\\.iso$"
+      },
+      "page": "https://gparted.org/download.php"
+    },
+    {
+      "id": "clonezilla",
+      "order": "06",
+      "alias": "Clonezilla  -  Disk Clone & Image",
+      "class": "backup",
       "tip": "Clone HDD to SSD or save a full disk image",
-      "sizeMB": 500, "source": { "kind": "sourceforge", "project": "clonezilla", "file": "clonezilla-live-[\\d.\\-]+-amd64\\.iso" },
-      "page": "https://clonezilla.org/downloads.php" },
-    { "id": "rescuezilla", "order": "07", "alias": "Rescuezilla  -  Easy Backup / Restore", "class": "backup",
+      "sizeMB": 500,
+      "source": {
+        "kind": "sourceforge",
+        "project": "clonezilla",
+        "file": "clonezilla-live-[\\d.\\-]+-amd64\\.iso$"
+      },
+      "page": "https://clonezilla.org/downloads.php"
+    },
+    {
+      "id": "rescuezilla",
+      "order": "07",
+      "alias": "Rescuezilla  -  Easy Backup / Restore",
+      "class": "backup",
       "tip": "Point-and-click backup, restore and clone (Clonezilla compatible)",
-      "sizeMB": 1300, "source": { "kind": "github", "repo": "rescuezilla/rescuezilla", "asset": "rescuezilla-[\\d.]+-64bit\\.[a-z]+\\.iso$" },
-      "page": "https://rescuezilla.com/download" },
-    { "id": "supergrub2", "order": "08", "alias": "Super Grub2  -  Find & Boot any OS", "class": "boot",
+      "sizeMB": 1300,
+      "source": {
+        "kind": "github",
+        "repo": "rescuezilla/rescuezilla",
+        "asset": "rescuezilla-[\\d.]+-64bit\\.[a-z]+\\.iso$"
+      },
+      "page": "https://rescuezilla.com/download"
+    },
+    {
+      "id": "supergrub2",
+      "order": "08",
+      "alias": "Super Grub2  -  Find & Boot any OS",
+      "class": "boot",
       "tip": "Boots an installed Windows/Linux even when its bootloader is broken",
-      "sizeMB": 20, "source": { "kind": "sourceforge", "project": "supergrub2", "file": "multiarch.*\\.iso$" },
-      "page": "https://www.supergrubdisk.org/" },
-    { "id": "bootrepair", "order": "09", "alias": "Boot-Repair  -  Fix Bootloader", "class": "boot",
+      "sizeMB": 20,
+      "source": {
+        "kind": "sourceforge",
+        "project": "supergrub2",
+        "file": "multiarch.*\\.iso$"
+      },
+      "page": "https://www.supergrubdisk.org/"
+    },
+    {
+      "id": "bootrepair",
+      "order": "09",
+      "alias": "Boot-Repair  -  Fix Bootloader",
+      "class": "boot",
       "tip": "One-click GRUB / boot repair for Linux and dual-boot PCs",
-      "sizeMB": 1500, "source": { "kind": "sourceforge", "project": "boot-repair-cd", "file": "boot-repair-disk-64bit\\.iso" },
-      "page": "https://sourceforge.net/projects/boot-repair-cd/" },
-    { "id": "krd", "order": "10", "alias": "Kaspersky Rescue  -  Virus Scan", "class": "antivirus",
+      "sizeMB": 1500,
+      "source": {
+        "kind": "sourceforge",
+        "project": "boot-repair-cd",
+        "file": "boot-repair-disk-64bit\\.iso$"
+      },
+      "page": "https://sourceforge.net/projects/boot-repair-cd/"
+    },
+    {
+      "id": "krd",
+      "order": "10",
+      "alias": "Kaspersky Rescue  -  Virus Scan",
+      "class": "antivirus",
       "tip": "Offline virus scan when Windows itself is infected. Re-download for fresh databases",
-      "sizeMB": 700, "refreshDays": 30, "source": { "kind": "url", "url": "https://rescuedisk.s.kaspersky-labs.com/updatable/2018/krd.iso" },
-      "page": "https://www.kaspersky.com/downloads/free-rescue-disk" },
-    { "id": "shredos", "order": "11", "alias": "ShredOS  -  Secure Disk Wipe", "class": "wipe",
+      "sizeMB": 700,
+      "refreshDays": 30,
+      "source": {
+        "kind": "url",
+        "url": "https://rescuedisk.s.kaspersky-labs.com/updatable/2018/krd.iso"
+      },
+      "page": "https://www.kaspersky.com/downloads/free-rescue-disk"
+    },
+    {
+      "id": "shredos",
+      "order": "11",
+      "alias": "ShredOS  -  Secure Disk Wipe",
+      "class": "wipe",
       "tip": "DANGER: permanently erases disks (nwipe). Use only before selling / disposing a PC",
-      "sizeMB": 300, "source": { "kind": "github", "repo": "PartialVolume/shredos.x86_64", "asset": "x86-64.*\\.iso$" },
-      "page": "https://github.com/PartialVolume/shredos.x86_64/releases" },
-    { "id": "win11", "order": "20", "alias": "Windows 11  -  Install / Repair", "class": "installer",
+      "sizeMB": 300,
+      "source": {
+        "kind": "github",
+        "repo": "PartialVolume/shredos.x86_64",
+        "asset": "x86-64.*\\.iso$"
+      },
+      "page": "https://github.com/PartialVolume/shredos.x86_64/releases"
+    },
+    {
+      "id": "win11",
+      "order": "20",
+      "alias": "Windows 11  -  Install / Repair",
+      "class": "installer",
       "tip": "Official Microsoft ISO. Install, or run setup.exe inside Windows for an in-place repair",
-      "sizeMB": 7500, "optional": true, "source": { "kind": "fido", "win": "11", "lang": "English International" },
-      "page": "https://www.microsoft.com/software-download/windows11" },
-    { "id": "mint-xfce", "order": "30", "alias": "Linux Mint XFCE  -  For Old PCs", "class": "linux",
+      "sizeMB": 7500,
+      "optional": true,
+      "source": {
+        "kind": "fido",
+        "win": "11",
+        "lang": "English International"
+      },
+      "page": "https://www.microsoft.com/software-download/windows11"
+    },
+    {
+      "id": "mint-xfce",
+      "order": "30",
+      "alias": "Linux Mint XFCE  -  For Old PCs",
+      "class": "linux",
       "tip": "Free, light OS for old PCs. Try it live without installing",
-      "sizeMB": 3000, "optional": true, "source": { "kind": "dirlatest", "page": "https://mirrors.kernel.org/linuxmint/stable/", "dirRegex": "href=\"(\\d+(?:\\.\\d+)?)/\"", "file": "linuxmint-{v}-xfce-64bit.iso" },
-      "page": "https://linuxmint.com/download.php" },
-    { "id": "lazesoft", "order": "40", "alias": "Lazesoft Recovery  -  Windows Boot Fix", "class": "boot",
+      "sizeMB": 3000,
+      "optional": true,
+      "source": {
+        "kind": "dirlatest",
+        "page": "https://mirrors.kernel.org/linuxmint/stable/",
+        "dirRegex": "href=\"(\\d+(?:\\.\\d+)?)/\"",
+        "file": "linuxmint-{v}-xfce-64bit.iso"
+      },
+      "page": "https://linuxmint.com/download.php"
+    },
+    {
+      "id": "lazesoft",
+      "order": "40",
+      "alias": "Lazesoft Recovery  -  Windows Boot Fix",
+      "class": "boot",
       "tip": "Windows boot repair & password reset (create the ISO with Lazesoft Recovery Suite Home)",
-      "source": { "kind": "manual" }, "page": "https://www.lazesoft.com/lazesoft-recovery-suite-free.html" },
-    { "id": "hdat2", "order": "41", "alias": "HDAT2  -  HDD Bad Sector Test", "class": "disk",
+      "source": {
+        "kind": "manual"
+      },
+      "page": "https://www.lazesoft.com/lazesoft-recovery-suite-free.html"
+    },
+    {
+      "id": "hdat2",
+      "order": "41",
+      "alias": "HDAT2  -  HDD Bad Sector Test",
+      "class": "disk",
       "tip": "Low-level disk test / bad sector scan (legacy BIOS)",
-      "source": { "kind": "manual" }, "page": "https://www.hdat2.com/download.html" }
+      "source": {
+        "kind": "manual"
+      },
+      "page": "https://www.hdat2.com/download.html"
+    }
   ],
   "tools": [
-    { "id": "hwinfo", "name": "HWiNFO", "category": "Hardware", "desc": "संपूर्ण hardware माहिती, temperatures, sensors",
-      "exe": "HWiNFO64\\.exe$", "source": { "kind": "sourceforge", "project": "hwinfo", "file": "hwi_?\\d+\\.zip" }, "page": "https://www.hwinfo.com/download/" },
-    { "id": "cpuz", "name": "CPU-Z", "category": "Hardware", "desc": "CPU, motherboard, RAM slots ची माहिती",
-      "exe": "cpuz_x64\\.exe$", "source": { "kind": "scrape", "page": "https://www.cpuid.com/softwares/cpu-z.html", "regex": "cpu-z_([\\d.]+)-en\\.zip", "template": "https://download.cpuid.com/cpu-z/cpu-z_{1}-en.zip" }, "page": "https://www.cpuid.com/softwares/cpu-z.html" },
-    { "id": "gpuz", "name": "GPU-Z", "category": "Hardware", "desc": "Graphics card माहिती",
-      "exe": "GPU-Z.*\\.exe$", "source": { "kind": "manual" }, "page": "https://www.techpowerup.com/gpuz/" },
-    { "id": "crystaldiskinfo", "name": "CrystalDiskInfo", "category": "Hardware", "desc": "HDD/SSD health (SMART) - Good / Caution / Bad",
-      "exe": "DiskInfo64\\.exe$", "source": { "kind": "sourceforge", "project": "crystaldiskinfo", "file": "CrystalDiskInfo\\d+_\\d+_\\d+\\.zip" }, "page": "https://crystalmark.info/en/software/crystaldiskinfo/" },
-    { "id": "crystaldiskmark", "name": "CrystalDiskMark", "category": "Stress", "desc": "Disk speed test",
-      "exe": "DiskMark64\\.exe$", "source": { "kind": "sourceforge", "project": "crystaldiskmark", "file": "CrystalDiskMark\\d+_\\d+_\\d+\\.zip" }, "page": "https://crystalmark.info/en/software/crystaldiskmark/" },
-    { "id": "occt", "name": "OCCT", "category": "Stress", "desc": "CPU/RAM/GPU/PSU stability test",
-      "exe": "OCCT.*\\.exe$", "source": { "kind": "manual" }, "page": "https://www.ocbase.com/download" },
-    { "id": "prime95", "name": "Prime95", "category": "Stress", "desc": "CPU stress test (heat / stability)",
-      "exe": "prime95\\.exe$", "source": { "kind": "scrape", "page": "https://www.mersenne.org/download/", "regex": "[^\"']*p95v[\\w.]*win64\\.zip" }, "page": "https://www.mersenne.org/download/" },
-    { "id": "furmark", "name": "FurMark", "category": "Stress", "desc": "GPU stress test",
-      "exe": "FurMark.*\\.exe$", "source": { "kind": "manual" }, "page": "https://geeks3d.com/furmark/downloads/" },
-    { "id": "bluescreenview", "name": "BlueScreenView", "category": "Crash", "desc": "Blue screen कोणत्या driver मुळे आला ते दाखवतो",
-      "exe": "BlueScreenView\\.exe$", "source": { "kind": "url", "url": "https://www.nirsoft.net/utils/bluescreenview-x64.zip" }, "page": "https://www.nirsoft.net/utils/blue_screen_view.html" },
-    { "id": "whocrashed", "name": "WhoCrashed (installer)", "category": "Crash", "desc": "Crash कारण साध्या भाषेत",
-      "installer": true, "source": { "kind": "manual" }, "page": "https://www.resplendence.com/whocrashed" },
-    { "id": "sdio", "name": "Snappy Driver Installer Origin", "category": "Drivers", "desc": "Internet शिवाय drivers install (पहिल्यांदा driver packs download करा)",
-      "exe": "SDIO_x64.*\\.exe$", "source": { "kind": "sourceforge", "project": "snappy-driver-installer-origin", "file": "SDIO_[\\d.]+\\.zip" }, "page": "https://www.glenn.delahoy.com/snappy-driver-installer-origin/" },
-    { "id": "adwcleaner", "name": "AdwCleaner", "category": "Antivirus", "desc": "Adware, toolbars, browser hijackers काढतो",
-      "exe": "adwcleaner\\.exe$", "file": "adwcleaner.exe", "refreshDays": 14, "source": { "kind": "url", "url": "https://adwcleaner.malwarebytes.com/adwcleaner?channel=release" }, "page": "https://www.malwarebytes.com/adwcleaner" },
-    { "id": "kvrt", "name": "Kaspersky Virus Removal Tool", "category": "Antivirus", "desc": "Portable virus scanner (databases सोबत)",
-      "exe": "KVRT\\.exe$", "file": "KVRT.exe", "refreshDays": 7, "source": { "kind": "url", "url": "https://devbuilds.s.kaspersky-labs.com/devbuilds/KVRT/latest/full/KVRT.exe" }, "page": "https://www.kaspersky.com/downloads/free-virus-removal-tool" },
-    { "id": "msert", "name": "Microsoft Safety Scanner", "category": "Antivirus", "desc": "Microsoft चा portable scanner (10 दिवसांनी expire होतो)",
-      "exe": "MSERT\\.exe$", "file": "MSERT.exe", "refreshDays": 7, "source": { "kind": "url", "url": "https://go.microsoft.com/fwlink/?LinkId=212732" }, "page": "https://learn.microsoft.com/defender-endpoint/safety-scanner-download" },
-    { "id": "malwarebytes", "name": "Malwarebytes (installer)", "category": "Antivirus", "desc": "Second-opinion malware scanner",
-      "installer": true, "file": "MBSetup.exe", "source": { "kind": "url", "url": "https://downloads.malwarebytes.com/file/mb-windows" }, "page": "https://www.malwarebytes.com/mwb-download" },
-    { "id": "autoruns", "name": "Autoruns", "category": "Cleanup", "desc": "Windows सोबत सुरू होणारे सगळे (services, tasks, drivers)",
-      "exe": "Autoruns64\\.exe$", "source": { "kind": "url", "url": "https://download.sysinternals.com/files/Autoruns.zip" }, "page": "https://learn.microsoft.com/sysinternals/downloads/autoruns" },
-    { "id": "procexp", "name": "Process Explorer", "category": "Cleanup", "desc": "Task Manager पेक्षा सविस्तर - कोणता process काय करतो",
-      "exe": "procexp64\\.exe$", "source": { "kind": "url", "url": "https://download.sysinternals.com/files/ProcessExplorer.zip" }, "page": "https://learn.microsoft.com/sysinternals/downloads/process-explorer" },
-    { "id": "bcu", "name": "Bulk Crap Uninstaller", "category": "Cleanup", "desc": "अनेक programs एकदम आणि उरलेल्या files सकट uninstall",
-      "exe": "BCUninstaller\\.exe$", "source": { "kind": "github", "repo": "Klocman/Bulk-Crap-Uninstaller", "asset": "portable\\.(zip|7z)$" }, "page": "https://www.bcuninstaller.com/" },
-    { "id": "wiztree", "name": "WizTree", "category": "Cleanup", "desc": "कोणती file / folder जागा खाते ते सेकंदात",
-      "exe": "WizTree64\\.exe$", "source": { "kind": "scrape", "page": "https://diskanalyzer.com/download", "regex": "[^\"']*wiztree_[\\d_]+_portable\\.zip" }, "page": "https://diskanalyzer.com/download" },
-    { "id": "recuva", "name": "Recuva (portable)", "category": "Recovery", "desc": "Delete झालेल्या files परत मिळवा",
-      "exe": "recuva64\\.exe$", "source": { "kind": "manual" }, "page": "https://www.ccleaner.com/recuva/builds" },
-    { "id": "advipscanner", "name": "Advanced IP Scanner", "category": "Network", "desc": "Network वरचे devices / printers शोधा",
-      "installer": true, "source": { "kind": "manual" }, "page": "https://www.advanced-ip-scanner.com/" },
-    { "id": "winmtr", "name": "WinMTR", "category": "Network", "desc": "Internet slow / drop - कुठे अडते ते तपासा",
-      "exe": "WinMTR.*\\.exe$", "source": { "kind": "github", "repo": "White-Tiger/WinMTR", "asset": "\\.zip$" }, "page": "https://github.com/White-Tiger/WinMTR/releases" },
-    { "id": "batteryinfoview", "name": "BatteryInfoView", "category": "Laptop", "desc": "Laptop battery health / wear level",
-      "exe": "BatteryInfoView\\.exe$", "source": { "kind": "url", "url": "https://www.nirsoft.net/utils/batteryinfoview.zip" }, "page": "https://www.nirsoft.net/utils/battery_information_view.html" },
-    { "id": "rustdesk", "name": "RustDesk", "category": "Remote", "desc": "Remote support (AnyDesk सारखे, free, open-source)",
-      "exe": "rustdesk.*\\.exe$", "file": "rustdesk.exe", "source": { "kind": "github", "repo": "rustdesk/rustdesk", "asset": "rustdesk-[\\d.]+-x86_64\\.exe$" }, "page": "https://rustdesk.com/" },
-    { "id": "7zip", "name": "7-Zip (installer)", "category": "Utilities", "desc": "Zip/RAR/7z उघडा (WinRAR चा free पर्याय)",
-      "installer": true, "source": { "kind": "github", "repo": "ip7z/7zip", "asset": "7z\\d+-x64\\.exe$" }, "page": "https://www.7-zip.org/" },
-    { "id": "notepadpp", "name": "Notepad++", "category": "Utilities", "desc": "Text / config files edit",
-      "exe": "notepad\\+\\+\\.exe$", "source": { "kind": "github", "repo": "notepad-plus-plus/notepad-plus-plus", "asset": "portable\\.x64\\.zip$" }, "page": "https://notepad-plus-plus.org/downloads/" },
-    { "id": "everything", "name": "Everything", "category": "Utilities", "desc": "PC मधली कोणतीही file क्षणात शोधा",
-      "exe": "Everything\\.exe$", "source": { "kind": "scrape", "page": "https://www.voidtools.com/downloads/", "regex": "[^\"']*Everything-[\\d.]+\\.x64\\.zip" }, "page": "https://www.voidtools.com/downloads/" },
-    { "id": "vlc", "name": "VLC", "category": "Utilities", "desc": "सगळे video/audio formats चालवणारा player",
-      "exe": "vlc\\.exe$", "source": { "kind": "scrape", "page": "https://download.videolan.org/pub/videolan/vlc/last/win64/", "regex": "vlc-[\\d.]+-win64\\.zip" }, "page": "https://www.videolan.org/vlc/" },
-    { "id": "rufus", "name": "Rufus", "category": "Utilities", "desc": "दुसरा bootable USB बनवण्यासाठी",
-      "exe": "rufus.*\\.exe$", "file": "rufus.exe", "source": { "kind": "github", "repo": "pbatard/rufus", "asset": "rufus-[\\d.]+p\\.exe$" }, "page": "https://rufus.ie/" },
-    { "id": "sumatra", "name": "SumatraPDF (हलका PDF reader)", "category": "Light apps", "desc": "Adobe Reader चा हलका पर्याय",
-      "installer": true, "source": { "kind": "manual" }, "page": "https://www.sumatrapdfreader.org/download-free-pdf-viewer" },
-    { "id": "libreoffice", "name": "LibreOffice", "category": "Light apps", "desc": "Free Office (Word/Excel/PowerPoint files)",
-      "installer": true, "source": { "kind": "manual" }, "page": "https://www.libreoffice.org/download/download-libreoffice/" },
-    { "id": "qbittorrent", "name": "qBittorrent", "category": "Light apps", "desc": "uTorrent चा ads-free पर्याय",
-      "installer": true, "source": { "kind": "manual" }, "page": "https://www.qbittorrent.org/download" },
-    { "id": "firefox", "name": "Firefox", "category": "Light apps", "desc": "हलका browser",
-      "installer": true, "source": { "kind": "manual" }, "page": "https://www.mozilla.org/firefox/all/" }
+    {
+      "id": "hwinfo",
+      "name": "HWiNFO",
+      "category": "Hardware",
+      "desc": "संपूर्ण hardware माहिती, temperatures, sensors",
+      "exe": "HWiNFO64\\.exe$",
+      "source": {
+        "kind": "sourceforge",
+        "project": "hwinfo",
+        "file": "hwi_?\\d+\\.zip$"
+      },
+      "page": "https://www.hwinfo.com/download/"
+    },
+    {
+      "id": "cpuz",
+      "name": "CPU-Z",
+      "category": "Hardware",
+      "desc": "CPU, motherboard, RAM slots ची माहिती",
+      "exe": "cpuz_x64\\.exe$",
+      "source": {
+        "kind": "scrape",
+        "page": "https://www.cpuid.com/softwares/cpu-z.html",
+        "regex": "cpu-z_([\\d.]+)-en\\.zip",
+        "template": "https://download.cpuid.com/cpu-z/cpu-z_{1}-en.zip"
+      },
+      "page": "https://www.cpuid.com/softwares/cpu-z.html"
+    },
+    {
+      "id": "gpuz",
+      "name": "GPU-Z",
+      "category": "Hardware",
+      "desc": "Graphics card माहिती",
+      "exe": "GPU-Z.*\\.exe$",
+      "source": {
+        "kind": "manual"
+      },
+      "page": "https://www.techpowerup.com/gpuz/"
+    },
+    {
+      "id": "crystaldiskinfo",
+      "name": "CrystalDiskInfo",
+      "category": "Hardware",
+      "desc": "HDD/SSD health (SMART) - Good / Caution / Bad",
+      "exe": "DiskInfo64\\.exe$",
+      "source": {
+        "kind": "sourceforge",
+        "project": "crystaldiskinfo",
+        "file": "CrystalDiskInfo\\d+_\\d+_\\d+\\.zip$"
+      },
+      "page": "https://crystalmark.info/en/software/crystaldiskinfo/"
+    },
+    {
+      "id": "crystaldiskmark",
+      "name": "CrystalDiskMark",
+      "category": "Stress",
+      "desc": "Disk speed test",
+      "exe": "DiskMark64\\.exe$",
+      "source": {
+        "kind": "sourceforge",
+        "project": "crystaldiskmark",
+        "file": "CrystalDiskMark\\d+_\\d+_\\d+\\.zip$"
+      },
+      "page": "https://crystalmark.info/en/software/crystaldiskmark/"
+    },
+    {
+      "id": "occt",
+      "name": "OCCT",
+      "category": "Stress",
+      "desc": "CPU/RAM/GPU/PSU stability test",
+      "exe": "OCCT.*\\.exe$",
+      "source": {
+        "kind": "manual"
+      },
+      "page": "https://www.ocbase.com/download"
+    },
+    {
+      "id": "prime95",
+      "name": "Prime95",
+      "category": "Stress",
+      "desc": "CPU stress test (heat / stability)",
+      "exe": "prime95\\.exe$",
+      "source": {
+        "kind": "scrape",
+        "page": "https://www.mersenne.org/download/",
+        "regex": "[^\"']*p95v[\\w.]*win64\\.zip"
+      },
+      "page": "https://www.mersenne.org/download/"
+    },
+    {
+      "id": "furmark",
+      "name": "FurMark",
+      "category": "Stress",
+      "desc": "GPU stress test",
+      "exe": "FurMark.*\\.exe$",
+      "source": {
+        "kind": "manual"
+      },
+      "page": "https://geeks3d.com/furmark/downloads/"
+    },
+    {
+      "id": "bluescreenview",
+      "name": "BlueScreenView",
+      "category": "Crash",
+      "desc": "Blue screen कोणत्या driver मुळे आला ते दाखवतो",
+      "exe": "BlueScreenView\\.exe$",
+      "source": {
+        "kind": "url",
+        "url": "https://www.nirsoft.net/utils/bluescreenview-x64.zip"
+      },
+      "page": "https://www.nirsoft.net/utils/blue_screen_view.html"
+    },
+    {
+      "id": "whocrashed",
+      "name": "WhoCrashed (installer)",
+      "category": "Crash",
+      "desc": "Crash कारण साध्या भाषेत",
+      "installer": true,
+      "source": {
+        "kind": "manual"
+      },
+      "page": "https://www.resplendence.com/whocrashed"
+    },
+    {
+      "id": "sdio",
+      "name": "Snappy Driver Installer Origin",
+      "category": "Drivers",
+      "desc": "Internet शिवाय drivers install (पहिल्यांदा driver packs download करा)",
+      "exe": "SDIO_x64.*\\.exe$",
+      "source": {
+        "kind": "scrape",
+        "page": "https://www.glenn.delahoy.com/snappy-driver-installer-origin/",
+        "regex": "[^\"']*SDIO_[\\d.]+\\.zip"
+      },
+      "page": "https://www.glenn.delahoy.com/snappy-driver-installer-origin/"
+    },
+    {
+      "id": "adwcleaner",
+      "name": "AdwCleaner",
+      "category": "Antivirus",
+      "desc": "Adware, toolbars, browser hijackers काढतो",
+      "exe": "adwcleaner\\.exe$",
+      "file": "adwcleaner.exe",
+      "refreshDays": 14,
+      "source": {
+        "kind": "url",
+        "url": "https://adwcleaner.malwarebytes.com/adwcleaner?channel=release"
+      },
+      "page": "https://www.malwarebytes.com/adwcleaner"
+    },
+    {
+      "id": "kvrt",
+      "name": "Kaspersky Virus Removal Tool",
+      "category": "Antivirus",
+      "desc": "Portable virus scanner (databases सोबत)",
+      "exe": "KVRT\\.exe$",
+      "file": "KVRT.exe",
+      "refreshDays": 7,
+      "source": {
+        "kind": "url",
+        "url": "https://devbuilds.s.kaspersky-labs.com/devbuilds/KVRT/latest/full/KVRT.exe"
+      },
+      "page": "https://www.kaspersky.com/downloads/free-virus-removal-tool"
+    },
+    {
+      "id": "msert",
+      "name": "Microsoft Safety Scanner",
+      "category": "Antivirus",
+      "desc": "Microsoft चा portable scanner (10 दिवसांनी expire होतो)",
+      "exe": "MSERT\\.exe$",
+      "file": "MSERT.exe",
+      "refreshDays": 7,
+      "source": {
+        "kind": "url",
+        "url": "https://go.microsoft.com/fwlink/?LinkId=212732"
+      },
+      "page": "https://learn.microsoft.com/defender-endpoint/safety-scanner-download"
+    },
+    {
+      "id": "malwarebytes",
+      "name": "Malwarebytes (installer)",
+      "category": "Antivirus",
+      "desc": "Second-opinion malware scanner",
+      "installer": true,
+      "file": "MBSetup.exe",
+      "source": {
+        "kind": "url",
+        "url": "https://downloads.malwarebytes.com/file/mb-windows"
+      },
+      "page": "https://www.malwarebytes.com/mwb-download"
+    },
+    {
+      "id": "autoruns",
+      "name": "Autoruns",
+      "category": "Cleanup",
+      "desc": "Windows सोबत सुरू होणारे सगळे (services, tasks, drivers)",
+      "exe": "Autoruns64\\.exe$",
+      "source": {
+        "kind": "url",
+        "url": "https://download.sysinternals.com/files/Autoruns.zip"
+      },
+      "page": "https://learn.microsoft.com/sysinternals/downloads/autoruns"
+    },
+    {
+      "id": "procexp",
+      "name": "Process Explorer",
+      "category": "Cleanup",
+      "desc": "Task Manager पेक्षा सविस्तर - कोणता process काय करतो",
+      "exe": "procexp64\\.exe$",
+      "source": {
+        "kind": "url",
+        "url": "https://download.sysinternals.com/files/ProcessExplorer.zip"
+      },
+      "page": "https://learn.microsoft.com/sysinternals/downloads/process-explorer"
+    },
+    {
+      "id": "bcu",
+      "name": "Bulk Crap Uninstaller",
+      "category": "Cleanup",
+      "desc": "अनेक programs एकदम आणि उरलेल्या files सकट uninstall",
+      "exe": "BCUninstaller\\.exe$",
+      "source": {
+        "kind": "github",
+        "repo": "Klocman/Bulk-Crap-Uninstaller",
+        "asset": "portable\\.(zip|7z)$"
+      },
+      "page": "https://www.bcuninstaller.com/"
+    },
+    {
+      "id": "wiztree",
+      "name": "WizTree",
+      "category": "Cleanup",
+      "desc": "कोणती file / folder जागा खाते ते सेकंदात",
+      "exe": "WizTree64\\.exe$",
+      "source": {
+        "kind": "scrape",
+        "page": "https://diskanalyzer.com/download",
+        "regex": "[^\"']*wiztree_[\\d_]+_portable\\.zip"
+      },
+      "page": "https://diskanalyzer.com/download"
+    },
+    {
+      "id": "recuva",
+      "name": "Recuva (portable)",
+      "category": "Recovery",
+      "desc": "Delete झालेल्या files परत मिळवा",
+      "exe": "recuva64\\.exe$",
+      "source": {
+        "kind": "manual"
+      },
+      "page": "https://www.ccleaner.com/recuva/builds"
+    },
+    {
+      "id": "advipscanner",
+      "name": "Advanced IP Scanner",
+      "category": "Network",
+      "desc": "Network वरचे devices / printers शोधा",
+      "installer": true,
+      "source": {
+        "kind": "manual"
+      },
+      "page": "https://www.advanced-ip-scanner.com/"
+    },
+    {
+      "id": "winmtr",
+      "name": "WinMTR",
+      "category": "Network",
+      "desc": "Internet slow / drop - कुठे अडते ते तपासा",
+      "exe": "WinMTR.*\\.exe$",
+      "source": {
+        "kind": "github",
+        "repo": "White-Tiger/WinMTR",
+        "asset": "\\.zip$"
+      },
+      "page": "https://github.com/White-Tiger/WinMTR/releases"
+    },
+    {
+      "id": "batteryinfoview",
+      "name": "BatteryInfoView",
+      "category": "Laptop",
+      "desc": "Laptop battery health / wear level",
+      "exe": "BatteryInfoView\\.exe$",
+      "source": {
+        "kind": "url",
+        "url": "https://www.nirsoft.net/utils/batteryinfoview.zip"
+      },
+      "page": "https://www.nirsoft.net/utils/battery_information_view.html"
+    },
+    {
+      "id": "rustdesk",
+      "name": "RustDesk",
+      "category": "Remote",
+      "desc": "Remote support (AnyDesk सारखे, free, open-source)",
+      "exe": "rustdesk.*\\.exe$",
+      "file": "rustdesk.exe",
+      "source": {
+        "kind": "github",
+        "repo": "rustdesk/rustdesk",
+        "asset": "rustdesk-[\\d.]+-x86_64\\.exe$"
+      },
+      "page": "https://rustdesk.com/"
+    },
+    {
+      "id": "7zip",
+      "name": "7-Zip (installer)",
+      "category": "Utilities",
+      "desc": "Zip/RAR/7z उघडा (WinRAR चा free पर्याय)",
+      "installer": true,
+      "source": {
+        "kind": "github",
+        "repo": "ip7z/7zip",
+        "asset": "7z\\d+-x64\\.exe$"
+      },
+      "page": "https://www.7-zip.org/"
+    },
+    {
+      "id": "notepadpp",
+      "name": "Notepad++",
+      "category": "Utilities",
+      "desc": "Text / config files edit",
+      "exe": "notepad\\+\\+\\.exe$",
+      "source": {
+        "kind": "github",
+        "repo": "notepad-plus-plus/notepad-plus-plus",
+        "asset": "portable\\.x64\\.zip$"
+      },
+      "page": "https://notepad-plus-plus.org/downloads/"
+    },
+    {
+      "id": "everything",
+      "name": "Everything",
+      "category": "Utilities",
+      "desc": "PC मधली कोणतीही file क्षणात शोधा",
+      "exe": "Everything\\.exe$",
+      "source": {
+        "kind": "scrape",
+        "page": "https://www.voidtools.com/downloads/",
+        "regex": "[^\"']*Everything-[\\d.]+\\.x64\\.zip"
+      },
+      "page": "https://www.voidtools.com/downloads/"
+    },
+    {
+      "id": "vlc",
+      "name": "VLC",
+      "category": "Utilities",
+      "desc": "सगळे video/audio formats चालवणारा player",
+      "exe": "vlc\\.exe$",
+      "source": {
+        "kind": "scrape",
+        "page": "https://download.videolan.org/pub/videolan/vlc/last/win64/",
+        "regex": "vlc-[\\d.]+-win64\\.zip"
+      },
+      "page": "https://www.videolan.org/vlc/"
+    },
+    {
+      "id": "rufus",
+      "name": "Rufus",
+      "category": "Utilities",
+      "desc": "दुसरा bootable USB बनवण्यासाठी",
+      "exe": "rufus.*\\.exe$",
+      "file": "rufus.exe",
+      "source": {
+        "kind": "github",
+        "repo": "pbatard/rufus",
+        "asset": "rufus-[\\d.]+p\\.exe$"
+      },
+      "page": "https://rufus.ie/"
+    },
+    {
+      "id": "sumatra",
+      "name": "SumatraPDF (हलका PDF reader)",
+      "category": "Light apps",
+      "desc": "Adobe Reader चा हलका पर्याय",
+      "installer": true,
+      "source": {
+        "kind": "manual"
+      },
+      "page": "https://www.sumatrapdfreader.org/download-free-pdf-viewer"
+    },
+    {
+      "id": "libreoffice",
+      "name": "LibreOffice",
+      "category": "Light apps",
+      "desc": "Free Office (Word/Excel/PowerPoint files)",
+      "installer": true,
+      "source": {
+        "kind": "manual"
+      },
+      "page": "https://www.libreoffice.org/download/download-libreoffice/"
+    },
+    {
+      "id": "qbittorrent",
+      "name": "qBittorrent",
+      "category": "Light apps",
+      "desc": "uTorrent चा ads-free पर्याय",
+      "installer": true,
+      "source": {
+        "kind": "manual"
+      },
+      "page": "https://www.qbittorrent.org/download"
+    },
+    {
+      "id": "firefox",
+      "name": "Firefox",
+      "category": "Light apps",
+      "desc": "हलका browser",
+      "installer": true,
+      "source": {
+        "kind": "manual"
+      },
+      "page": "https://www.mozilla.org/firefox/all/"
+    }
   ],
   "docs": [
-    { "name": "Screen / dead-pixel test", "file": "Sanjeevani/Docs/screen-test.html" },
-    { "name": "Keyboard test", "file": "Sanjeevani/Docs/keyboard-test.html" },
-    { "name": "Boot Menu / BIOS keys", "file": "Sanjeevani/Docs/boot-keys.html" },
-    { "name": "मार्गदर्शक (Marathi guide)", "file": "Sanjeevani/Docs/guide-mr.html" }
+    {
+      "name": "Screen / dead-pixel test",
+      "file": "Sanjeevani/Docs/screen-test.html"
+    },
+    {
+      "name": "Keyboard test",
+      "file": "Sanjeevani/Docs/keyboard-test.html"
+    },
+    {
+      "name": "Boot Menu / BIOS keys",
+      "file": "Sanjeevani/Docs/boot-keys.html"
+    },
+    {
+      "name": "मार्गदर्शक (Marathi guide)",
+      "file": "Sanjeevani/Docs/guide-mr.html"
+    }
   ]
 }
