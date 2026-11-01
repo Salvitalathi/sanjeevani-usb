@@ -1,0 +1,22 @@
+name: debug-links
+on:
+  push:
+    branches: [debug-links]
+jobs:
+  d:
+    runs-on: windows-latest
+    steps:
+      - shell: powershell
+        run: |
+          $UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) SanjeevaniSetup/1.0'
+          (Invoke-RestMethod https://api.github.com/repos/Klocman/Bulk-Crap-Uninstaller/releases/latest -Headers @{'User-Agent'=$UA}).assets.name
+          foreach ($u in 'https://sourceforge.net/projects/gparted/rss?limit=200','https://sourceforge.net/projects/gparted/rss','https://sourceforge.net/projects/gparted/rss?path=/') {
+            foreach ($a in $UA,'Wget/1.21.4','curl/8.0') {
+              try { $r = Invoke-WebRequest $u -UseBasicParsing -UserAgent $a; "OK  $u [$a] $($r.Content.Length)"; ([xml]$r.Content).rss.channel.item | select -First 3 | % { "    $($_.title) | $($_.link)" } } catch { "ERR $u [$a] $($_.Exception.Message)" }
+            }
+          }
+          & curl.exe -sS -A 'Wget/1.21.4' "https://sourceforge.net/projects/gparted/rss?limit=200" -o rss.xml -w "%{http_code}`n"; (Get-Content rss.xml -TotalCount 5)
+          $h = (Invoke-WebRequest https://www.cpuid.com/softwares/cpu-z.html -UseBasicParsing -UserAgent $UA).Content
+          [regex]::Matches($h, '[^"'']*cpu-z_[\d.]+-en\.zip') | % Value | select -Unique
+          $m = (Invoke-WebRequest https://www.mersenne.org/download/ -UseBasicParsing -UserAgent $UA).Content
+          [regex]::Matches($m, '[^"'']*win64\.zip') | % Value | select -Unique
