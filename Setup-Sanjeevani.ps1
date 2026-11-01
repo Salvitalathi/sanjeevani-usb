@@ -76,21 +76,40 @@ function Get-WebText([string]$Url, [hashtable]$Headers = @{}) {
     return (Invoke-WebRequest -Uri $Url -UseBasicParsing -Headers $h -TimeoutSec 60).Content
 }
 
-function Save-Url([string]$Url, [string]$Dest) {
+$BrowserUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
+
+function Save-Url([string]$Url, [string]$Dest, [string]$Referer) {
     $part = "$Dest.part"
     New-Item -ItemType Directory -Path (Split-Path $Dest) -Force | Out-Null
     # SourceForge serves an HTML page to browsers but a direct redirect to download tools
     $agent = if ($Url -match 'sourceforge\.net') { 'Wget/1.21.4' } else { $UA }
+    $done = $false
     if ($haveCurl) {
         & curl.exe -L --fail --retry 3 --retry-delay 5 --connect-timeout 30 -A $agent -C - -o $part $Url
-        if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 33) {
+        if ($LASTEXITCODE -eq 33) {
             # 33 = server does not support resume: retry from scratch
             Remove-Item $part -Force -ErrorAction SilentlyContinue
             & curl.exe -L --fail --retry 3 --retry-delay 5 --connect-timeout 30 -A $agent -o $part $Url
         }
-        if ($LASTEXITCODE -ne 0) { Remove-Item $part -Force -ErrorAction SilentlyContinue; throw "download failed (curl $LASTEXITCODE)" }
-    } else {
-        Invoke-WebRequest -Uri $Url -OutFile $part -UseBasicParsing -UserAgent $agent
+        if ($LASTEXITCODE -eq 0) { $done = $true }
+        else {
+            # some sites (e.g. hirensbootcd.org) refuse non-browser downloads (403): retry like a browser
+            Warn "     retrying as a browser (curl $LASTEXITCODE) ..."
+            $ref = if ($Referer) { $Referer } else { $Url }
+            & curl.exe -L --fail --retry 2 --retry-delay 5 --connect-timeout 30 -A $BrowserUA -e $ref -H 'Accept: */*' -H 'Accept-Language: en-IN,en;q=0.9' -C - -o $part $Url
+            if ($LASTEXITCODE -eq 0) { $done = $true }
+        }
+    }
+    if (-not $done) {
+        # last resort: Windows' own download service (BITS), different network stack
+        Remove-Item $part -Force -ErrorAction SilentlyContinue
+        try {
+            Warn '     trying Windows BITS download ...'
+            Start-BitsTransfer -Source $Url -Destination $part -DisplayName 'Sanjeevani download' -ErrorAction Stop
+        } catch {
+            try { Invoke-WebRequest -Uri $Url -OutFile $part -UseBasicParsing -UserAgent $BrowserUA -Headers @{ Referer = $(if ($Referer) { $Referer } else { $Url }) } }
+            catch { Remove-Item $part -Force -ErrorAction SilentlyContinue; throw ('download refused by the website - download it in a browser from ' + $(if ($Referer) { $Referer } else { $Url })) }
+        }
     }
     if ((Get-Item $part).Length -lt 1024) { $t = Get-Content $part -Raw -ErrorAction SilentlyContinue; Remove-Item $part -Force; throw "file too small - not a real download ($t)" }
     $fs = [IO.File]::OpenRead($part); $head = New-Object byte[] 64; [void]$fs.Read($head, 0, 64); $fs.Close()
@@ -353,6 +372,15 @@ function Install-Item($e, [string]$Kind) {
     Say ''
     Say "  -- $label" White
     if ($e.source.kind -eq 'manual') { [void]$manual.Add($e); Warn 'manual download (link in Docs\manual-downloads.html)'; return }
+    if ($Kind -eq 'iso') {
+        # an ISO the user copied in by hand (any name containing the id, e.g. HBCD_PE_x64.iso) counts as installed
+        $own = Get-ChildItem (Join-Path $UsbRoot 'ISO') -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.BaseName -match [regex]::Escape($e.id) -and $_.Name -notmatch ('^\d+-' + [regex]::Escape($e.id) + '\.') } | Select-Object -First 1
+        if ($own -and -not ($installed[$e.id] -and $installed[$e.id].url -ne 'manual')) {
+            $installed[$e.id] = [pscustomobject]@{ url = 'manual'; path = "ISO\$($own.Name)"; date = (Get-Date).ToString('s'); name = $own.Name }
+            Ok "found on USB (copied by hand): $($own.Name)"; return
+        }
+    }
     if ($e.source.kind -eq 'fido' -and $installed[$e.id] -and (Test-Path -LiteralPath (Join-Path $UsbRoot $installed[$e.id].path))) { Ok 'already on USB (delete the ISO to download a newer one)'; return }
     try { $r = Resolve-Source $e } catch { Warn ("could not find latest version: " + $_.Exception.Message); [void]$failed.Add($e); return }
     if (Test-UpToDate $e $r.Url $null) { Ok 'up to date'; return }
@@ -360,7 +388,7 @@ function Install-Item($e, [string]$Kind) {
     $tmp = Join-Path $Work ($e.id + '_' + $r.Name)
     try {
         Say "     $($r.Url)" DarkGray
-        Save-Url $r.Url $tmp
+        Save-Url $r.Url $tmp $e.page
         $rel = $null
         if ($Kind -eq 'iso') {
             $ext = if ($e.ext) { $e.ext } else { '.iso' }
