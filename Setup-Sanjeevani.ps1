@@ -98,6 +98,16 @@ function Save-Url([string]$Url, [string]$Dest) {
     Move-Item -LiteralPath $part -Destination $Dest -Force
 }
 
+# 7-Zip's tiny console extractor, fetched once, for tools shipped as .7z
+function Get-7zr {
+    $x = Join-Path $Work '7zr.exe'
+    if (-not (Test-Path $x)) {
+        $r = Resolve-Source ([pscustomobject]@{ source = [pscustomobject]@{ kind = 'github'; repo = 'ip7z/7zip'; asset = '^7zr\.exe$' } })
+        Save-Url $r.Url $x
+    }
+    return $x
+}
+
 function Resolve-Source($e) {
     $s = $e.source
     switch ($s.kind) {
@@ -112,10 +122,11 @@ function Resolve-Source($e) {
             return @{ Url = $a.browser_download_url; Name = $a.name; Version = $j.tag_name }
         }
         'sourceforge' {
-            $rss = [xml](Get-WebText "https://sourceforge.net/projects/$($s.project)/rss?limit=200")
+            $rss = [xml](Get-WebText "https://sourceforge.net/projects/$($s.project)/rss")
             foreach ($it in $rss.rss.channel.item) {
-                $leaf = ([string]$it.title).Split('/')[-1]
-                if ($leaf -match $s.file) { return @{ Url = [string]$it.link; Name = $leaf } }
+                $link = [string]$it.link                      # .../files/<path>/<name>/download
+                $leaf = [Uri]::UnescapeDataString(($link -replace '/download$', '').Split('/')[-1])
+                if ($leaf -match $s.file) { return @{ Url = $link; Name = $leaf } }
             }
             throw "no file matching '$($s.file)' in sourceforge/$($s.project)"
         }
@@ -124,6 +135,7 @@ function Resolve-Source($e) {
             $m = [regex]::Match($html, $s.regex)
             if (-not $m.Success) { throw "link not found on $($s.page)" }
             $href = [Net.WebUtility]::HtmlDecode($m.Value)
+            if ($s.template) { $href = $s.template.Replace('{1}', $m.Groups[1].Value) }
             $abs = (New-Object Uri ([Uri]$s.page), $href).AbsoluteUri
             return @{ Url = $abs; Name = [IO.Path]::GetFileName(([Uri]$abs).AbsolutePath) }
         }
@@ -168,7 +180,11 @@ if ($ResolveOnly) {
                 $txt = [Text.Encoding]::ASCII.GetString($head, 0, [math]::Min(64, $head.Length)).TrimStart()
                 if ($txt -match '^(?i)<(!DOCTYPE|html)') { throw 'web page instead of file' }
                 $row.status = 'ok'; $row.detail = $r.Name
-            } catch { $row.status = 'FAIL'; $row.detail = $_.Exception.Message }
+            } catch {
+                $row.status = 'FAIL'; $row.detail = $_.Exception.Message
+                # Kaspersky refuses US addresses (GitHub runners); it works from India
+                if ($row.url -match 'kaspersky' -and $row.detail -match '403') { $row.status = 'geo'; $row.detail = 'blocked in the US only (CI runner) - fine in India' }
+            }
         }
         $res += [pscustomobject]$row
         Write-Host ("{0,-6} {1,-16} {2}" -f $row.status, $row.id, $(if ($row.status -eq 'ok') { $row.detail } else { $row.detail }))
@@ -364,10 +380,16 @@ function Install-Item($e, [string]$Kind) {
             $folder = Join-Path $UsbRoot $folderRel
             # extract over the old version (never wipe: SDIO keeps its ~40 GB driver packs here)
             New-Item -ItemType Directory -Path $folder -Force | Out-Null
-            $isZip = $false
+            $isZip = $false; $is7z = $false
             $fs = [IO.File]::OpenRead($tmp); $b1 = $fs.ReadByte(); $b2 = $fs.ReadByte(); $fs.Close()
             if ($b1 -eq 0x50 -and $b2 -eq 0x4B) { $isZip = $true }
-            if ($isZip) {
+            if ($b1 -eq 0x37 -and $b2 -eq 0x7A) { $is7z = $true }   # '7z'
+            if ($is7z) {
+                $sz = Get-7zr
+                & $sz x $tmp ("-o" + $folder) -y | Out-Null
+                if ($LASTEXITCODE -ne 0) { throw "7z extract failed ($LASTEXITCODE)" }
+                Remove-Item $tmp -Force
+            } elseif ($isZip) {
                 $zipTmp = $tmp; if ($zipTmp -notmatch '\.zip$') { Rename-Item $tmp ($tmp + '.zip'); $zipTmp = $tmp + '.zip' }
                 Expand-Archive -LiteralPath $zipTmp -DestinationPath $folder -Force
                 Remove-Item $zipTmp -Force
