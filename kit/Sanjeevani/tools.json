@@ -338,7 +338,7 @@
       "id": "sdio",
       "name": "Snappy Driver Installer Origin",
       "category": "Drivers",
-      "desc": "Internet शिवाय drivers install (पहिल्यांदा driver packs download करा)",
+      "desc": "Internet शिवाय drivers install. Setup मध्ये सगळे driver packs (~60 GB) सोबत download करता येतात",
       "exe": "SDIO_x64.*\\.exe$",
       "source": {
         "kind": "scrape",
@@ -631,8 +631,7 @@
       "installer": true,
       "file": "PAssist_Std.exe",
       "source": {
-        "kind": "url",
-        "url": "https://www2.aomeisoftware.com/download/pa/PAssist_Std.exe"
+        "kind": "manual"
       },
       "page": "https://www.diskpart.com/free-partition-manager.html"
     },
@@ -655,8 +654,7 @@
       "installer": true,
       "file": "AOMEIBackupperStd.exe",
       "source": {
-        "kind": "url",
-        "url": "https://www2.aomeisoftware.com/download/abfree/AOMEIBackupperStd.exe"
+        "kind": "manual"
       },
       "page": "https://www.ubackup.com/free-backup-software.html"
     },
@@ -693,7 +691,8 @@
       "source": {
         "kind": "scrape",
         "page": "https://www.cgsecurity.org/wiki/TestDisk_Download",
-        "regex": "[^\"']*testdisk-[\\d.]+\\.win64\\.zip"
+        "regex": "testdisk-([\\d.]+)\\.win64\\.zip",
+        "template": "https://www.cgsecurity.org/testdisk-{1}.win64.zip"
       },
       "page": "https://www.cgsecurity.org/wiki/TestDisk_Download"
     },
@@ -730,9 +729,7 @@
       "desc": "Disk diagnostics, SMART, surface tests",
       "exe": "HDDScan\\.exe$",
       "source": {
-        "kind": "scrape",
-        "page": "https://hddscan.com/",
-        "regex": "[^\"']*HDDScan[^\"']*\\.zip"
+        "kind": "manual"
       },
       "page": "https://hddscan.com/"
     },
@@ -767,9 +764,7 @@
       "desc": "स्वतःच्या PC च्या local account चा password reset (मालकाच्या परवानगीने)",
       "exe": "ntpwedit64\\.exe$",
       "source": {
-        "kind": "scrape",
-        "page": "https://www.cdslow.org.ru/en/ntpwedit/",
-        "regex": "[^\"']*ntpwedit\\d+\\.zip"
+        "kind": "manual"
       },
       "page": "https://www.cdslow.org.ru/en/ntpwedit/"
     },

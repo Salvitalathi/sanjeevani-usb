@@ -138,4 +138,31 @@ function Start-PDQuickVirusScan {
     catch { Write-PDLog ('Scan चालला नाही: ' + $_.Exception.Message) 'WARN' }
 }
 
+# ---------------- drivers backup / restore (Windows built-in DISM + pnputil)
+function Backup-PDDrivers {
+    param([string]$Destination)
+    if (-not $Destination) { $Destination = Join-Path $global:PDCtx.ReportDir ("Drivers-{0:yyyyMMdd-HHmm}" -f (Get-Date)) }
+    New-Item -ItemType Directory -Path $Destination -Force | Out-Null
+    Write-PDLog "Third-party drivers backup: $Destination" 'STEP'
+    $code = Invoke-PDProcess -FilePath "$env:WINDIR\System32\Dism.exe" -Arguments ('/Online /Export-Driver /Destination:"{0}"' -f $Destination) -ProgressLabel 'Drivers backup'
+    $n = @(Get-ChildItem -LiteralPath $Destination -Recurse -Filter *.inf -ErrorAction SilentlyContinue).Count
+    $size = Get-PDFolderSize $Destination
+    if ($code -ne 0) { Write-PDLog "DISM export exit code $code" 'WARN' }
+    Write-PDLog ("{0} drivers ({1}) backup झाले." -f $n, (Format-PDSize $size)) 'OK'
+    return [pscustomobject]@{ Path = $Destination; Count = $n; Bytes = $size; ExitCode = $code }
+}
+
+function Restore-PDDrivers {
+    param([Parameter(Mandatory)][string]$Path)
+    if (-not (Test-Path -LiteralPath $Path)) { throw "Folder सापडला नाही: $Path" }
+    $n = @(Get-ChildItem -LiteralPath $Path -Recurse -Filter *.inf -ErrorAction SilentlyContinue).Count
+    if ($n -eq 0) { throw 'या folder मध्ये driver (.inf) files नाहीत.' }
+    Write-PDLog "$n drivers install करत आहे: $Path" 'STEP'
+    $code = Invoke-PDProcess -FilePath "$env:WINDIR\System32\pnputil.exe" -Arguments ('/add-driver "{0}\*.inf" /subdirs /install' -f $Path.TrimEnd('\')) -ProgressLabel 'Drivers restore'
+    # pnputil: 0 = ok, 3010 = ok but restart needed, 259 = nothing new to install
+    $ok = $code -in 0, 3010, 259
+    Write-PDLog ("Drivers restore {0} (code {1}). PC restart करा." -f $(if ($ok) { 'पूर्ण' } else { 'काही drivers install झाले नाहीत' }), $code) $(if ($ok) { 'OK' } else { 'WARN' })
+    return [pscustomobject]@{ Count = $n; ExitCode = $code; Ok = $ok }
+}
+
 Export-ModuleMember -Function *

@@ -18,6 +18,7 @@ param(
     [switch]$GPT,                 # install Ventoy with GPT instead of MBR
     [switch]$WithWindows,         # also download the Windows 11 ISO (~7.5 GB)
     [switch]$WithMint,            # also download Linux Mint XFCE (~3 GB)
+    [switch]$WithDrivers,         # also download ALL Snappy Driver Installer driver packs (~60 GB, offline drivers)
     [switch]$SkipDownloads,
     [string[]]$Only,              # only these ids, e.g. -Only hbcd,cpuz
     [switch]$ResolveOnly          # CI / check: only find the latest download link of every item, download nothing
@@ -318,6 +319,11 @@ if (-not $SkipDownloads -and -not $Only) {
         $c = Read-Host '    Also download Linux Mint XFCE for old PCs (~3 GB)? Y/N'
         $WithMint = $c -match '^[Yy]'
     }
+    $sdioDrv = Join-Path $UsbRoot 'Tools\Drivers\Snappy Driver Installer Origin\drivers'
+    if (-not $WithDrivers -and -not (Test-Path $sdioDrv)) {
+        $c = Read-Host '    Also download ALL offline driver packs for any PC (~60 GB, needs a 128 GB pendrive, takes hours)? Y/N'
+        $WithDrivers = $c -match '^[Yy]'
+    }
 }
 
 function Test-Wanted($e) {
@@ -415,6 +421,24 @@ if (-not $SkipDownloads) {
     Step 'Downloading portable tools'
     foreach ($e in $catalog.tools) { Install-Item $e 'tool' }
     $installed | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $instFile -Encoding UTF8
+}
+
+# ------------------------------------------------------------------ offline driver packs (SDIO)
+if ($WithDrivers -and $installed['sdio']) {
+    Step 'Offline driver packs (Snappy Driver Installer Origin)'
+    $sdioExe = Join-Path $UsbRoot $installed['sdio'].path
+    if (-not (Test-Path -LiteralPath $sdioExe)) { Warn 'SDIO not found on the USB - skipped' }
+    elseif ((Get-FreeGB) -lt 65) { Warn "Only $(Get-FreeGB) GB free - driver packs need ~60 GB. Skipped." }
+    else {
+        Say '    Driver packs come via BitTorrent (allow it in the firewall if Windows asks).' DarkGray
+        Say '    This takes several hours. You can close it and run UPDATE.cmd later - it resumes.' DarkGray
+        $p = Start-Process -FilePath $sdioExe -ArgumentList '-autoupdate', '-autoclose', '-showconsole', '-norestorepnt' -WorkingDirectory (Split-Path $sdioExe) -PassThru
+        $p.WaitForExit()
+        $drv = Join-Path (Split-Path $sdioExe) 'drivers'
+        $sz = 0; if (Test-Path $drv) { $sz = (Get-ChildItem $drv -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum }
+        if ($sz -gt 1GB) { Ok ("Driver packs on USB: {0:N1} GB" -f ($sz / 1GB)) }
+        else { Warn 'Driver packs did not download automatically. Open SDIO from the USB (Tools\Drivers) and click "Download all driverpacks".' }
+    }
 }
 
 # ------------------------------------------------------------------ ventoy.json

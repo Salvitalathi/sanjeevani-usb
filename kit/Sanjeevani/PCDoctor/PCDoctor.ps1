@@ -633,6 +633,8 @@ $repairCards = @(
     @('Internet / Network reset', 'Internet चालत नाही, DNS error, "No internet" - winsock/IP reset.', 'Reset करा', 'repair:net'),
     @('Antivirus चालू करा + quick scan', 'Microsoft Defender चालू, definitions update आणि quick scan.', 'चालू करा', 'repair:defender'),
     @('Drivers install / update', 'Snappy Driver Installer Origin (USB वरून) उघडतो. Internet शिवाय पण चालतो.', 'उघडा', 'repair:drivers'),
+    @('Drivers backup', 'या PC चे सगळे drivers (WiFi, LAN, audio, display...) pendrive वर save करा. Windows reinstall करण्याआधी नक्की करा.', 'Backup घ्या', 'repair:drvbackup'),
+    @('Drivers restore', 'Windows reinstall नंतर backup केलेले drivers एका click मध्ये परत install करा.', 'Restore करा', 'repair:drvrestore'),
     @('Restore point आत्ता बनवा', 'मोठा बदल करण्याआधी सुरक्षिततेसाठी.', 'बनवा', 'repair:restorepoint'),
     @('Windows सुरूच होत नाही?', 'USB वरून boot करा → "Hiren''s BootCD PE" → USB वरील Sanjeevani\PCDoctor\Offline-Repair.cmd चालवा (offline SFC/DISM, boot repair, अडकलेले updates).', 'माहिती', 'repair:offline-info')
 )
@@ -769,6 +771,18 @@ function Invoke-Repair([string]$what) {
         'net' { if (Ask 'Network reset केल्यावर PC restart करावा लागेल. सुरू करायचे?') { Start-PDJob -Title 'Network reset' -Work { param($P) Reset-PDNetwork; 'ok' } -OnDone { param($r) [void]$script:Actions.Add('Network reset'); Say 'Network reset पूर्ण. PC restart करा.' } } }
         'defender' { Start-PDJob -Title 'Defender' -Work { param($P) Repair-PDDefender; Start-PDQuickVirusScan; 'ok' } -OnDone { param($r) [void]$script:Actions.Add('Defender चालू + quick scan'); Say 'Defender तपासणी पूर्ण. Threats असतील तर Windows Security मध्ये दिसतील.' } }
         'drivers' { Open-UsbTool $null 'sdio' }
+        'drvbackup' {
+            Start-PDJob -Title 'Drivers backup' -Work { param($P) Backup-PDDrivers } -OnDone { param($r) [void]$script:Actions.Add("Drivers backup: $($r.Count) drivers"); Say ("{0} drivers backup झाले:`n{1}`n`nWindows reinstall नंतर 'Drivers restore' मधून हाच folder निवडा." -f $r.Count, $r.Path) }
+        }
+        'drvrestore' {
+            $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
+            $dlg.Description = 'Drivers backup चा folder निवडा (Reports\<PC नाव>\Drivers-...)'
+            $dlg.SelectedPath = Join-Path $UsbRoot 'Reports'
+            if ($dlg.ShowDialog() -ne 'OK') { return }
+            $path = $dlg.SelectedPath
+            if (-not (Ask "या folder मधील drivers install करायचे?`n$path")) { return }
+            Start-PDJob -Title 'Drivers restore' -Work { param($P) Restore-PDDrivers -Path $P.Path } -Params @{ Path = $path } -OnDone { param($r) [void]$script:Actions.Add("Drivers restore: $($r.Count)"); Say ("{0} drivers तपासले/install केले. PC restart करा." -f $r.Count) }
+        }
         'restorepoint' { Start-PDJob -Title 'Restore point' -Work { param($P) New-PDRestorePoint 'Sanjeevani: manual' } -OnDone { param($r) if ($r) { Say 'Restore point तयार झाला.' } else { Say 'Restore point बनला नाही (log पहा). System Protection बंद असू शकते.' 'Warning' } } }
         'offline-info' { Say "Windows boot होत नसेल तर:`n`n1. PC बंद करा, USB लावा, Boot Menu key दाबा (Toolbox > Boot keys).`n2. 'Hiren's BootCD PE' निवडा.`n3. Desktop आल्यावर USB drive उघडा → Sanjeevani\PCDoctor\Offline-Repair.cmd वर right-click → Run as administrator.`n4. Menu मधून Offline SFC / DISM / Boot repair / अडकलेले updates revert निवडा." }
     }

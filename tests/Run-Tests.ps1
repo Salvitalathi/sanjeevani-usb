@@ -267,6 +267,16 @@ Test-Case 'Storage helpers (read-only)' {
     $true
 }
 
+Test-Case 'Drivers backup (DISM export) works' {
+    $dest = Join-Path $env:TEMP ('sjv-drv-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
+    $r = Backup-PDDrivers -Destination $dest
+    Assert ($r.ExitCode -eq 0) "DISM export failed: $($r.ExitCode)"
+    Assert (Test-Path $dest) 'backup folder missing'
+    Write-Host "      exported $($r.Count) drivers ($(Format-PDSize $r.Bytes))"
+    Remove-Item $dest -Recurse -Force -ErrorAction SilentlyContinue
+    $true
+}
+
 Test-Case 'Background job runner pattern (runspace + modules)' {
     $rs = [runspacefactory]::CreateRunspace(); $rs.Open()
     $q = New-Object 'System.Collections.Concurrent.ConcurrentQueue[string]'
