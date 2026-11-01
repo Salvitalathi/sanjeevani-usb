@@ -622,6 +622,225 @@
         "kind": "manual"
       },
       "page": "https://www.mozilla.org/firefox/all/"
+    },
+    {
+      "id": "aomei-pa",
+      "name": "AOMEI Partition Assistant Standard (installer)",
+      "category": "Partition",
+      "desc": "Partition resize/merge/move, MBR↔GPT, OS migrate to SSD",
+      "installer": true,
+      "file": "PAssist_Std.exe",
+      "source": {
+        "kind": "url",
+        "url": "https://www2.aomeisoftware.com/download/pa/PAssist_Std.exe"
+      },
+      "page": "https://www.diskpart.com/free-partition-manager.html"
+    },
+    {
+      "id": "minitool-pw",
+      "name": "MiniTool Partition Wizard Free (installer)",
+      "category": "Partition",
+      "desc": "Partition manager, disk benchmark, space analyzer",
+      "installer": true,
+      "source": {
+        "kind": "manual"
+      },
+      "page": "https://www.partitionwizard.com/free-partition-manager.html"
+    },
+    {
+      "id": "aomei-backupper",
+      "name": "AOMEI Backupper Standard (installer)",
+      "category": "Backup",
+      "desc": "Windows मधून system/disk backup आणि HDD→SSD clone",
+      "installer": true,
+      "file": "AOMEIBackupperStd.exe",
+      "source": {
+        "kind": "url",
+        "url": "https://www2.aomeisoftware.com/download/abfree/AOMEIBackupperStd.exe"
+      },
+      "page": "https://www.ubackup.com/free-backup-software.html"
+    },
+    {
+      "id": "hasleo-backup",
+      "name": "Hasleo Backup Suite Free (installer)",
+      "category": "Backup",
+      "desc": "Free system backup, restore आणि clone",
+      "installer": true,
+      "source": {
+        "kind": "manual"
+      },
+      "page": "https://www.easyuefi.com/backup-software/backup-suite-free.html"
+    },
+    {
+      "id": "dmde",
+      "name": "DMDE Free",
+      "category": "Recovery",
+      "desc": "Deleted/formatted partitions आणि files परत मिळवा",
+      "exe": "dmde\\.exe$",
+      "source": {
+        "kind": "scrape",
+        "page": "https://dmde.com/download.html",
+        "regex": "[^\"']*dmde-[\\d-]+-win64-gui\\.zip"
+      },
+      "page": "https://dmde.com/download.html"
+    },
+    {
+      "id": "testdisk",
+      "name": "TestDisk & PhotoRec",
+      "category": "Recovery",
+      "desc": "हरवलेले partition परत आणा (TestDisk), photos/files recover (PhotoRec)",
+      "exe": "qphotorec_win\\.exe$",
+      "source": {
+        "kind": "scrape",
+        "page": "https://www.cgsecurity.org/wiki/TestDisk_Download",
+        "regex": "[^\"']*testdisk-[\\d.]+\\.win64\\.zip"
+      },
+      "page": "https://www.cgsecurity.org/wiki/TestDisk_Download"
+    },
+    {
+      "id": "victoria",
+      "name": "Victoria",
+      "category": "Disk test",
+      "desc": "HDD/SSD surface test, bad sectors, SMART",
+      "exe": "Victoria\\.exe$",
+      "source": {
+        "kind": "scrape",
+        "page": "https://hdd.by/victoria/",
+        "regex": "[^\"']*Victoria\\d+\\.zip"
+      },
+      "page": "https://hdd.by/victoria/"
+    },
+    {
+      "id": "hdtune",
+      "name": "HD Tune (free, installer)",
+      "category": "Disk test",
+      "desc": "Disk speed, health आणि error scan",
+      "installer": true,
+      "file": "hdtune_255.exe",
+      "source": {
+        "kind": "url",
+        "url": "https://www.hdtune.com/files/hdtune_255.exe"
+      },
+      "page": "https://www.hdtune.com/download.html"
+    },
+    {
+      "id": "hddscan",
+      "name": "HDDScan",
+      "category": "Disk test",
+      "desc": "Disk diagnostics, SMART, surface tests",
+      "exe": "HDDScan\\.exe$",
+      "source": {
+        "kind": "scrape",
+        "page": "https://hddscan.com/",
+        "regex": "[^\"']*HDDScan[^\"']*\\.zip"
+      },
+      "page": "https://hddscan.com/"
+    },
+    {
+      "id": "dismpp",
+      "name": "Dism++",
+      "category": "Windows tools",
+      "desc": "Windows cleanup, updates, drivers, boot repair, image backup (open-source)",
+      "exe": "Dism\\+\\+x64\\.exe$",
+      "source": {
+        "kind": "github",
+        "repo": "Chuyu-Team/Dism-Multi-language",
+        "asset": "Dism\\+\\+.*\\.zip$"
+      },
+      "page": "https://github.com/Chuyu-Team/Dism-Multi-language/releases"
+    },
+    {
+      "id": "winntsetup",
+      "name": "WinNTSetup",
+      "category": "Windows tools",
+      "desc": "ISO मधून थेट Windows install (WinPE मधून पण)",
+      "exe": "WinNTSetup_x64\\.exe$",
+      "source": {
+        "kind": "manual"
+      },
+      "page": "https://msfn.org/board/topic/149612-winntsetup/"
+    },
+    {
+      "id": "ntpwedit",
+      "name": "NTPWEdit",
+      "category": "Windows tools",
+      "desc": "स्वतःच्या PC च्या local account चा password reset (मालकाच्या परवानगीने)",
+      "exe": "ntpwedit64\\.exe$",
+      "source": {
+        "kind": "scrape",
+        "page": "https://www.cdslow.org.ru/en/ntpwedit/",
+        "regex": "[^\"']*ntpwedit\\d+\\.zip"
+      },
+      "page": "https://www.cdslow.org.ru/en/ntpwedit/"
+    },
+    {
+      "id": "bootice",
+      "name": "BOOTICE",
+      "category": "Boot",
+      "desc": "MBR/PBR/BCD edit, boot sector repair",
+      "exe": "BOOTICE.*\\.exe$",
+      "source": {
+        "kind": "manual"
+      },
+      "page": "https://www.softpedia.com/get/System/Boot-Manager-Disk/Bootice.shtml"
+    },
+    {
+      "id": "easyuefi",
+      "name": "EasyUEFI Free (installer)",
+      "category": "Boot",
+      "desc": "UEFI boot entries manage/repair",
+      "installer": true,
+      "source": {
+        "kind": "manual"
+      },
+      "page": "https://www.easyuefi.com/index-us.html"
+    },
+    {
+      "id": "visualbcd",
+      "name": "Visual BCD Editor",
+      "category": "Boot",
+      "desc": "Windows boot menu (BCD) सोप्या पद्धतीने edit",
+      "exe": "VisualBCD.*\\.exe$",
+      "source": {
+        "kind": "manual"
+      },
+      "page": "https://www.boyans.net/"
+    },
+    {
+      "id": "explorerpp",
+      "name": "Explorer++",
+      "category": "Utilities",
+      "desc": "हलका file manager (WinPE मध्ये उपयोगी)",
+      "exe": "Explorer\\+\\+\\.exe$",
+      "source": {
+        "kind": "github",
+        "repo": "derceg/explorerplusplus",
+        "asset": "explorerpp_x64\\.zip$"
+      },
+      "page": "https://explorerplusplus.com/"
+    },
+    {
+      "id": "doubledriver",
+      "name": "Double Driver",
+      "category": "Drivers",
+      "desc": "Format आधी सगळ्या drivers चा backup आणि restore",
+      "exe": "dd\\.exe$",
+      "source": {
+        "kind": "manual"
+      },
+      "page": "https://www.boozet.org/dd.htm"
+    },
+    {
+      "id": "produkey",
+      "name": "ProduKey",
+      "category": "Windows tools",
+      "desc": "PC मधली Windows / Office product key पाहा (reinstall आधी)",
+      "exe": "ProduKey\\.exe$",
+      "source": {
+        "kind": "url",
+        "url": "https://www.nirsoft.net/utils/produkey-x64.zip"
+      },
+      "page": "https://www.nirsoft.net/utils/product_cd_key_viewer.html"
     }
   ],
   "docs": [
