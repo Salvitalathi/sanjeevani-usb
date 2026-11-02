@@ -550,7 +550,7 @@ if ($WithDrivers -and $installed['sdio']) {
         $drv = Join-Path (Split-Path $sdioExe) 'drivers'
         $sz = 0; if (Test-Path $drv) { $sz = (Get-ChildItem $drv -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum }
         if ($sz -gt 1GB) { Ok ("Driver packs on USB: {0:N1} GB" -f ($sz / 1GB)) }
-        else { Warn 'Driver packs did not download automatically. Open SDIO from the USB (Tools\Drivers) and click "Download all driverpacks".' }
+        else { Warn 'Driver packs did not download automatically. Run SDIO_x64_*.exe from Tools\Drivers\Snappy Driver Installer Origin and choose "Download all driverpacks" in its window.' }
     }
 }
 
@@ -615,8 +615,8 @@ Ok "USB: $UsbRoot   (free: $(Get-FreeGB) GB)"
 if ($failed.Count) { Warn ("{0} item(s) failed - see Docs\manual-downloads.html, or run UPDATE.cmd again later" -f $failed.Count) }
 if ($manual.Count) { Warn ("{0} item(s) need a manual download - see Docs\manual-downloads.html" -f $manual.Count) }
 Say ''
-Say '  Next: Snappy Driver Installer -> open it once from Toolbox and click "Download all driverpacks"' DarkCyan
-Say '        (~40 GB) if you want offline drivers on the USB.' DarkCyan
+Say '  Offline drivers: open Tools\Drivers\Snappy Driver Installer Origin\SDIO_x64_*.exe (a program, not a file to look for)' DarkCyan
+Say '        and in its first window choose "Download all driverpacks" (~60 GB). Skip if a big "drivers" folder is already there.' DarkCyan
 Say '  To boot: plug the USB, press the Boot Menu key (F12/F9/F11/Esc), choose the USB.' DarkCyan
 Say ''
 if ($manual.Count -or $failed.Count) { Start-Process $manualFile }
