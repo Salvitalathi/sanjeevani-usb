@@ -381,6 +381,14 @@ function Test-UpToDate($e, $resolvedUrl, $target) {
 
 function Get-FreeGB { return [math]::Round((Get-PSDrive ($UsbRoot.Substring(0, 1))).Free / 1GB, 1) }
 
+# path of a file relative to the USB root (robust against 8.3 short names like RUNNER~1)
+function Get-UsbRelPath([string]$Full) {
+    $root = (Get-Item -LiteralPath $UsbRoot).FullName.TrimEnd('\') + '\'
+    $full2 = (Get-Item -LiteralPath $Full).FullName
+    if ($full2.StartsWith($root, [StringComparison]::OrdinalIgnoreCase)) { return $full2.Substring($root.Length) }
+    return $full2
+}
+
 # A tool the user downloaded by hand (from manual-downloads.html): find it on the USB by its
 # file name, unpack it if it is still a zip/7z, and register it so it is not listed again.
 function Find-ManualItem($e, [string]$Kind) {
@@ -412,7 +420,7 @@ function Find-ManualItem($e, [string]$Kind) {
         if (-not $exe) { $exe = $inside | Where-Object { $_.Extension -eq '.exe' } | Sort-Object { $_.FullName.Length } | Select-Object -First 1 }
         if (-not $exe) { return $folderRel }
     }
-    return $exe.FullName.Substring($UsbRoot.Length)
+    return (Get-UsbRelPath $exe.FullName)
 }
 
 function Install-Item($e, [string]$Kind) {
@@ -489,7 +497,7 @@ function Install-Item($e, [string]$Kind) {
                 Move-Item -LiteralPath $tmp -Destination (Join-Path $folder $name) -Force
             }
             $exe = Get-ChildItem $folder -Recurse -File | Where-Object { $_.Name -match $e.exe } | Sort-Object { $_.FullName.Length } | Select-Object -First 1
-            $rel = if ($exe) { $exe.FullName.Substring($UsbRoot.Length) } else { $folderRel }
+            $rel = if ($exe) { Get-UsbRelPath $exe.FullName } else { $folderRel }
         }
         $installed[$e.id] = [pscustomobject]@{ url = $r.Url; path = $rel; date = (Get-Date).ToString('s'); name = $r.Name }
         Ok "saved: $rel"

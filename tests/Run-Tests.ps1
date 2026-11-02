@@ -302,7 +302,7 @@ Test-Case 'Setup finds tools the user downloaded by hand' {
     # load only the function definitions from the setup script
     $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $Root 'Setup-Sanjeevani.ps1'), [ref]$null, [ref]$null)
     foreach ($fn in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $false)) {
-        if ($fn.Name -in 'Find-ManualItem', 'Ok', 'Say', 'Warn') { . ([scriptblock]::Create($fn.Extent.Text)) }
+        if ($fn.Name -in 'Find-ManualItem', 'Get-UsbRelPath', 'Ok', 'Say', 'Warn') { . ([scriptblock]::Create($fn.Extent.Text)) }
     }
     $usb = Join-Path $env:TEMP ('sjv-man-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
     $script:UsbRoot = $usb + '\'
