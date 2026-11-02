@@ -381,12 +381,54 @@ function Test-UpToDate($e, $resolvedUrl, $target) {
 
 function Get-FreeGB { return [math]::Round((Get-PSDrive ($UsbRoot.Substring(0, 1))).Free / 1GB, 1) }
 
+# A tool the user downloaded by hand (from manual-downloads.html): find it on the USB by its
+# file name, unpack it if it is still a zip/7z, and register it so it is not listed again.
+function Find-ManualItem($e, [string]$Kind) {
+    if (-not $e.fileMatch) { return $null }
+    $rx = $e.fileMatch
+    if ($Kind -eq 'iso') {
+        $f = Get-ChildItem (Join-Path $UsbRoot 'ISO') -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Extension -in '.iso', '.img' -and $_.BaseName -match $rx } | Select-Object -First 1
+        if ($f) { return "ISO\$($f.Name)" }
+        return $null
+    }
+    $folderRel = "Tools\$($e.category)\$($e.name -replace '[^\w\-\. ]', '')"
+    $folder = Join-Path $UsbRoot $folderRel
+    $files = @(Get-ChildItem (Join-Path $UsbRoot 'Tools'), (Join-Path $UsbRoot 'Installers') -Recurse -File -ErrorAction SilentlyContinue) +
+             @(Get-ChildItem $UsbRoot -File -ErrorAction SilentlyContinue)
+    $cand = @($files | Where-Object { $_.Extension -in '.exe', '.msi', '.zip', '.7z' -and $_.Name -match $rx })
+    if (-not $cand.Count) { return $null }
+    $pick = { param($list) $list | Where-Object { $_.Extension -eq '.exe' -and (-not $e.exe -or $_.Name -match $e.exe) } | Sort-Object { $_.FullName.Length } | Select-Object -First 1 }
+    $exe = & $pick $cand
+    if (-not $exe) { $exe = $cand | Where-Object { $_.Extension -in '.exe', '.msi' } | Select-Object -First 1 }
+    if (-not $exe) {
+        $arc = $cand | Where-Object { $_.Extension -in '.zip', '.7z' } | Select-Object -First 1
+        New-Item -ItemType Directory -Path $folder -Force | Out-Null
+        if ($arc.Extension -eq '.zip') { Expand-Archive -LiteralPath $arc.FullName -DestinationPath $folder -Force }
+        else { & (Get-7zr) x $arc.FullName ('-o' + $folder) -y | Out-Null }
+        Ok "unpacked $($arc.Name) -> $folderRel"
+        $inside = @(Get-ChildItem $folder -Recurse -File -ErrorAction SilentlyContinue)
+        $exe = & $pick $inside
+        if (-not $exe) { $exe = $inside | Where-Object { $_.Extension -eq '.exe' } | Sort-Object { $_.FullName.Length } | Select-Object -First 1 }
+        if (-not $exe) { return $folderRel }
+    }
+    return $exe.FullName.Substring($UsbRoot.Length)
+}
+
 function Install-Item($e, [string]$Kind) {
     if (-not (Test-Wanted $e)) { return }
     $label = if ($e.alias) { $e.alias } else { $e.name }
     Say ''
     Say "  -- $label" White
-    if ($e.source.kind -eq 'manual') { [void]$manual.Add($e); Warn 'manual download (link in Docs\manual-downloads.html)'; return }
+    if ($e.source.kind -eq 'manual') {
+        $found = $null
+        try { $found = Find-ManualItem $e $Kind } catch { Warn ("could not check hand-copied file: " + $_.Exception.Message) }
+        if ($found) {
+            $installed[$e.id] = [pscustomobject]@{ url = 'manual'; path = $found; date = (Get-Date).ToString('s'); name = (Split-Path $found -Leaf) }
+            Ok "found on USB (added by hand): $found"; return
+        }
+        [void]$manual.Add($e); Warn 'manual download (link in Docs\manual-downloads.html)'; return
+    }
     if ($Kind -eq 'iso') {
         # an ISO the user copied in by hand (any name containing the id, e.g. HBCD_PE_x64.iso) counts as installed
         $own = Get-ChildItem (Join-Path $UsbRoot 'ISO') -File -ErrorAction SilentlyContinue |
@@ -529,7 +571,7 @@ $html = @"
 <!DOCTYPE html><html><head><meta charset="utf-8"><title>Manual downloads</title>
 <style>body{font-family:'Nirmala UI','Segoe UI',sans-serif;margin:24px;color:#0f172a}table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #e2e8f0;padding:8px;text-align:left}th{background:#f1f5f9}code{background:#f1f5f9;padding:2px 5px}</style></head><body>
 <h2>हे files हाताने download करा</h2>
-<p>खालील tools आपोआप download होत नाहीत (website वर बटण दाबावे लागते) किंवा या वेळी download fail झाले. Link उघडा, file download करा आणि दिलेल्या USB folder मध्ये ठेवा. नंतर <b>Sanjeevani\Setup\UPDATE.cmd</b> पुन्हा चालवा म्हणजे boot menu अपडेट होईल.</p>
+<p>खालील tools आपोआप download होत नाहीत (website वर बटण दाबावे लागते) किंवा या वेळी download fail झाले. Link उघडा, file download करा आणि दिलेल्या USB folder मध्ये ठेवा. <b>File चे मूळ नाव बदलू नका</b> (setup नावावरून tool ओळखतो). Zip extract न करता ठेवली तरी चालेल; setup स्वतः extract करतो. नंतर <b>Sanjeevani\Setup\UPDATE.cmd</b> पुन्हा चालवा म्हणजे boot menu अपडेट होईल.</p>
 <table><tr><th>Tool</th><th>Download page</th><th>USB वर कुठे ठेवायचे</th><th>कारण</th></tr>
 $($rows -join "`n")
 </table><p>Last setup: $(Get-Date -Format 'dd-MM-yyyy HH:mm')</p></body></html>

@@ -298,6 +298,38 @@ Test-Case 'Background job runner pattern (runspace + modules)' {
     $true
 }
 
+Test-Case 'Setup finds tools the user downloaded by hand' {
+    # load only the function definitions from the setup script
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $Root 'Setup-Sanjeevani.ps1'), [ref]$null, [ref]$null)
+    foreach ($fn in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $false)) {
+        if ($fn.Name -in 'Find-ManualItem', 'Ok', 'Say', 'Warn') { . ([scriptblock]::Create($fn.Extent.Text)) }
+    }
+    $usb = Join-Path $env:TEMP ('sjv-man-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
+    $script:UsbRoot = $usb + '\'
+    $UsbRoot = $script:UsbRoot
+    foreach ($d in 'ISO', 'Tools\Hardware\GPU-Z', 'Installers') { New-Item -ItemType Directory -Path (Join-Path $usb $d) -Force | Out-Null }
+    Set-Content (Join-Path $usb 'Tools\Hardware\GPU-Z\GPU-Z.2.60.0.exe') 'x'
+    Set-Content (Join-Path $usb 'Installers\SumatraPDF-3.5.2-64-install.exe') 'x'
+    Set-Content (Join-Path $usb 'ISO\hdat2_74_cd.iso') 'x'
+    $z = Join-Path $env:TEMP 'occt-src'; New-Item -ItemType Directory $z -Force | Out-Null; Set-Content (Join-Path $z 'OCCT.exe') 'x'
+    Compress-Archive -Path (Join-Path $z '*') -DestinationPath (Join-Path $usb 'OCCT_14.zip') -Force   # zip left in USB root, not extracted
+    $cat = Get-Content (Join-Path $Kit 'Sanjeevani\tools.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+    $get = { param($id) @($cat.isos) + @($cat.tools) | Where-Object id -eq $id }
+    $r1 = Find-ManualItem (& $get 'gpuz') 'tool'
+    $r2 = Find-ManualItem (& $get 'sumatra') 'tool'
+    $r3 = Find-ManualItem (& $get 'hdat2') 'iso'
+    $r4 = Find-ManualItem (& $get 'occt') 'tool'
+    $r5 = Find-ManualItem (& $get 'furmark') 'tool'
+    Write-Host "      gpuz=$r1 ; sumatra=$r2 ; hdat2=$r3 ; occt=$r4 ; furmark=$r5"
+    Assert ($r1 -eq 'Tools\Hardware\GPU-Z\GPU-Z.2.60.0.exe') "gpuz: $r1"
+    Assert ($r2 -eq 'Installers\SumatraPDF-3.5.2-64-install.exe') "sumatra: $r2"
+    Assert ($r3 -eq 'ISO\hdat2_74_cd.iso') "hdat2: $r3"
+    Assert ($r4 -match '^Tools\\Stress\\OCCT\\OCCT\.exe$') "occt (unzipped): $r4"
+    Assert ($null -eq $r5) 'furmark should not be found'
+    Remove-Item $usb, $z -Recurse -Force
+    $true
+}
+
 Remove-Item $fakeUsb -Recurse -Force -ErrorAction SilentlyContinue
 
 # ------------------------------------------------------------------ summary

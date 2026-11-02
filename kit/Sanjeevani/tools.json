@@ -199,7 +199,8 @@
       "source": {
         "kind": "manual"
       },
-      "page": "https://www.lazesoft.com/lazesoft-recovery-suite-free.html"
+      "page": "https://www.lazesoft.com/lazesoft-recovery-suite-free.html",
+      "fileMatch": "lazesoft|lsrecovery"
     },
     {
       "id": "hdat2",
@@ -210,7 +211,8 @@
       "source": {
         "kind": "manual"
       },
-      "page": "https://www.hdat2.com/download.html"
+      "page": "https://www.hdat2.com/download.html",
+      "fileMatch": "hdat2"
     }
   ],
   "tools": [
@@ -250,7 +252,8 @@
       "source": {
         "kind": "manual"
       },
-      "page": "https://www.techpowerup.com/gpuz/"
+      "page": "https://www.techpowerup.com/gpuz/",
+      "fileMatch": "gpu-?z"
     },
     {
       "id": "crystaldiskinfo",
@@ -287,7 +290,8 @@
       "source": {
         "kind": "manual"
       },
-      "page": "https://www.ocbase.com/download"
+      "page": "https://www.ocbase.com/download",
+      "fileMatch": "occt"
     },
     {
       "id": "prime95",
@@ -311,7 +315,8 @@
       "source": {
         "kind": "manual"
       },
-      "page": "https://geeks3d.com/furmark/downloads/"
+      "page": "https://geeks3d.com/furmark/downloads/",
+      "fileMatch": "furmark"
     },
     {
       "id": "bluescreenview",
@@ -334,7 +339,8 @@
       "source": {
         "kind": "manual"
       },
-      "page": "https://www.resplendence.com/whocrashed"
+      "page": "https://www.resplendence.com/whocrashed",
+      "fileMatch": "whocrashed"
     },
     {
       "id": "sdio",
@@ -463,7 +469,8 @@
       "source": {
         "kind": "manual"
       },
-      "page": "https://www.ccleaner.com/recuva/builds"
+      "page": "https://www.ccleaner.com/recuva/builds",
+      "fileMatch": "recuva|rcsetup"
     },
     {
       "id": "advipscanner",
@@ -474,7 +481,8 @@
       "source": {
         "kind": "manual"
       },
-      "page": "https://www.advanced-ip-scanner.com/"
+      "page": "https://www.advanced-ip-scanner.com/",
+      "fileMatch": "advanced.?ip.?scanner|ipscan"
     },
     {
       "id": "winmtr",
@@ -590,7 +598,8 @@
       "source": {
         "kind": "manual"
       },
-      "page": "https://www.sumatrapdfreader.org/download-free-pdf-viewer"
+      "page": "https://www.sumatrapdfreader.org/download-free-pdf-viewer",
+      "fileMatch": "sumatra"
     },
     {
       "id": "libreoffice",
@@ -601,7 +610,8 @@
       "source": {
         "kind": "manual"
       },
-      "page": "https://www.libreoffice.org/download/download-libreoffice/"
+      "page": "https://www.libreoffice.org/download/download-libreoffice/",
+      "fileMatch": "libreoffice"
     },
     {
       "id": "qbittorrent",
@@ -612,7 +622,8 @@
       "source": {
         "kind": "manual"
       },
-      "page": "https://www.qbittorrent.org/download"
+      "page": "https://www.qbittorrent.org/download",
+      "fileMatch": "qbittorrent"
     },
     {
       "id": "firefox",
@@ -623,7 +634,8 @@
       "source": {
         "kind": "manual"
       },
-      "page": "https://www.mozilla.org/firefox/all/"
+      "page": "https://www.mozilla.org/firefox/all/",
+      "fileMatch": "firefox"
     },
     {
       "id": "aomei-pa",
@@ -635,7 +647,8 @@
       "source": {
         "kind": "manual"
       },
-      "page": "https://www.diskpart.com/free-partition-manager.html"
+      "page": "https://www.diskpart.com/free-partition-manager.html",
+      "fileMatch": "passist|partition.?assistant"
     },
     {
       "id": "minitool-pw",
@@ -646,7 +659,8 @@
       "source": {
         "kind": "manual"
       },
-      "page": "https://www.partitionwizard.com/free-partition-manager.html"
+      "page": "https://www.partitionwizard.com/free-partition-manager.html",
+      "fileMatch": "minitool|partition.?wizard|pw.?free"
     },
     {
       "id": "aomei-backupper",
@@ -658,7 +672,8 @@
       "source": {
         "kind": "manual"
       },
-      "page": "https://www.ubackup.com/free-backup-software.html"
+      "page": "https://www.ubackup.com/free-backup-software.html",
+      "fileMatch": "backupper"
     },
     {
       "id": "hasleo-backup",
@@ -669,7 +684,8 @@
       "source": {
         "kind": "manual"
       },
-      "page": "https://www.easyuefi.com/backup-software/backup-suite-free.html"
+      "page": "https://www.easyuefi.com/backup-software/backup-suite-free.html",
+      "fileMatch": "hasleo|backup.?suite"
     },
     {
       "id": "dmde",
@@ -733,7 +749,8 @@
       "source": {
         "kind": "manual"
       },
-      "page": "https://hddscan.com/"
+      "page": "https://hddscan.com/",
+      "fileMatch": "hddscan"
     },
     {
       "id": "dismpp",
@@ -757,7 +774,8 @@
       "source": {
         "kind": "manual"
       },
-      "page": "https://msfn.org/board/topic/149612-winntsetup/"
+      "page": "https://msfn.org/board/topic/149612-winntsetup/",
+      "fileMatch": "winntsetup"
     },
     {
       "id": "ntpwedit",
@@ -768,7 +786,8 @@
       "source": {
         "kind": "manual"
       },
-      "page": "https://www.cdslow.org.ru/en/ntpwedit/"
+      "page": "https://www.cdslow.org.ru/en/ntpwedit/",
+      "fileMatch": "ntpwed"
     },
     {
       "id": "bootice",
@@ -779,7 +798,8 @@
       "source": {
         "kind": "manual"
       },
-      "page": "https://www.softpedia.com/get/System/Boot-Manager-Disk/Bootice.shtml"
+      "page": "https://www.softpedia.com/get/System/Boot-Manager-Disk/Bootice.shtml",
+      "fileMatch": "bootice"
     },
     {
       "id": "easyuefi",
@@ -790,7 +810,8 @@
       "source": {
         "kind": "manual"
       },
-      "page": "https://www.easyuefi.com/index-us.html"
+      "page": "https://www.easyuefi.com/index-us.html",
+      "fileMatch": "easyuefi"
     },
     {
       "id": "visualbcd",
@@ -801,7 +822,8 @@
       "source": {
         "kind": "manual"
       },
-      "page": "https://www.boyans.net/"
+      "page": "https://www.boyans.net/",
+      "fileMatch": "visual.?bcd"
     },
     {
       "id": "explorerpp",
@@ -825,7 +847,8 @@
       "source": {
         "kind": "manual"
       },
-      "page": "https://www.boozet.org/dd.htm"
+      "page": "https://www.boozet.org/dd.htm",
+      "fileMatch": "double.?driver|dbldrv"
     },
     {
       "id": "produkey",
