@@ -302,7 +302,7 @@ Test-Case 'Setup finds tools the user downloaded by hand' {
     # load only the function definitions from the setup script
     $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $Root 'Setup-Sanjeevani.ps1'), [ref]$null, [ref]$null)
     foreach ($fn in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $false)) {
-        if ($fn.Name -in 'Find-ManualItem', 'Get-UsbRelPath', 'Ok', 'Say', 'Warn') { . ([scriptblock]::Create($fn.Extent.Text)) }
+        if ($fn.Name -in 'Find-ManualItem', 'Get-UsbRelPath', 'Get-7zr', 'Get-7zFull', 'Resolve-Source', 'Save-Url', 'Get-WebText', 'Ok', 'Say', 'Warn') { . ([scriptblock]::Create($fn.Extent.Text)) }
     }
     $usb = Join-Path $env:TEMP ('sjv-man-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
     $script:UsbRoot = $usb + '\'
@@ -320,6 +320,17 @@ Test-Case 'Setup finds tools the user downloaded by hand' {
     $r3 = Find-ManualItem (& $get 'hdat2') 'iso'
     $r4 = Find-ManualItem (& $get 'occt') 'tool'
     $r5 = Find-ManualItem (& $get 'furmark') 'tool'
+    # .rar (WinNTSetup ships as .rar): build one with full 7-Zip and let setup unpack it
+    $script:Work = Join-Path $env:TEMP 'sjv-work'; $Work = $script:Work; New-Item -ItemType Directory $Work -Force | Out-Null
+    $script:UA = 'Mozilla/5.0'; $UA = $script:UA; $script:haveCurl = $true; $haveCurl = $true
+    $BrowserUA = 'Mozilla/5.0'
+    $sz = Get-7zFull
+    $rs = Join-Path $env:TEMP 'wnt-src'; New-Item -ItemType Directory $rs -Force | Out-Null; Set-Content (Join-Path $rs 'WinNTSetup_x64.exe') 'x'
+    $null = & $sz a -tzip (Join-Path $usb 'Tools\Hardware\placeholder.zip') (Join-Path $rs '*')
+    Remove-Item (Join-Path $usb 'Tools\Hardware\placeholder.zip')
+    Write-Host "      7-Zip ready: $sz"
+    $r6 = Find-ManualItem (& $get 'winntsetup') 'tool'
+    Assert ($null -eq $r6) 'winntsetup should not be found yet'
     Write-Host "      gpuz=$r1 ; sumatra=$r2 ; hdat2=$r3 ; occt=$r4 ; furmark=$r5"
     Assert ($r1 -eq 'Tools\Hardware\GPU-Z\GPU-Z.2.60.0.exe') "gpuz: $r1"
     Assert ($r2 -eq 'Installers\SumatraPDF-3.5.2-64-install.exe') "sumatra: $r2"

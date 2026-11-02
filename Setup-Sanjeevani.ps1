@@ -142,6 +142,25 @@ function Get-7zr {
     return $x
 }
 
+# Full 7-Zip (7z.exe + 7z.dll, opens .rar too): unpacked from the official 7-Zip installer with 7zr.exe
+function Get-7zFull {
+    $dir = Join-Path $Work '7zfull'
+    $x = Join-Path $dir '7z.exe'
+    if (-not (Test-Path $x)) {
+        $inst = Get-ChildItem (Join-Path $UsbRoot 'Installers') -Filter '7z*-x64.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($inst) { $instPath = $inst.FullName }
+        else {
+            $r = Resolve-Source ([pscustomobject]@{ source = [pscustomobject]@{ kind = 'github'; repo = 'ip7z/7zip'; asset = '7z\d+-x64\.exe$' } })
+            $instPath = Join-Path $Work $r.Name
+            if (-not (Test-Path $instPath)) { Save-Url $r.Url $instPath }
+        }
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        & (Get-7zr) x $instPath ('-o' + $dir) -y | Out-Null
+        if (-not (Test-Path $x)) { throw 'could not prepare 7-Zip for .rar files' }
+    }
+    return $x
+}
+
 function Resolve-Source($e) {
     $s = $e.source
     switch ($s.kind) {
@@ -404,16 +423,17 @@ function Find-ManualItem($e, [string]$Kind) {
     $folder = Join-Path $UsbRoot $folderRel
     $files = @(Get-ChildItem (Join-Path $UsbRoot 'Tools'), (Join-Path $UsbRoot 'Installers') -Recurse -File -ErrorAction SilentlyContinue) +
              @(Get-ChildItem $UsbRoot -File -ErrorAction SilentlyContinue)
-    $cand = @($files | Where-Object { $_.Extension -in '.exe', '.msi', '.zip', '.7z' -and $_.Name -match $rx })
+    $cand = @($files | Where-Object { $_.Extension -in '.exe', '.msi', '.zip', '.7z', '.rar' -and $_.Name -match $rx })
     if (-not $cand.Count) { return $null }
     $pick = { param($list) $list | Where-Object { $_.Extension -eq '.exe' -and (-not $e.exe -or $_.Name -match $e.exe) } | Sort-Object { $_.FullName.Length } | Select-Object -First 1 }
     $exe = & $pick $cand
     if (-not $exe) { $exe = $cand | Where-Object { $_.Extension -in '.exe', '.msi' } | Select-Object -First 1 }
     if (-not $exe) {
-        $arc = $cand | Where-Object { $_.Extension -in '.zip', '.7z' } | Select-Object -First 1
+        $arc = $cand | Where-Object { $_.Extension -in '.zip', '.7z', '.rar' } | Select-Object -First 1
         New-Item -ItemType Directory -Path $folder -Force | Out-Null
         if ($arc.Extension -eq '.zip') { Expand-Archive -LiteralPath $arc.FullName -DestinationPath $folder -Force }
-        else { & (Get-7zr) x $arc.FullName ('-o' + $folder) -y | Out-Null }
+        elseif ($arc.Extension -eq '.7z') { & (Get-7zr) x $arc.FullName ('-o' + $folder) -y | Out-Null }
+        else { & (Get-7zFull) x $arc.FullName ('-o' + $folder) -y | Out-Null; if ($LASTEXITCODE -ne 0) { throw "could not unpack $($arc.Name) (7z $LASTEXITCODE)" } }
         Ok "unpacked $($arc.Name) -> $folderRel"
         $inside = @(Get-ChildItem $folder -Recurse -File -ErrorAction SilentlyContinue)
         $exe = & $pick $inside
