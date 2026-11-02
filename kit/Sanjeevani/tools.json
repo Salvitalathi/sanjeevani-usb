@@ -781,12 +781,12 @@
       "id": "ntpwedit",
       "name": "NTPWEdit",
       "category": "Windows tools",
-      "desc": "स्वतःच्या PC च्या local account चा password reset (मालकाच्या परवानगीने)",
+      "desc": "स्वतःच्या PC चा local account password reset (offline, मालकाच्या परवानगीने). Hiren's PE मध्ये पण आहे",
       "exe": "ntpwedit64\\.exe$",
       "source": {
         "kind": "manual"
       },
-      "page": "https://www.cdslow.org.ru/en/ntpwedit/",
+      "page": "http://cdslow.org.ru/en/ntpwedit/",
       "fileMatch": "ntpwed"
     },
     {
