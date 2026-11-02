@@ -69,7 +69,8 @@
       "source": {
         "kind": "sourceforge",
         "project": "gparted",
-        "file": "gparted-live-[\\d.\\-]+-amd64\\.iso$"
+        "file": "gparted-live-[\\d.\\-]+-amd64\\.iso$",
+        "pathMatch": "/gparted-live-stable/"
       },
       "page": "https://gparted.org/download.php"
     },
@@ -83,7 +84,8 @@
       "source": {
         "kind": "sourceforge",
         "project": "clonezilla",
-        "file": "clonezilla-live-[\\d.\\-]+-amd64\\.iso$"
+        "file": "clonezilla-live-[\\d.\\-]+-amd64\\.iso$",
+        "pathMatch": "/clonezilla_live_stable/"
       },
       "page": "https://clonezilla.org/downloads.php"
     },

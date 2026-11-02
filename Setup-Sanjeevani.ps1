@@ -160,6 +160,7 @@ function Resolve-Source($e) {
             foreach ($it in $rss.rss.channel.item) {
                 $link = [string]$it.link                      # .../files/<path>/<name>/download
                 $leaf = [Uri]::UnescapeDataString(($link -replace '/download$', '').Split('/')[-1])
+                if ($s.pathMatch -and $link -notmatch [regex]::Escape($s.pathMatch)) { continue }   # e.g. stable, not testing
                 if ($leaf -match $s.file) { return @{ Url = $link; Name = $leaf } }
             }
             throw "no file matching '$($s.file)' in sourceforge/$($s.project)"
