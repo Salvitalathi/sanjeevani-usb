@@ -242,12 +242,13 @@ if ($ResolveOnly) {
                 # fetch the first KB to prove the link really serves a file
                 $probe = Join-Path $Work ('probe_' + $e.id)
                 $agent = if ($r.Url -match 'sourceforge\.net') { 'Wget/1.21.4' } else { $UA }
-                & curl.exe -sS -L --fail --max-time 60 -A $agent -r 0-1023 -o $probe $r.Url 2>&1 | Out-Null
+                # -s without -S: no stderr text (in Windows PowerShell 5.1 any stderr line would abort here with ErrorAction Stop)
+                & curl.exe -s -L --fail --max-time 60 -A $agent -r 0-1023 -o $probe $r.Url | Out-Null
                 $code0 = $LASTEXITCODE
                 if ($code0 -ne 0) {
                     foreach ($m in @($e.source.mirrors)) {
                         if (-not $m) { continue }
-                        & curl.exe -sS -L --fail --max-time 60 -A $UA -r 0-1023 -o $probe $m 2>&1 | Out-Null
+                        & curl.exe -s -L --fail --max-time 60 -A $UA -r 0-1023 -o $probe $m | Out-Null
                         if ($LASTEXITCODE -eq 0) { $code0 = 0; $r.Name = "$($r.Name) (via mirror $(([Uri]$m).Host))"; break }
                     }
                 }
