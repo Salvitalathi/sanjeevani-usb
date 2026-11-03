@@ -284,7 +284,7 @@ if ($ResolveOnly) {
             } catch {
                 $row.status = 'FAIL'; $row.detail = $_.Exception.Message
                 # Kaspersky refuses US addresses (GitHub runners); it works from India
-                if ($row.url -match 'kaspersky' -and $row.detail -match '403') { $row.status = 'geo'; $row.detail = 'blocked in the US only (CI runner) - fine in India' }
+                if ($row.url -match 'kaspersky' -and $row.detail -match '403|curl 22') { $row.status = 'geo'; $row.detail = 'blocked in the US only (CI runner) - fine in India' }
             }
         }
         $res += [pscustomobject]$row
