@@ -213,7 +213,7 @@ function Resolve-Source($e) {
             if (-not $vers) { throw "no versions found on $($s.page)" }
             $v = @($vers)[0]
             $f = $s.file.Replace('{v}', $v)
-            return @{ Url = ($s.page.TrimEnd('/') + "/$v/$f"); Name = $f; Version = $v }
+            return @{ Url = ($s.page.TrimEnd('/') + "/$v/$f"); Name = ($f -split '/')[-1]; Version = $v }
         }
         'fido' {
             $fido = Join-Path $Work 'Fido.ps1'
@@ -234,7 +234,7 @@ if ($ResolveOnly) {
     foreach ($e in @($cat.isos) + @($cat.tools)) {
         if ($Only -and $Only -notcontains $e.id) { continue }
         $row = [ordered]@{ id = $e.id; kind = $e.source.kind; status = ''; url = ''; detail = '' }
-        if ($e.source.kind -eq 'manual') { $row.status = 'manual' }
+        if ($e.source.kind -eq 'manual') { $row.status = $(if ($e.optional) { 'optional' } else { 'manual' }) }
         else {
             try {
                 $r = Resolve-Source $e
@@ -243,7 +243,15 @@ if ($ResolveOnly) {
                 $probe = Join-Path $Work ('probe_' + $e.id)
                 $agent = if ($r.Url -match 'sourceforge\.net') { 'Wget/1.21.4' } else { $UA }
                 & curl.exe -sS -L --fail --max-time 60 -A $agent -r 0-1023 -o $probe $r.Url 2>&1 | Out-Null
-                if ($LASTEXITCODE -ne 0) { throw "curl $LASTEXITCODE" }
+                $code0 = $LASTEXITCODE
+                if ($code0 -ne 0) {
+                    foreach ($m in @($e.source.mirrors)) {
+                        if (-not $m) { continue }
+                        & curl.exe -sS -L --fail --max-time 60 -A $UA -r 0-1023 -o $probe $m 2>&1 | Out-Null
+                        if ($LASTEXITCODE -eq 0) { $code0 = 0; $r.Name = "$($r.Name) (via mirror $(([Uri]$m).Host))"; break }
+                    }
+                }
+                if ($code0 -ne 0) { throw "curl $code0" }
                 $head = [IO.File]::ReadAllBytes($probe); Remove-Item $probe -Force
                 $txt = [Text.Encoding]::ASCII.GetString($head, 0, [math]::Min(64, $head.Length)).TrimStart()
                 if ($txt -match '^(?i)<(!DOCTYPE|html)') { throw 'web page instead of file' }
@@ -408,6 +416,7 @@ $instFile = Join-Path $UsbRoot 'Sanjeevani\installed.json'
 $installed = @{}
 if (Test-Path $instFile) { (Get-Content $instFile -Raw -Encoding UTF8 | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $installed[$_.Name] = $_.Value } }
 $manual = New-Object System.Collections.ArrayList
+$optionalList = New-Object System.Collections.ArrayList
 $failed = New-Object System.Collections.ArrayList
 
 if (-not $SkipDownloads -and -not $Only) {
@@ -542,6 +551,7 @@ function Install-Item($e, [string]$Kind) {
             $installed[$e.id] = [pscustomobject]@{ url = 'manual'; path = $found; date = (Get-Date).ToString('s'); name = (Split-Path $found -Leaf) }
             Ok "found on USB (added by hand): $found"; return
         }
+        if ($e.optional) { [void]$optionalList.Add($e); Say "     optional - not needed: $($e.alt)" DarkGray; return }
         [void]$manual.Add($e); Warn 'manual download (link in Docs\manual-downloads.html)'; return
     }
     if ($Kind -eq 'iso') {
@@ -567,7 +577,15 @@ function Install-Item($e, [string]$Kind) {
     $tmp = Join-Path $Work ($e.id + '_' + $r.Name)
     try {
         Say "     $($r.Url)" DarkGray
-        Save-Url $r.Url $tmp $e.page
+        $urls = @($r.Url) + @($e.source.mirrors | Where-Object { $_ })
+        $got = $false; $lastErr = $null
+        foreach ($u in $urls) {
+            try {
+                if ($u -ne $r.Url) { Warn "     trying official mirror: $(([Uri]$u).Host)" }
+                Save-Url $u $tmp $e.page; $got = $true; break
+            } catch { $lastErr = $_ }
+        }
+        if (-not $got) { throw $lastErr }
         $rel = $null
         if ($Kind -eq 'iso') {
             $ext = if ($e.ext) { $e.ext } else { '.iso' }
@@ -654,14 +672,29 @@ if ($WithDrivers -and $installed['sdio']) {
         $have = 0; if (Test-Path $drv) { $have = (Get-ChildItem $drv -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum }
         if ($have -gt 5GB) { Ok ("Driver packs already on USB: {0:N1} GB (SDIO -> Updates to refresh them)" -f ($have / 1GB)) }
         else {
-            # SDIO 2.x asks on its Welcome window what to download; that window only appears while it has no settings
-            # file yet, so park old settings (left by older setups that ran SDIO unattended).
-            Get-ChildItem $sdioDir -Filter '*.cfg' -File -ErrorAction SilentlyContinue | ForEach-Object { Rename-Item $_.FullName ($_.Name + '.old') -Force -ErrorAction SilentlyContinue }
+            # 1) fully automatic: SDIO's own scripting engine downloads every driver pack with its built-in
+            #    torrent engine - no torrent program and no clicking needed
+            $scriptDir = Join-Path $sdioDir 'scripts'
+            New-Item -ItemType Directory -Path $scriptDir -Force | Out-Null
+            $sdScript = Join-Path $scriptDir 'sanjeevani-get-all-driverpacks.txt'
+            Set-Content -LiteralPath $sdScript -Encoding ASCII -Value @(
+                '# Sanjeevani: download all driver packs (used by Setup-Sanjeevani.ps1)',
+                'echo Sanjeevani - downloading all driver packs. This takes hours; keep this window open.',
+                'init', 'checkupdates', 'onerror goto :fail', 'get driverpacks all', 'echo Driver packs downloaded.', 'end',
+                ':fail', 'echo Could not reach the driver pack server.', 'end')
             Say ''
-            Say '    Snappy Driver Installer will open now. In its Welcome window click  "Download all driver packs".' Yellow
-            Say '    Allow it in the Windows Firewall. The download (~60 GB, BitTorrent) can sit at 0% for a few minutes, then' Yellow
-            Say '    takes hours. Keep SDIO open until it finishes; if you close it, open it again later and it continues.' Yellow
-            Start-Process -FilePath $sdioExe -WorkingDirectory $sdioDir
+            Say '    Downloading all driver packs automatically (~60 GB, several hours).' Yellow
+            Say '    Allow Snappy Driver Installer in the Windows Firewall if asked. Keep this window open.' Yellow
+            $sp = Start-Process -FilePath $sdioExe -ArgumentList ('-script:scripts\sanjeevani-get-all-driverpacks.txt') -WorkingDirectory $sdioDir -PassThru
+            $sp.WaitForExit()
+            $have = 0; if (Test-Path $drv) { $have = (Get-ChildItem $drv -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum }
+            if ($have -gt 5GB) { Ok ("Driver packs on USB: {0:N1} GB" -f ($have / 1GB)) }
+            else {
+                # 2) fallback: SDIO's Welcome window (appears only while it has no settings file)
+                Warn 'Automatic download did not complete. Opening Snappy Driver Installer - click "Download all driver packs".'
+                Get-ChildItem $sdioDir -Filter '*.cfg' -File -ErrorAction SilentlyContinue | ForEach-Object { Rename-Item $_.FullName ($_.Name + '.old') -Force -ErrorAction SilentlyContinue }
+                Start-Process -FilePath $sdioExe -WorkingDirectory $sdioDir
+            }
         }
     }
 }
@@ -702,21 +735,25 @@ $json = $json.Replace('\u0026', '&').Replace('\u0027', "'").Replace('\u003c', '<
 [IO.File]::WriteAllText((Join-Path $UsbRoot 'ventoy\ventoy.json'), $json, (New-Object System.Text.UTF8Encoding($false)))
 Ok "$($isoFiles.Count) boot entries configured"
 
-# ------------------------------------------------------------------ manual list
-$all = @($manual) + @($failed)
-$rows = foreach ($e in $all) {
-    $where = if ($e.order) { "ISO\  (any name, e.g. $($e.order)-$($e.id).iso)" } elseif ($e.installer) { 'Installers\' } else { "Tools\$($e.category)\$($e.name)\" }
+# ------------------------------------------------------------------ manual / optional list
+function Get-Row($e, [string]$why) {
+    $where = if ($e.order) { "ISO\" } elseif ($e.installer) { 'Installers\' } else { "Tools\$($e.category)\$($e.name)\" }
     $nm = if ($e.alias) { $e.alias } else { $e.name }
-    "<tr><td>$([Net.WebUtility]::HtmlEncode($nm))</td><td><a href='$($e.page)'>$($e.page)</a></td><td><code>$where</code></td><td>$(if ($failed -contains $e) { 'auto-download failed' } else { 'manual' })</td></tr>"
+    "<tr><td>$([Net.WebUtility]::HtmlEncode($nm))</td><td><a href='$($e.page)'>$($e.page)</a></td><td><code>$where</code></td><td>$([Net.WebUtility]::HtmlEncode($why))</td></tr>"
 }
+$needRows = @(foreach ($e in @($manual) + @($failed)) { Get-Row $e $(if ($failed -contains $e) { 'आपोआप download झाले नाही - UPDATE.cmd नंतर पुन्हा चालवा' } else { 'website वरून हाताने' }) })
+$optRows = @(foreach ($e in $optionalList) { Get-Row $e $e.alt })
+$needHtml = if ($needRows.Count) { "<h2>हे शिल्लक आहेत</h2><table><tr><th>Tool</th><th>Download page</th><th>USB वर कुठे</th><th>टीप</th></tr>$($needRows -join "`n")</table>" } else { "<h2 style='color:#15803d'>✔ सगळे आवश्यक tools pendrive वर आहेत</h2>" }
 $html = @"
-<!DOCTYPE html><html><head><meta charset="utf-8"><title>Manual downloads</title>
-<style>body{font-family:'Nirmala UI','Segoe UI',sans-serif;margin:24px;color:#0f172a}table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #e2e8f0;padding:8px;text-align:left}th{background:#f1f5f9}code{background:#f1f5f9;padding:2px 5px}</style></head><body>
-<h2>हे files हाताने download करा</h2>
-<p>खालील tools आपोआप download होत नाहीत (website वर बटण दाबावे लागते) किंवा या वेळी download fail झाले. Link उघडा, file download करा आणि दिलेल्या USB folder मध्ये ठेवा. <b>File चे मूळ नाव बदलू नका</b> (setup नावावरून tool ओळखतो). Zip extract न करता ठेवली तरी चालेल; setup स्वतः extract करतो. नंतर <b>Sanjeevani\Setup\UPDATE.cmd</b> पुन्हा चालवा म्हणजे boot menu अपडेट होईल.</p>
-<table><tr><th>Tool</th><th>Download page</th><th>USB वर कुठे ठेवायचे</th><th>कारण</th></tr>
-$($rows -join "`n")
-</table><p>Last setup: $(Get-Date -Format 'dd-MM-yyyy HH:mm')</p></body></html>
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Sanjeevani - tools status</title>
+<style>body{font-family:'Nirmala UI','Segoe UI',sans-serif;margin:24px;color:#0f172a}table{border-collapse:collapse;width:100%;margin-bottom:24px}td,th{border-bottom:1px solid #e2e8f0;padding:8px;text-align:left}th{background:#f1f5f9}code{background:#f1f5f9;padding:2px 5px}.muted{color:#64748b}</style></head><body>
+$needHtml
+<p class="muted">हाताने download केलेली file दिलेल्या folder मध्ये (किंवा USB वर कुठेही) ठेवा, <b>नाव बदलू नका</b>, zip extract करायची गरज नाही. मग <b>Sanjeevani\Setup\UPDATE.cmd</b> चालवा.</p>
+<h2>Optional (गरज नाही)</h2>
+<p class="muted">हे tools हवे असल्यास घ्या. त्यांचे काम pendrive वरचे दुसरे tools आधीच करतात.</p>
+<table><tr><th>Tool</th><th>Download page</th><th>USB वर कुठे</th><th>त्याऐवजी</th></tr>
+$($optRows -join "`n")
+</table><p class="muted">Last setup: $(Get-Date -Format 'dd-MM-yyyy HH:mm')</p></body></html>
 "@
 $manualFile = Join-Path $UsbRoot 'Sanjeevani\Docs\manual-downloads.html'
 [IO.File]::WriteAllText($manualFile, $html, (New-Object System.Text.UTF8Encoding($true)))
@@ -726,11 +763,11 @@ Copy-Item (Join-Path $UsbRoot 'Sanjeevani\Docs\guide-mr.html') (Join-Path $UsbRo
 
 Step 'Finished'
 Ok "USB: $UsbRoot   (free: $(Get-FreeGB) GB)"
-if ($failed.Count) { Warn ("{0} item(s) failed - see Docs\manual-downloads.html, or run UPDATE.cmd again later" -f $failed.Count) }
+if (-not $failed.Count -and -not $manual.Count) { Ok 'All essential tools are on the USB.' }
+if ($failed.Count) { Warn ("{0} item(s) could not be downloaded this time ({1}) - run UPDATE.cmd again later" -f $failed.Count, (($failed | ForEach-Object { $_.id }) -join ', ')) }
 if ($manual.Count) { Warn ("{0} item(s) need a manual download - see Docs\manual-downloads.html" -f $manual.Count) }
+if ($optionalList.Count) { Say ("    {0} optional extras skipped (their work is covered by other tools) - list in Docs\manual-downloads.html" -f $optionalList.Count) DarkGray }
 Say ''
-Say '  Offline drivers: open Tools\Drivers\Snappy Driver Installer Origin\SDIO_x64_*.exe (a program, not a file to look for)' DarkCyan
-Say '        and in its first window choose "Download all driverpacks" (~60 GB). Skip if a big "drivers" folder is already there.' DarkCyan
 Say '  To boot: plug the USB, press the Boot Menu key (F12/F9/F11/Esc), choose the USB.' DarkCyan
 Say ''
 if ($manual.Count -or $failed.Count) { Start-Process $manualFile }
