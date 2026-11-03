@@ -100,8 +100,22 @@ function Invoke-PDProcess {
     $sb = New-Object System.Text.StringBuilder
     $lastPct = -1
     $buf = New-Object char[] 1
-    while ($reader.Read($buf, 0, 1) -gt 0) {
+    $started = Get-Date
+    $lastBeat = Get-Date
+    $pending = $reader.ReadAsync($buf, 0, 1)
+    while ($true) {
+        # heartbeat: DISM can sit on one percentage (e.g. 62-63%) for a long time while it works
+        if (-not $pending.Wait(5000)) {
+            if (((Get-Date) - $lastBeat).TotalSeconds -ge 60) {
+                $lastBeat = Get-Date
+                $pctTxt = if ($lastPct -ge 0) { " ($lastPct%)" } else { '' }
+                Write-PDLog ("अजून चालू आहे{0} - {1:N0} मिनिटे झाली. PC बंद करू नका." -f $pctTxt, ((Get-Date) - $started).TotalMinutes)
+            }
+            continue
+        }
+        if ($pending.Result -le 0) { break }
         $c = $buf[0]
+        $pending = $reader.ReadAsync($buf, 0, 1)
         if ($c -eq "`r" -or $c -eq "`n") {
             $line = $sb.ToString().Replace([string][char]0, '').Trim()
             [void]$sb.Clear()
