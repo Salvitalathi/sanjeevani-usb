@@ -100,8 +100,8 @@ COL = {
     "disk": (59, 130, 246), "backup": (34, 197, 94), "boot": (249, 115, 22),
     "antivirus": (239, 68, 68), "wipe": (244, 63, 94), "installer": (14, 165, 233),
     "windows": (37, 99, 235), "tools": (100, 116, 139),
-    "vtoyiso": (71, 85, 105), "vtoyimg": (71, 85, 105), "vtoyefi": (71, 85, 105),
-    "vtoywim": (71, 85, 105), "vtoyvhd": (71, 85, 105), "vtoydir": (202, 138, 4),
+    # no vtoyiso/vtoyimg/... icons: GRUB would show them instead of the per-tool class icons
+    "vtoydir": (202, 138, 4),
     "vtoyret": (71, 85, 105), "F5tool": (71, 85, 105),
 }
 S = 160

@@ -353,6 +353,10 @@ if (-not $RunningFromUsb) {
     if (Test-Path $cmd) { Copy-Item $cmd (Join-Path $setupDir 'UPDATE.cmd') -Force }
     Ok 'Kit copied'
 }
+# generic Ventoy icons hid the per-tool icons (GRUB uses the first class that has an icon); remove them from older USBs
+foreach ($ic in 'vtoyiso', 'vtoyimg', 'vtoyefi', 'vtoywim', 'vtoyvhd') {
+    Remove-Item -LiteralPath (Join-Path $UsbRoot "ventoy\theme\sanjeevani\icons\$ic.png") -Force -ErrorAction SilentlyContinue
+}
 foreach ($d in 'ISO', 'Tools', 'Installers', 'Reports') { New-Item -ItemType Directory -Path (Join-Path $UsbRoot $d) -Force | Out-Null }
 
 # ------------------------------------------------------------------ downloads
@@ -443,6 +447,17 @@ function Find-ManualItem($e, [string]$Kind) {
     return (Get-UsbRelPath $exe.FullName)
 }
 
+# Give a hand-copied ISO the catalog name (e.g. 01-hbcd.iso) so it sorts in the right place in the boot menu
+function Set-IsoOrderName([string]$RelPath, $e) {
+    $full = Join-Path $UsbRoot $RelPath
+    $ext = [IO.Path]::GetExtension($full)
+    $newName = "$($e.order)-$($e.id)$ext"
+    if ([IO.Path]::GetFileName($full) -eq $newName) { return $RelPath }
+    if (Test-Path -LiteralPath (Join-Path (Split-Path $full) $newName)) { return $RelPath }
+    try { Rename-Item -LiteralPath $full -NewName $newName -ErrorAction Stop; Ok "renamed to $newName (boot menu order)"; return "ISO\$newName" }
+    catch { return $RelPath }
+}
+
 function Install-Item($e, [string]$Kind) {
     if (-not (Test-Wanted $e)) { return }
     $label = if ($e.alias) { $e.alias } else { $e.name }
@@ -451,6 +466,7 @@ function Install-Item($e, [string]$Kind) {
     if ($e.source.kind -eq 'manual') {
         $found = $null
         try { $found = Find-ManualItem $e $Kind } catch { Warn ("could not check hand-copied file: " + $_.Exception.Message) }
+        if ($found -and $Kind -eq 'iso') { $found = Set-IsoOrderName $found $e }
         if ($found) {
             $installed[$e.id] = [pscustomobject]@{ url = 'manual'; path = $found; date = (Get-Date).ToString('s'); name = (Split-Path $found -Leaf) }
             Ok "found on USB (added by hand): $found"; return
@@ -458,12 +474,19 @@ function Install-Item($e, [string]$Kind) {
         [void]$manual.Add($e); Warn 'manual download (link in Docs\manual-downloads.html)'; return
     }
     if ($Kind -eq 'iso') {
+        if ($installed[$e.id] -and $installed[$e.id].url -eq 'manual' -and (Test-Path -LiteralPath (Join-Path $UsbRoot $installed[$e.id].path))) {
+            $p0 = Set-IsoOrderName $installed[$e.id].path $e
+            $installed[$e.id].path = $p0; $installed[$e.id].name = (Split-Path $p0 -Leaf)
+            Ok "on USB (added by hand): $p0"; return
+        }
         # an ISO the user copied in by hand (any name containing the id, e.g. HBCD_PE_x64.iso) counts as installed
         $own = Get-ChildItem (Join-Path $UsbRoot 'ISO') -File -ErrorAction SilentlyContinue |
             Where-Object { $_.BaseName -match [regex]::Escape($e.id) -and $_.Name -notmatch ('^\d+-' + [regex]::Escape($e.id) + '\.') } | Select-Object -First 1
         if ($own -and -not ($installed[$e.id] -and $installed[$e.id].url -ne 'manual')) {
-            $installed[$e.id] = [pscustomobject]@{ url = 'manual'; path = "ISO\$($own.Name)"; date = (Get-Date).ToString('s'); name = $own.Name }
-            Ok "found on USB (copied by hand): $($own.Name)"; return
+            Ok "found on USB (copied by hand): $($own.Name)"
+            $rp = Set-IsoOrderName "ISO\$($own.Name)" $e
+            $installed[$e.id] = [pscustomobject]@{ url = 'manual'; path = $rp; date = (Get-Date).ToString('s'); name = (Split-Path $rp -Leaf) }
+            return
         }
     }
     if ($e.source.kind -eq 'fido' -and $installed[$e.id] -and (Test-Path -LiteralPath (Join-Path $UsbRoot $installed[$e.id].path))) { Ok 'already on USB (delete the ISO to download a newer one)'; return }
@@ -585,6 +608,8 @@ $cfg = [ordered]@{
     menu_tip   = [ordered]@{ left = '35%'; top = '85%'; color = '#94a3b8'; tips = $tips }
 }
 $json = $cfg | ConvertTo-Json -Depth 6
+# Windows PowerShell writes & ' < > as \u0026 \u0027 \u003c \u003e; Ventoy shows those literally, so write the characters
+$json = $json.Replace('\u0026', '&').Replace('\u0027', "'").Replace('\u003c', '<').Replace('\u003e', '>')
 [IO.File]::WriteAllText((Join-Path $UsbRoot 'ventoy\ventoy.json'), $json, (New-Object System.Text.UTF8Encoding($false)))
 Ok "$($isoFiles.Count) boot entries configured"
 

@@ -90,6 +90,22 @@ Test-Case 'Boot theme files present' {
     $true
 }
 
+Test-Case 'Boot menu config: no \u0026 escapes, per-tool icons win' {
+    $src = Get-Content (Join-Path $Root 'Setup-Sanjeevani.ps1') -Raw -Encoding UTF8
+    $m = [regex]::Match($src, "(?m)^\`$json = \`$json\.Replace.*$")
+    Assert $m.Success 'escape fix line missing in setup'
+    $json = [ordered]@{ menu_alias = @([ordered]@{ image = '/ISO/06-clonezilla.iso'; alias = "Clonezilla  -  Disk Clone & Image <it's>" }) } | ConvertTo-Json -Depth 4
+    Invoke-Expression $m.Value
+    Assert ($json -notmatch '\\u00') "still escaped: $json"
+    Assert ($json -match 'Disk Clone & Image') 'ampersand missing'
+    $null = $json | ConvertFrom-Json
+    $icons = Join-Path $Kit 'ventoy\theme\sanjeevani\icons'
+    foreach ($g in 'vtoyiso', 'vtoyimg', 'vtoyefi') { Assert (-not (Test-Path (Join-Path $icons "$g.png"))) "$g.png would hide the tool icons" }
+    $cat = Get-Content (Join-Path $Kit 'Sanjeevani\tools.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+    foreach ($e in $cat.isos) { Assert (Test-Path (Join-Path $icons "$($e.class).png")) "icon for class $($e.class) missing" }
+    $true
+}
+
 Test-Case 'PC Doctor window (XAML) loads' {
     Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
     $src = Get-Content (Join-Path $Kit 'Sanjeevani\PCDoctor\PCDoctor.ps1') -Raw -Encoding UTF8
