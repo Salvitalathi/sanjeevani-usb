@@ -27,7 +27,7 @@ th{background:#f8fafc;font-weight:600}
 @media print{body{background:#fff}.card{box-shadow:none;border:1px solid #ddd}}
 </style></head><body><div class="wrap">
 <div class="card"><h1>संजीवनी PC Doctor - तपासणी अहवाल</h1>
-<div class="muted">$(& $e $i.ComputerName) · $(& $e $i.Manufacturer) $(& $e $i.Model) · $(Get-Date $Scan.Time -Format 'dd-MM-yyyy HH:mm')</div>
+<div class="muted">$(& $e $i.ComputerName) · $(& $e $(if ($i.Model -like "$($i.Manufacturer)*") { $i.Model } else { "$($i.Manufacturer) $($i.Model)" })) · $(Get-Date $Scan.Time -Format 'dd-MM-yyyy HH:mm')</div>
 <div style="margin-top:10px"><span class="score" style="color:$(if ($Scan.Score -ge 80) { '#16a34a' } elseif ($Scan.Score -ge 55) { '#d97706' } else { '#e11d48' })">$($Scan.Score)</span><span class="muted"> / 100 health score</span></div></div>
 <h2>System</h2><div class="card"><table>
 <tr><th>OS</th><td>$(& $e $i.OSCaption) $(& $e $i.DisplayVer) (build $($i.OSBuild))</td></tr>

@@ -217,6 +217,24 @@ function Get-PDLoadSnapshot {
     }
 }
 
+# Disk / NTFS problems, counted separately for the Windows disk and for other disks (USB sticks, card readers).
+# Only error/warning levels: Ntfs 98 is mostly an informational "volume is healthy" message at every mount.
+function Get-PDDiskEventCounts {
+    param([datetime]$Since)
+    $sysDisk = $null
+    try { $sysDisk = (Get-Partition -DriveLetter $env:SystemDrive.TrimEnd(':') -ErrorAction Stop).DiskNumber } catch { }
+    $sysRx = if ($null -ne $sysDisk) { '\\Harddisk' + $sysDisk + '\\' } else { '\\Harddisk0\\' }
+    $drvRx = [regex]::Escape($env:SystemDrive)
+    $sys = 0; $other = 0
+    $ev = @()
+    try { $ev += @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; ProviderName = 'disk'; Id = 7, 51, 153; Level = 1, 2, 3; StartTime = $Since } -MaxEvents 500 -ErrorAction Stop) } catch { }
+    foreach ($e in $ev) { if ($e.Message -match $sysRx) { $sys++ } else { $other++ } }
+    $nt = @()
+    try { $nt += @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; ProviderName = 'Ntfs', 'Microsoft-Windows-Ntfs'; Id = 55, 98; Level = 1, 2, 3; StartTime = $Since } -MaxEvents 500 -ErrorAction Stop) } catch { }
+    foreach ($e in $nt) { if ($e.Message -match $drvRx) { $sys++ } else { $other++ } }
+    return [pscustomobject]@{ System = $sys; Other = $other }
+}
+
 function Get-PDEventSummary {
     param([int]$Days = 14)
     Write-PDLog "मागील $Days दिवसांचे error logs तपासत आहे..." 'STEP'
@@ -224,12 +242,13 @@ function Get-PDEventSummary {
     function _count($filter) {
         try { return @(Get-WinEvent -FilterHashtable $filter -MaxEvents 500 -ErrorAction Stop).Count } catch { return 0 }
     }
+    $disk = Get-PDDiskEventCounts -Since $since
     [pscustomobject]@{
         Days               = $Days
         UnexpectedShutdown = _count @{ LogName = 'System'; ProviderName = 'Microsoft-Windows-Kernel-Power'; Id = 41; StartTime = $since }
         BlueScreens        = _count @{ LogName = 'System'; ProviderName = 'Microsoft-Windows-WER-SystemErrorReporting'; Id = 1001; StartTime = $since }
-        DiskErrors         = (_count @{ LogName = 'System'; ProviderName = 'disk'; Id = 7, 51, 153; StartTime = $since }) +
-                             (_count @{ LogName = 'System'; ProviderName = 'Ntfs', 'Microsoft-Windows-Ntfs'; Id = 55, 98; StartTime = $since })
+        DiskErrors         = $disk.System
+        OtherDiskErrors    = $disk.Other
         HardwareErrors     = _count @{ LogName = 'System'; ProviderName = 'Microsoft-Windows-WHEA-Logger'; Level = 2, 3; StartTime = $since }
         AppCrashes         = _count @{ LogName = 'Application'; Id = 1000; StartTime = $since }
     }
@@ -420,7 +439,8 @@ function Invoke-PDScan {
         'NonRepairable' { add 'Critical' 'Repair' 'Windows system image दुरुस्त होण्यापलीकडे खराब आहे' 'Windows 11 ISO वापरून "Repair install" करा (data राहतो) किंवा fresh install.' 'repair-os' }
     }
     if ($sfc -and ($sfc.Corrupt + $sfc.Unrepaired) -gt 0) { add 'Critical' 'Repair' 'खराब (corrupt) system files सापडल्या' ("{0} files. Repair tab मधून दुरुस्त करा." -f ($sfc.Corrupt + $sfc.Unrepaired)) 'repair-os' }
-    if ($events.DiskErrors -gt 0) { add 'Critical' 'Hardware' "Disk errors: मागील $($events.Days) दिवसांत $($events.DiskErrors) वेळा" 'Disk check (chkdsk) चालवा आणि आधी backup घ्या.' 'chkdsk' }
+    if ($events.DiskErrors -gt 0) { add 'Critical' 'Hardware' "Windows disk वर errors: मागील $($events.Days) दिवसांत $($events.DiskErrors) वेळा" 'Disk check (chkdsk) चालवा, Toolbox मधील CrystalDiskInfo ने health पहा, आणि आधी backup घ्या.' 'chkdsk' }
+    if ($events.OtherDiskErrors -gt 0) { add 'Info' 'Hardware' "दुसऱ्या disk / pendrive वर errors: $($events.OtherDiskErrors) वेळा" 'USB pendrive / card reader / external disk चे errors. "Safely remove" न करता काढल्यास असे येतात. Windows disk ला धोका नाही.' $null }
     if ($events.BlueScreens -gt 0) { add 'Warning' 'Stability' "Blue screen crash: $($events.BlueScreens) वेळा" 'Toolbox मधील BlueScreenView / WhoCrashed ने कारण (driver) शोधा. RAM test (MemTest86) चालवा.' 'bsod' }
     if ($events.UnexpectedShutdown -gt 2) { add 'Warning' 'Stability' "अचानक बंद पडणे: $($events.UnexpectedShutdown) वेळा" 'Power supply / battery / overheating तपासा.' $null }
     if ($events.HardwareErrors -gt 0) { add 'Warning' 'Hardware' "Hardware (WHEA) errors: $($events.HardwareErrors)" 'CPU/RAM/PCIe hardware त्रास. Stress test आणि RAM test चालवा.' $null }

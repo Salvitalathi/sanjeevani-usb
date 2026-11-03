@@ -254,6 +254,13 @@ Test-Case 'Quick scan runs on a real Windows' {
     $true
 }
 
+Test-Case 'Disk event counting separates Windows disk from others' {
+    $c = Get-PDDiskEventCounts -Since (Get-Date).AddDays(-14)
+    Assert ($null -ne $c.System -and $null -ne $c.Other) 'counts missing'
+    Write-Host "      windows disk: $($c.System) ; other disks: $($c.Other)"
+    $true
+}
+
 Test-Case 'OS advisor produces recommendations' {
     Assert $script:ScanResult 'scan missing'
     $adv = Get-PDOSAdvice -Info $script:ScanResult.Info -DataDir $DataDir

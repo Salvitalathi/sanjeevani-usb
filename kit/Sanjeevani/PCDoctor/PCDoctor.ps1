@@ -168,7 +168,7 @@ class InfoRow    { [string]$Title; [string]$Badge; [string]$Color; [string]$Deta
         </StackPanel>
         <TextBlock DockPanel.Dock="Bottom" Name="AdminText" Margin="22,10,10,18" FontSize="12" Foreground="#64748B" TextWrapping="Wrap"/>
         <StackPanel Name="NavPanel">
-          <Button Style="{StaticResource Nav}" Tag="nav:dashboard" Content="🩺  तपासणी (Scan)"/>
+          <Button Style="{StaticResource Nav}" Tag="nav:dashboard" Content="🔍  तपासणी (Scan)"/>
           <Button Style="{StaticResource Nav}" Tag="nav:repair"    Content="🔧  दुरुस्ती (Repair)"/>
           <Button Style="{StaticResource Nav}" Tag="nav:speed"     Content="⚡  वेग वाढवा (Speed)"/>
           <Button Style="{StaticResource Nav}" Tag="nav:storage"   Content="💾  C: drive जागा"/>
@@ -521,7 +521,8 @@ function Show-Scan($s) {
     $sd = @($i.Disks | Where-Object { $_.IsSystem })[0]
     $ui.DiskText.Text = "$(if ($sd) { $sd.MediaType } else { '?' }) · $($i.SysFreeGB) GB free`n($($i.SysFreePct)% of $($i.SysSizeGB) GB)"
     $ui.OsText.Text = "$($i.OSCaption -replace 'Microsoft ', '')`n$($i.DisplayVer) build $($i.OSBuild)"
-    $ui.ModelText.Text = "$($i.Manufacturer) $($i.Model) · $($i.ComputerName) · scan: $(Get-Date $s.Time -Format 'HH:mm')"
+    $mdl = if ($i.Model -like "$($i.Manufacturer)*") { $i.Model } else { "$($i.Manufacturer) $($i.Model)" }
+    $ui.ModelText.Text = "$mdl · $($i.ComputerName) · scan: $(Get-Date $s.Time -Format 'HH:mm')"
     $rows = foreach ($f in $s.Findings) {
         $r = [FindingRow]::new()
         $r.Title = $f.Title; $r.Detail = $f.Detail; $r.Color = $SevColor[$f.Severity]; $r.SevText = $SevMr[$f.Severity]
