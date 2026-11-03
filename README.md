@@ -7,7 +7,7 @@ PC तपासणी, दुरुस्ती आणि वेग वाढव
 ## वापर
 
 1. हे repository download करा (**Code → Download ZIP**) किंवा Actions मधून `Sanjeevani-USB-Kit` artifact घ्या, आणि extract करा.
-2. 64–128 GB pendrive लावा. **त्यातला सगळा data पुसला जाईल.**
+2. 64 GB pendrive लावा (offline driver packs हवे असतील तर 256 GB). **त्यातला सगळा data पुसला जाईल.**
 3. `SETUP.cmd` → Administrator परवानगी → pendrive चा Disk number → `ERASE`.
 4. नंतर update करण्यासाठी pendrive वरील `Sanjeevani\Setup\UPDATE.cmd` चालवा.
 

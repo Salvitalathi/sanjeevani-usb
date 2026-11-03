@@ -367,7 +367,7 @@
       "id": "sdio",
       "name": "Snappy Driver Installer Origin",
       "category": "Drivers",
-      "desc": "Internet शिवाय drivers install. Setup मध्ये सगळे driver packs (~60 GB) सोबत download करता येतात",
+      "desc": "Internet शिवाय drivers install. Setup मध्ये सगळे driver packs (~70 GB) सोबत download करता येतात",
       "exe": "SDIO_x64.*\\.exe$",
       "source": {
         "kind": "scrape",

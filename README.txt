@@ -2,7 +2,7 @@ SANJEEVANI RESCUE USB KIT
 =========================
 
 1. Extract this zip (right-click > Extract All).
-2. Insert a 64-128 GB pendrive (ALL DATA ON IT WILL BE ERASED).
+2. Insert a 64 GB pendrive, or 256 GB if you also want the offline driver packs (ALL DATA ON IT WILL BE ERASED).
 3. Double-click SETUP.cmd and allow Administrator.
 4. Type the pendrive's Disk number, then type ERASE.
 5. Wait for downloads (30 min - 2 hours depending on internet).

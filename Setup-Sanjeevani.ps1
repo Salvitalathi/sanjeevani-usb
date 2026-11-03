@@ -18,7 +18,7 @@ param(
     [switch]$GPT,                 # install Ventoy with GPT instead of MBR
     [switch]$WithWindows,         # also download the Windows 11 ISO (~7.5 GB)
     [switch]$WithMint,            # also download Linux Mint XFCE (~3 GB)
-    [switch]$WithDrivers,         # also download ALL Snappy Driver Installer driver packs (~60 GB, offline drivers)
+    [switch]$WithDrivers,         # also download ALL Snappy Driver Installer driver packs (~70 GB, offline drivers)
     [switch]$SkipDownloads,
     [string[]]$Only,              # only these ids, e.g. -Only hbcd,cpuz
     [switch]$ResolveOnly,         # CI / check: only find the latest download link of every item, download nothing
@@ -455,7 +455,7 @@ if (-not $SkipDownloads -and -not $Only) {
     }
     $sdioDrv = Join-Path $UsbRoot 'Tools\Drivers\Snappy Driver Installer Origin\drivers'
     if (-not $WithDrivers -and -not (Test-Path $sdioDrv)) {
-        $c = Read-Host '    Also download ALL offline driver packs for any PC (~60 GB, needs a 128 GB pendrive, takes hours)? Y/N'
+        $c = Read-Host '    Also download ALL offline driver packs for any PC (~70 GB; needs ~145 GB free while downloading, so a 256 GB pendrive; takes hours)? Y/N'
         $WithDrivers = $c -match '^[Yy]'
     }
 }
@@ -685,17 +685,40 @@ if (-not (Test-Path (Join-Path $binDir '7z.exe')) -and -not $ResolveOnly) {
     } catch { Warn ('could not prepare 7-Zip for the rescue tool: ' + $_.Exception.Message) }
 }
 
+# SDIO keeps its torrent copy in update\SDIO_Update after placing the packs in drivers, and a pack set
+# downloaded with a torrent program often lands in SDIO_Update next to it - each is another ~70 GB.
+# Remove a pack from those copies only when drivers already holds the same file with the same size.
+function Remove-SdioDuplicates([string]$SdioDir) {
+    $keepDir = Join-Path $SdioDir 'drivers'
+    if (-not (Test-Path $keepDir)) { return }
+    $keep = @{}; Get-ChildItem $keepDir -File -ErrorAction SilentlyContinue | ForEach-Object { $keep[$_.Name.ToLower()] = $_.Length }
+    $freed = 0.0
+    foreach ($root in (Join-Path $SdioDir 'update\SDIO_Update'), (Join-Path $SdioDir 'SDIO_Update')) {
+        $copy = Join-Path $root 'drivers'
+        if (-not (Test-Path $copy)) { continue }
+        foreach ($f in @(Get-ChildItem $copy -File -ErrorAction SilentlyContinue)) {
+            if ($keep.ContainsKey($f.Name.ToLower()) -and $keep[$f.Name.ToLower()] -eq $f.Length) {
+                $freed += $f.Length; Remove-Item -LiteralPath $f.FullName -Force -ErrorAction SilentlyContinue
+            }
+        }
+        # drop the leftover torrent folder once no driver pack is left in it
+        if (-not @(Get-ChildItem $copy -File -ErrorAction SilentlyContinue).Count) { Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+    if ($freed -gt 0) { Ok ("Removed duplicate driver pack copies: {0:N1} GB freed" -f ($freed / 1GB)) }
+}
+
 # ------------------------------------------------------------------ offline driver packs (SDIO)
 if ($WithDrivers -and $installed['sdio']) {
     Step 'Offline driver packs (Snappy Driver Installer Origin)'
     $sdioExe = Join-Path $UsbRoot $installed['sdio'].path
     if (-not (Test-Path -LiteralPath $sdioExe)) { Warn 'SDIO not found on the USB - skipped' }
-    elseif ((Get-FreeGB) -lt 65) { Warn "Only $(Get-FreeGB) GB free - driver packs need ~60 GB. Skipped." }
+    # SDIO downloads into update\ and then copies into drivers\, so it briefly needs twice the space
+    elseif ((Get-FreeGB) -lt 145) { Warn "Only $(Get-FreeGB) GB free - downloading the driver packs needs ~145 GB free (~70 GB after it finishes). Skipped." }
     else {
         $sdioDir = Split-Path $sdioExe
         $drv = Join-Path $sdioDir 'drivers'
         $have = 0; if (Test-Path $drv) { $have = (Get-ChildItem $drv -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum }
-        if ($have -gt 5GB) { Ok ("Driver packs already on USB: {0:N1} GB (SDIO -> Updates to refresh them)" -f ($have / 1GB)) }
+        if ($have -gt 5GB) { Ok ("Driver packs already on USB: {0:N1} GB (SDIO -> Updates to refresh them)" -f ($have / 1GB)); Remove-SdioDuplicates $sdioDir }
         else {
             # 1) fully automatic: SDIO's own scripting engine downloads every driver pack with its built-in
             #    torrent engine - no torrent program and no clicking needed
@@ -708,19 +731,19 @@ if ($WithDrivers -and $installed['sdio']) {
                 'init', 'checkupdates', 'onerror goto :fail', 'get driverpacks all', 'echo Driver packs downloaded.', 'end',
                 ':fail', 'echo Could not reach the driver pack server.', 'end')
             Say ''
-            Say '    Downloading all driver packs automatically (~60 GB, several hours).' Yellow
+            Say '    Downloading all driver packs automatically (~70 GB, several hours).' Yellow
             Say '    Allow Snappy Driver Installer in the Windows Firewall if asked. Keep this window open.' Yellow
             $sp = Start-Process -FilePath $sdioExe -ArgumentList ('-script:scripts\sanjeevani-get-all-driverpacks.txt') -WorkingDirectory $sdioDir -PassThru
             # SDIO's script window shows no progress, so show it here: size, speed, time left.
             # If nothing arrives for 15 minutes, stop it and fall back to the Welcome window.
-            $sizeOf = { $t = 0; foreach ($d in (Join-Path $sdioDir 'drivers'), (Join-Path $sdioDir 'indexes')) { if (Test-Path $d) { $t += [double](Get-ChildItem $d -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum } }; $t }
-            $total = 60GB; $prev = & $sizeOf; $lastGrow = Get-Date; $t0 = Get-Date; $start = $prev
+            $sizeOf = { $t = 0; foreach ($d in (Join-Path $sdioDir 'update'), (Join-Path $sdioDir 'indexes')) { if (Test-Path $d) { $t += [double](Get-ChildItem $d -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum } }; $t }
+            $total = 70GB; $prev = & $sizeOf; $lastGrow = Get-Date; $t0 = Get-Date; $start = $prev
             while (-not $sp.WaitForExit(30000)) {
                 $now = & $sizeOf
                 if ($now -gt $prev) { $lastGrow = Get-Date }
                 $avg = ($now - $start) / [math]::Max(1, ((Get-Date) - $t0).TotalSeconds)
                 $left = if ($avg -gt 0) { '{0:N1} h' -f ([math]::Max(0, $total - $now) / $avg / 3600) } else { '?' }
-                Write-Host ("`r    Driver packs: {0,6:N2} GB of ~60 GB   {1,6:N2} MB/s   time left ~{2}      " -f ($now / 1GB), ((($now - $prev) / 30) / 1MB), $left) -NoNewline
+                Write-Host ("`r    Driver packs: {0,6:N2} GB of ~70 GB   {1,6:N2} MB/s   time left ~{2}      " -f ($now / 1GB), ((($now - $prev) / 30) / 1MB), $left) -NoNewline
                 $prev = $now
                 if (((Get-Date) - $lastGrow).TotalMinutes -ge 15) {
                     Write-Host ''
@@ -731,7 +754,7 @@ if ($WithDrivers -and $installed['sdio']) {
             }
             Write-Host ''
             $have = 0; if (Test-Path $drv) { $have = (Get-ChildItem $drv -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum }
-            if ($have -gt 5GB) { Ok ("Driver packs on USB: {0:N1} GB" -f ($have / 1GB)) }
+            if ($have -gt 5GB) { Ok ("Driver packs on USB: {0:N1} GB" -f ($have / 1GB)); Remove-SdioDuplicates $sdioDir }
             else {
                 # 2) fallback: SDIO's Welcome window (appears only while it has no settings file)
                 Warn 'Automatic download did not complete. Opening Snappy Driver Installer - click "Download all driver packs".'
