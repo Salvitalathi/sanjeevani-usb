@@ -579,14 +579,20 @@ if ($WithDrivers -and $installed['sdio']) {
     if (-not (Test-Path -LiteralPath $sdioExe)) { Warn 'SDIO not found on the USB - skipped' }
     elseif ((Get-FreeGB) -lt 65) { Warn "Only $(Get-FreeGB) GB free - driver packs need ~60 GB. Skipped." }
     else {
-        Say '    Driver packs come via BitTorrent (allow it in the firewall if Windows asks).' DarkGray
-        Say '    This takes several hours. You can close it and run UPDATE.cmd later - it resumes.' DarkGray
-        $p = Start-Process -FilePath $sdioExe -ArgumentList '-autoupdate', '-autoclose', '-showconsole', '-norestorepnt' -WorkingDirectory (Split-Path $sdioExe) -PassThru
-        $p.WaitForExit()
-        $drv = Join-Path (Split-Path $sdioExe) 'drivers'
-        $sz = 0; if (Test-Path $drv) { $sz = (Get-ChildItem $drv -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum }
-        if ($sz -gt 1GB) { Ok ("Driver packs on USB: {0:N1} GB" -f ($sz / 1GB)) }
-        else { Warn 'Driver packs did not download automatically. Run SDIO_x64_*.exe from Tools\Drivers\Snappy Driver Installer Origin and choose "Download all driverpacks" in its window.' }
+        $sdioDir = Split-Path $sdioExe
+        $drv = Join-Path $sdioDir 'drivers'
+        $have = 0; if (Test-Path $drv) { $have = (Get-ChildItem $drv -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum }
+        if ($have -gt 5GB) { Ok ("Driver packs already on USB: {0:N1} GB (SDIO -> Updates to refresh them)" -f ($have / 1GB)) }
+        else {
+            # SDIO 2.x asks on its Welcome window what to download; that window only appears while it has no settings
+            # file yet, so park old settings (left by older setups that ran SDIO unattended).
+            Get-ChildItem $sdioDir -Filter '*.cfg' -File -ErrorAction SilentlyContinue | ForEach-Object { Rename-Item $_.FullName ($_.Name + '.old') -Force -ErrorAction SilentlyContinue }
+            Say ''
+            Say '    Snappy Driver Installer will open now. In its Welcome window click  "Download all driver packs".' Yellow
+            Say '    Allow it in the Windows Firewall. The download (~60 GB, BitTorrent) can sit at 0% for a few minutes, then' Yellow
+            Say '    takes hours. Keep SDIO open until it finishes; if you close it, open it again later and it continues.' Yellow
+            Start-Process -FilePath $sdioExe -WorkingDirectory $sdioDir
+        }
     }
 }
 
