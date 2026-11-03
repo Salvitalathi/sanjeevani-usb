@@ -146,6 +146,7 @@ function Get-7zr {
 function Get-7zFull {
     $dir = Join-Path $Work '7zfull'
     $x = Join-Path $dir '7z.exe'
+    foreach ($pf in "$env:ProgramFiles\7-Zip\7z.exe", "${env:ProgramFiles(x86)}\7-Zip\7z.exe") { if (Test-Path $pf) { return $pf } }   # 7-Zip already installed
     if (-not (Test-Path $x)) {
         $inst = Get-ChildItem (Join-Path $UsbRoot 'Installers') -Filter '7z*-x64.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($inst) { $instPath = $inst.FullName }
@@ -169,10 +170,22 @@ function Resolve-Source($e) {
             return @{ Url = $s.url; Name = $leaf }
         }
         'github' {
-            $j = Get-WebText "https://api.github.com/repos/$($s.repo)/releases/latest" @{ Accept = 'application/vnd.github+json' } | ConvertFrom-Json
-            $a = $j.assets | Where-Object { $_.name -match $s.asset } | Select-Object -First 1
-            if (-not $a) { throw "no asset matching '$($s.asset)' in $($s.repo) $($j.tag_name)" }
-            return @{ Url = $a.browser_download_url; Name = $a.name; Version = $j.tag_name }
+            try {
+                $j = Get-WebText "https://api.github.com/repos/$($s.repo)/releases/latest" @{ Accept = 'application/vnd.github+json' } | ConvertFrom-Json
+                $a = $j.assets | Where-Object { $_.name -match $s.asset } | Select-Object -First 1
+                if (-not $a) { throw "no asset matching '$($s.asset)' in $($s.repo) $($j.tag_name)" }
+                return @{ Url = $a.browser_download_url; Name = $a.name; Version = $j.tag_name }
+            } catch {
+                if ($_.Exception.Message -match '^no asset') { throw }
+                # GitHub API refused (60 requests/hour per IP, often hit on shared Indian ISP addresses): read the web page instead
+                $tag = (& curl.exe -sS -o NUL -w '%{redirect_url}' "https://github.com/$($s.repo)/releases/latest") -replace '.*/tag/', ''
+                if (-not $tag) { throw }
+                $html = Get-WebText "https://github.com/$($s.repo)/releases/expanded_assets/$tag"
+                $names = [regex]::Matches($html, 'href="(/[^"]+/releases/download/[^"]+)"') | ForEach-Object { $_.Groups[1].Value }
+                $hit = $names | Where-Object { [Uri]::UnescapeDataString(($_ -split '/')[-1]) -match $s.asset } | Select-Object -First 1
+                if (-not $hit) { throw "no asset matching '$($s.asset)' in $($s.repo) $tag" }
+                return @{ Url = "https://github.com$hit"; Name = [Uri]::UnescapeDataString(($hit -split '/')[-1]); Version = $tag }
+            }
         }
         'sourceforge' {
             $rss = [xml](Get-WebText "https://sourceforge.net/projects/$($s.project)/rss")
