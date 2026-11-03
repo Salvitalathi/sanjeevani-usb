@@ -373,6 +373,30 @@ Test-Case 'Setup finds tools the user downloaded by hand' {
     $true
 }
 
+Test-Case 'New USB can be cloned from a ready one (no personal data copied)' {
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $Root 'Setup-Sanjeevani.ps1'), [ref]$null, [ref]$null)
+    foreach ($fn in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $false)) {
+        if ($fn.Name -in 'Copy-SanjeevaniContent', 'Test-SanjeevaniSource', 'Get-SourceSizeGB', 'Say') { . ([scriptblock]::Create($fn.Extent.Text)) }
+    }
+    $src = Join-Path $env:TEMP ('sjv-src-' + [guid]::NewGuid().ToString('N').Substring(0, 6))
+    $dst = Join-Path $env:TEMP ('sjv-dst-' + [guid]::NewGuid().ToString('N').Substring(0, 6))
+    foreach ($d in 'ISO', 'Tools\Hardware\HWiNFO', 'Installers', 'Sanjeevani\bin', 'Reports\CUSTOMER-PC', 'Rescue\CUSTOMER-PC') { New-Item -ItemType Directory (Join-Path $src $d) -Force | Out-Null }
+    Set-Content (Join-Path $src 'ISO\01-hbcd.iso') 'iso'
+    Set-Content (Join-Path $src 'Tools\Hardware\HWiNFO\HWiNFO64.exe') 'exe'
+    Set-Content (Join-Path $src 'Sanjeevani\installed.json') '{"hbcd":{"url":"manual","path":"ISO\\01-hbcd.iso"}}'
+    Set-Content (Join-Path $src 'Reports\CUSTOMER-PC\report.html') 'private'
+    Set-Content (Join-Path $src 'Rescue\CUSTOMER-PC\photo.jpg') 'private'
+    Assert (Test-SanjeevaniSource $src) 'source not recognised'
+    Copy-SanjeevaniContent -From $src -To $dst
+    Assert (Test-Path (Join-Path $dst 'ISO\01-hbcd.iso')) 'ISO not copied'
+    Assert (Test-Path (Join-Path $dst 'Tools\Hardware\HWiNFO\HWiNFO64.exe')) 'tool not copied'
+    Assert (Test-Path (Join-Path $dst 'Sanjeevani\installed.json')) 'installed.json not copied'
+    Assert (-not (Test-Path (Join-Path $dst 'Reports'))) 'customer reports must not be copied'
+    Assert (-not (Test-Path (Join-Path $dst 'Rescue'))) 'rescued personal files must not be copied'
+    Remove-Item $src, $dst -Recurse -Force
+    $true
+}
+
 Remove-Item $fakeUsb -Recurse -Force -ErrorAction SilentlyContinue
 
 # ------------------------------------------------------------------ summary

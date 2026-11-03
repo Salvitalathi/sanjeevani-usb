@@ -21,7 +21,8 @@ param(
     [switch]$WithDrivers,         # also download ALL Snappy Driver Installer driver packs (~60 GB, offline drivers)
     [switch]$SkipDownloads,
     [string[]]$Only,              # only these ids, e.g. -Only hbcd,cpuz
-    [switch]$ResolveOnly          # CI / check: only find the latest download link of every item, download nothing
+    [switch]$ResolveOnly,         # CI / check: only find the latest download link of every item, download nothing
+    [string]$CopyFrom             # make a new USB from an existing Sanjeevani USB (e.g. E:) or a folder copy of one - no downloads
 )
 
 $ErrorActionPreference = 'Stop'
@@ -321,6 +322,25 @@ if ($Usb) {
     $disk = $disks | Where-Object { [string]$_.Number -eq $n.Trim() }
     if (-not $disk) { Fail 'Invalid disk number.'; Read-Host 'Press Enter'; exit 1 }
     if ($disk.Size -lt 30GB) { Warn 'This pendrive is smaller than 32 GB - not everything will fit. 64-128 GB recommended.' }
+    # another Sanjeevani USB plugged in? offer to copy from it instead of downloading
+    if (-not $CopyFrom) {
+        foreach ($v in @(Get-Volume -ErrorAction SilentlyContinue | Where-Object { $_.DriveLetter })) {
+            $root = "$($v.DriveLetter):\"
+            if (-not (Test-SanjeevaniSource $root)) { continue }
+            $dn = $null; try { $dn = (Get-Partition -DriveLetter $v.DriveLetter -ErrorAction Stop).DiskNumber } catch { }
+            if ($dn -eq $disk.Number) { continue }
+            $c = Read-Host ("    {0} is a ready Sanjeevani USB ({1} GB of tools). Copy everything from it instead of downloading? Y/N" -f $root, (Get-SourceSizeGB $root))
+            if ($c -match '^[Yy]') { $CopyFrom = $root }
+            break
+        }
+    }
+    if ($CopyFrom) {
+        if (-not (Test-SanjeevaniSource $CopyFrom)) { Fail "$CopyFrom is not a Sanjeevani USB / copy (Sanjeevani\installed.json missing)."; exit 1 }
+        $srcDisk = $null; try { $srcDisk = (Get-Partition -DriveLetter $CopyFrom.Substring(0, 1) -ErrorAction Stop).DiskNumber } catch { }
+        if ($srcDisk -eq $disk.Number) { Fail 'The source and the new pendrive are the same disk. Choose the NEW pendrive.'; exit 1 }
+        $needGB = Get-SourceSizeGB $CopyFrom
+        if ($disk.Size / 1GB -lt $needGB + 2) { Fail ("The new pendrive is too small: {0} GB of tools to copy." -f $needGB); exit 1 }
+    }
     $vt = Get-VentoyVolume $disk.Number
     $doInstall = $true; $isUpdate = $false
     if ($vt) {
@@ -371,6 +391,16 @@ foreach ($ic in 'vtoyiso', 'vtoyimg', 'vtoyefi', 'vtoywim', 'vtoyvhd') {
     Remove-Item -LiteralPath (Join-Path $UsbRoot "ventoy\theme\sanjeevani\icons\$ic.png") -Force -ErrorAction SilentlyContinue
 }
 foreach ($d in 'ISO', 'Tools', 'Installers', 'Reports') { New-Item -ItemType Directory -Path (Join-Path $UsbRoot $d) -Force | Out-Null }
+
+if ($CopyFrom) {
+    Step ("Copying all tools from {0} ({1} GB) - no internet needed" -f $CopyFrom, (Get-SourceSizeGB $CopyFrom))
+    Copy-SanjeevaniContent -From $CopyFrom -To $UsbRoot
+    Ok 'Tools copied'
+    if (-not $SkipDownloads -and -not $Only) {
+        $c = Read-Host '    Also check the internet now for newer versions of the tools? Y/N  (N = finished in a few minutes)'
+        if ($c -notmatch '^[Yy]') { $SkipDownloads = $true }
+    }
+}
 
 # ------------------------------------------------------------------ downloads
 $catalog = Get-Content (Join-Path $UsbRoot 'Sanjeevani\tools.json') -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -469,6 +499,34 @@ function Set-IsoOrderName([string]$RelPath, $e) {
     if (Test-Path -LiteralPath (Join-Path (Split-Path $full) $newName)) { return $RelPath }
     try { Rename-Item -LiteralPath $full -NewName $newName -ErrorAction Stop; Ok "renamed to $newName (boot menu order)"; return "ISO\$newName" }
     catch { return $RelPath }
+}
+
+# A ready Sanjeevani USB (or a folder copy of one) can be cloned instead of downloading everything again.
+# Personal data folders (Reports, Rescue) are never copied.
+function Test-SanjeevaniSource([string]$Path) {
+    return ($Path -and (Test-Path -LiteralPath (Join-Path $Path 'Sanjeevani\installed.json')) -and (Test-Path -LiteralPath (Join-Path $Path 'ISO')))
+}
+
+function Get-SourceSizeGB([string]$From) {
+    $sum = 0
+    foreach ($d in 'ISO', 'Tools', 'Installers') { $p = Join-Path $From $d; if (Test-Path -LiteralPath $p) { Get-ChildItem -LiteralPath $p -Recurse -File -Force -ErrorAction SilentlyContinue | ForEach-Object { $sum += $_.Length } } }
+    return [math]::Round($sum / 1GB, 1)
+}
+
+function Copy-SanjeevaniContent([string]$From, [string]$To) {
+    $From = $From.TrimEnd('\'); $To = $To.TrimEnd('\')
+    foreach ($d in 'ISO', 'Tools', 'Installers', 'Sanjeevani\bin') {
+        $src = Join-Path $From $d
+        if (-not (Test-Path -LiteralPath $src)) { continue }
+        Say "    copying $d ..." DarkGray
+        & robocopy.exe $src (Join-Path $To $d) /E /R:1 /W:1 /MT:8 /NFL /NDL /NJH /NJS /NP | Out-Null
+        if ($LASTEXITCODE -ge 8) { throw "copy of $d failed (robocopy $LASTEXITCODE)" }
+    }
+    $inst = Join-Path $From 'Sanjeevani\installed.json'
+    if (Test-Path -LiteralPath $inst) {
+        New-Item -ItemType Directory -Path (Join-Path $To 'Sanjeevani') -Force | Out-Null
+        Copy-Item -LiteralPath $inst (Join-Path $To 'Sanjeevani\installed.json') -Force
+    }
 }
 
 function Install-Item($e, [string]$Kind) {
