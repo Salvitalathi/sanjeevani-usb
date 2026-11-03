@@ -493,14 +493,15 @@
     },
     {
       "id": "advipscanner",
+      "optional": true,
+      "alt": "गरज नाही - router च्या page वर connected devices दिसतात. हवे असल्यास advanced-ip-scanner.com वरून download करून Tools मध्ये ठेवा.",
       "name": "Advanced IP Scanner",
       "category": "Network",
       "desc": "Network वरचे devices / printers शोधा",
       "installer": true,
       "source": {
-        "kind": "scrape",
-        "page": "https://www.advanced-ip-scanner.com/",
-        "regex": "[^\"']*Advanced_IP_Scanner_[\\d.]+\\.exe"
+        "kind": "manual",
+        "page": "https://www.advanced-ip-scanner.com/"
       },
       "page": "https://www.advanced-ip-scanner.com/",
       "fileMatch": "advanced.?ip.?scanner|ipscan"
