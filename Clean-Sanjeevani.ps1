@@ -10,6 +10,8 @@
       * older versions of the same driver pack, older SDIO program versions
       * exact duplicate files anywhere on the USB (same size and same content)
       * half-finished downloads (.part, .!qB, .crdownload ...), archives already unpacked, the Recycle Bin
+      * on request: driver packs a Windows 10/11 repair never needs (XP, Server, TV, modem) and the
+        Windows 7/8-only video packs - each asked separately
     Never touched: ventoy\, Sanjeevani\, Reports\ and Rescue\ (customer reports, driver backups, rescued files)
     and every file Setup registered in Sanjeevani\installed.json.
 
@@ -19,7 +21,9 @@
 param(
     [string]$Usb,
     [switch]$ReportOnly,   # only show what would be removed
-    [switch]$Yes           # do not ask (moves to _to_delete, keeps it)
+    [switch]$Yes,          # do not ask (moves to _to_delete, keeps it)
+    [switch]$SlimDrivers,  # with -Yes: also remove driver packs a Windows 10/11 repair never needs (XP, Server, TV, modem)
+    [switch]$NoWin7Drivers # with -Yes: also remove the Windows 7/8-only (-NT) video packs
 )
 $ErrorActionPreference = 'Stop'
 function Say([string]$t, [string]$c = 'Gray') { Write-Host $t -ForegroundColor $c }
@@ -143,6 +147,16 @@ if ($sdioExe) {
     }
 }
 
+# driver packs that a Windows 10/11 technician USB does not need - offered separately, never removed silently
+$slim1 = @(); $slim2 = @()
+if ($sdioExe -and (Test-Path -LiteralPath $main)) {
+    foreach ($f in @(Get-ChildItem -LiteralPath $main -File -Filter 'DP_*.7z')) {
+        if ($planned.Contains($f.FullName.ToLower())) { continue }
+        if ($f.Name -match '-XP_|_Server|^DP_TV_|^DP_Modem_|^DP_xMobile_Telephone_') { $slim1 += $f }
+        elseif ($f.Name -match '^DP_Videos?_.*-NT_') { $slim2 += $f }
+    }
+}
+
 # ------------------------------------------------------------------ 2. leftovers
 Say "`n  Looking for leftovers and duplicates ..." White
 $all = @(Get-ChildItem -LiteralPath $Root -Recurse -File -Force -ErrorAction SilentlyContinue |
@@ -209,10 +223,30 @@ if (Test-Path -LiteralPath $rb) {
 }
 
 # ------------------------------------------------------------------ report
+function Show-Slim([object[]]$files, [string]$title) {
+    $b = ($files | Measure-Object Length -Sum).Sum
+    Say ''
+    Say ("  {0}  ({1}, {2} packs):" -f $title, (Fmt $b), $files.Count) White
+    Say ('     ' + (($files | Sort-Object Length -Descending | ForEach-Object { $_.Name -replace '_\d{5}\.7z$', '' }) -join ', ')) DarkGray
+    return $b
+}
+$addSlim = { param($files, $why) foreach ($f in $files) { Add-Plan 'bin' $f.FullName $f.Length $why } }
+if ($slim1.Count) {
+    [void](Show-Slim $slim1 'Driver packs never needed for Windows 10/11 (Windows XP, Windows Server, TV tuner, modem)')
+    $take = if ($ReportOnly) { $false } elseif ($Yes) { [bool]$SlimDrivers } else { (Read-Host '  Remove these too? Y/N') -match '^[yY]' }
+    if ($take) { & $addSlim $slim1 'driver pack not needed for Windows 10/11 PCs' }
+}
+if ($slim2.Count) {
+    [void](Show-Slim $slim2 'Video driver packs for old Windows 7/8 PCs only (-NT)')
+    Say '     Keep these if you still repair Windows 7/8 PCs.' DarkGray
+    $take = if ($ReportOnly) { $false } elseif ($Yes) { [bool]$NoWin7Drivers } else { (Read-Host '  Remove these too? Y/N') -match '^[yY]' }
+    if ($take) { & $addSlim $slim2 'video driver pack for Windows 7/8 only' }
+}
+
 $free = ($plan | Where-Object { $_.Op -in 'bin', 'empty-recycle' } | Measure-Object Bytes -Sum).Sum
 Say ''
 if (-not $plan.Count) { Say '  Nothing to clean - no duplicates or leftovers found.' Green; exit 0 }
-Say '  Found:' White
+Say '  Will clean:' White
 foreach ($p in $plan) {
     $verb = switch ($p.Op) { 'bin' { 'remove ' } 'empty-recycle' { 'empty  ' } 'adopt' { 'keep   ' } 'replace' { 'repair ' } }
     Say ("   {0} {1,9}  {2}" -f $verb, (Fmt $p.Bytes), $p.Path.Substring($Root.Length)) $(if ($p.Op -in 'adopt', 'replace') { 'Green' } else { 'Yellow' })

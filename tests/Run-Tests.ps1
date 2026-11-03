@@ -408,6 +408,8 @@ Test-Case 'Cleaner removes duplicate driver packs and leftovers, keeps customer 
     New-Blob "$sd\update\SDIO_Update\drivers\DP_Sound_26082.7z" 2 1
     New-Blob "$sd\SDIO_Update\drivers\DP_Sound_26082.7z" 2 1
     New-Blob "$sd\drivers\DP_Sound_25001.7z" 1 2
+    New-Blob "$sd\drivers\DP_Video_nVIDIA_Server_26040.7z" 1 10
+    New-Blob "$sd\drivers\DP_Video_nVIDIA-NT_26040.7z" 1 11
     New-Blob "$sd\SDIO_x64_R887.exe" 1 3
     New-Blob "$sd\SDIO_x64_R889.exe" 1 4
     New-Blob 'ISO\01-hbcd.iso' 3 5
@@ -419,7 +421,7 @@ Test-Case 'Cleaner removes duplicate driver packs and leftovers, keeps customer 
     Set-Content (Join-Path $dir 'Sanjeevani\installed.json') ('{"hbcd":{"url":"x","path":"ISO\\01-hbcd.iso"},"sdio":{"url":"x","path":"' + ($sd -replace '\\', '\\') + '\\SDIO_x64_R889.exe"}}')
     & subst.exe "$($letter):" $dir
     try {
-        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root 'Clean-Sanjeevani.ps1') -Usb "$($letter):" -Yes | Out-Host
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root 'Clean-Sanjeevani.ps1') -Usb "$($letter):" -Yes -SlimDrivers | Out-Host
         $u = "$($letter):\"
         Assert (Test-Path "$u$sd\drivers\DP_Sound_26082.7z") 'main driver pack must stay'
         Assert (-not (Test-Path "$u$sd\update\SDIO_Update")) 'update\SDIO_Update copy not removed'
@@ -427,6 +429,8 @@ Test-Case 'Cleaner removes duplicate driver packs and leftovers, keeps customer 
         Assert (-not (Test-Path "$u$sd\drivers\DP_Sound_25001.7z")) 'older pack version not removed'
         Assert (-not (Test-Path "$u$sd\SDIO_x64_R887.exe")) 'older SDIO exe not removed'
         Assert (Test-Path "$u$sd\SDIO_x64_R889.exe") 'current SDIO exe must stay'
+        Assert (-not (Test-Path "$u$sd\drivers\DP_Video_nVIDIA_Server_26040.7z")) 'Server pack not removed with -SlimDrivers'
+        Assert (Test-Path "$u$sd\drivers\DP_Video_nVIDIA-NT_26040.7z") 'Windows 7/8 pack must stay without -NoWin7Drivers'
         Assert (Test-Path "$u\ISO\01-hbcd.iso") 'registered ISO must stay'
         Assert (-not (Test-Path "$u\ISO\HBCD_PE_x64.iso")) 'duplicate ISO not removed'
         Assert (Test-Path "$u\Reports\PC1\photo.jpg") 'customer data must never be touched'
