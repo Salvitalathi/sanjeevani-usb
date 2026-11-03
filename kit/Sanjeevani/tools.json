@@ -190,6 +190,10 @@
       "source": {
         "kind": "dirlatest",
         "page": "https://mirrors.kernel.org/linuxmint/stable/",
+        "pageMirrors": [
+          "https://mirrors.edge.kernel.org/linuxmint/stable/",
+          "https://mirror.csclub.uwaterloo.ca/linuxmint/stable/"
+        ],
         "dirRegex": "href=\"(\\d+(?:\\.\\d+)?)/\"",
         "file": "linuxmint-{v}-xfce-64bit.iso"
       },

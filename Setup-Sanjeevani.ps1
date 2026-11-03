@@ -208,19 +208,32 @@ function Resolve-Source($e) {
             return @{ Url = $abs; Name = [IO.Path]::GetFileName(([Uri]$abs).AbsolutePath) }
         }
         'dirlatest' {
-            $html = Get-WebText $s.page
+            # try the main listing first, then the official mirrors (some networks cannot reach one of them)
+            $html = $null; $base = $null; $why = $null
+            foreach ($pg in @($s.page) + @($s.pageMirrors | Where-Object { $_ })) {
+                try { $html = Get-WebText $pg; $base = $pg; break } catch { $why = $_ }
+            }
+            if (-not $base) { throw $why }
             $vers = [regex]::Matches($html, $s.dirRegex) | ForEach-Object { $_.Groups[1].Value } | Sort-Object { [version]($(if ($_ -match '\.') { $_ } else { "$_.0" })) } -Descending
-            if (-not $vers) { throw "no versions found on $($s.page)" }
+            if (-not $vers) { throw "no versions found on $base" }
             $v = @($vers)[0]
             $f = $s.file.Replace('{v}', $v)
-            return @{ Url = ($s.page.TrimEnd('/') + "/$v/$f"); Name = ($f -split '/')[-1]; Version = $v }
+            return @{ Url = ($base.TrimEnd('/') + "/$v/$f"); Name = ($f -split '/')[-1]; Version = $v }
         }
         'fido' {
             $fido = Join-Path $Work 'Fido.ps1'
             Save-Url 'https://raw.githubusercontent.com/pbatard/Fido/master/Fido.ps1' $fido
             $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $fido -Win $s.win -Rel Latest -Ed Pro -Lang English -Arch x64 -GetUrl 2>&1
             $url = @($out | ForEach-Object { "$_" } | Where-Object { $_ -match '^https://' })[-1]
-            if (-not $url) { throw ("Microsoft did not give a link: " + (($out | Select-Object -Last 2) -join ' ')) }
+            if (-not $url) {
+                $msg = ($out | Select-Object -Last 2) -join ' '
+                if ($msg -match 'Sentinel|rejected|banned|715-123130') {
+                    throw ('Microsoft is temporarily refusing downloads from this internet connection (too many requests). ' +
+                           'Run SETUP again tomorrow, or download the ISO in a browser from https://www.microsoft.com/software-download/windows11 ' +
+                           'and copy it into the ISO folder of the USB - Setup will pick it up.')
+                }
+                throw ("Microsoft did not give a link: " + $msg)
+            }
             return @{ Url = $url; Name = "Win$($s.win).iso" }
         }
         default { return $null }
@@ -257,6 +270,17 @@ if ($ResolveOnly) {
                 $txt = [Text.Encoding]::ASCII.GetString($head, 0, [math]::Min(64, $head.Length)).TrimStart()
                 if ($txt -match '^(?i)<(!DOCTYPE|html)') { throw 'web page instead of file' }
                 $row.status = 'ok'; $row.detail = $r.Name
+                # report dead mirrors too, so a broken fallback is noticed before it is needed
+                $dead = @()
+                foreach ($m in @($e.source.mirrors | Where-Object { $_ })) {
+                    & curl.exe -s -L --fail --max-time 60 -A $UA -r 0-1023 -o NUL $m | Out-Null
+                    if ($LASTEXITCODE -ne 0) { $dead += ([Uri]$m).Host }
+                }
+                foreach ($m in @($e.source.pageMirrors | Where-Object { $_ })) {
+                    & curl.exe -s -L --fail --max-time 60 -A $UA -o NUL $m | Out-Null
+                    if ($LASTEXITCODE -ne 0) { $dead += ([Uri]$m).Host }
+                }
+                if ($dead) { $row.detail += "  [mirror not reachable: $($dead -join ', ')]" }
             } catch {
                 $row.status = 'FAIL'; $row.detail = $_.Exception.Message
                 # Kaspersky refuses US addresses (GitHub runners); it works from India
