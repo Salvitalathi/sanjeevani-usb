@@ -711,7 +711,25 @@ if ($WithDrivers -and $installed['sdio']) {
             Say '    Downloading all driver packs automatically (~60 GB, several hours).' Yellow
             Say '    Allow Snappy Driver Installer in the Windows Firewall if asked. Keep this window open.' Yellow
             $sp = Start-Process -FilePath $sdioExe -ArgumentList ('-script:scripts\sanjeevani-get-all-driverpacks.txt') -WorkingDirectory $sdioDir -PassThru
-            $sp.WaitForExit()
+            # SDIO's script window shows no progress, so show it here: size, speed, time left.
+            # If nothing arrives for 15 minutes, stop it and fall back to the Welcome window.
+            $sizeOf = { $t = 0; foreach ($d in (Join-Path $sdioDir 'drivers'), (Join-Path $sdioDir 'indexes')) { if (Test-Path $d) { $t += [double](Get-ChildItem $d -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum } }; $t }
+            $total = 60GB; $prev = & $sizeOf; $lastGrow = Get-Date; $t0 = Get-Date; $start = $prev
+            while (-not $sp.WaitForExit(30000)) {
+                $now = & $sizeOf
+                if ($now -gt $prev) { $lastGrow = Get-Date }
+                $avg = ($now - $start) / [math]::Max(1, ((Get-Date) - $t0).TotalSeconds)
+                $left = if ($avg -gt 0) { '{0:N1} h' -f ([math]::Max(0, $total - $now) / $avg / 3600) } else { '?' }
+                Write-Host ("`r    Driver packs: {0,6:N2} GB of ~60 GB   {1,6:N2} MB/s   time left ~{2}      " -f ($now / 1GB), ((($now - $prev) / 30) / 1MB), $left) -NoNewline
+                $prev = $now
+                if (((Get-Date) - $lastGrow).TotalMinutes -ge 15) {
+                    Write-Host ''
+                    Warn 'No download progress for 15 minutes - stopping the automatic download.'
+                    try { $sp.Kill() } catch { }
+                    break
+                }
+            }
+            Write-Host ''
             $have = 0; if (Test-Path $drv) { $have = (Get-ChildItem $drv -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum }
             if ($have -gt 5GB) { Ok ("Driver packs on USB: {0:N1} GB" -f ($have / 1GB)) }
             else {
