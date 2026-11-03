@@ -7,7 +7,7 @@ DIST = os.path.join(ROOT, 'dist')
 OUT = os.path.join(DIST, 'Sanjeevani-USB-Kit')
 shutil.rmtree(DIST, ignore_errors=True)
 shutil.copytree(os.path.join(ROOT, 'kit'), os.path.join(OUT, 'kit'))
-for f in ('SETUP.cmd', 'Setup-Sanjeevani.ps1', 'README.txt'):
+for f in ('SETUP.cmd', 'Setup-Sanjeevani.ps1', 'CLEAN.cmd', 'Clean-Sanjeevani.ps1', 'README.txt'):
     shutil.copy(os.path.join(ROOT, f), OUT)
 for dp, _, fs in os.walk(OUT):
     for f in fs:

@@ -10,6 +10,7 @@ PC तपासणी, दुरुस्ती आणि वेग वाढव
 2. 64 GB pendrive लावा (offline driver packs हवे असतील तर 256 GB). **त्यातला सगळा data पुसला जाईल.**
 3. `SETUP.cmd` → Administrator परवानगी → pendrive चा Disk number → `ERASE`.
 4. नंतर update करण्यासाठी pendrive वरील `Sanjeevani\Setup\UPDATE.cmd` चालवा.
+5. Pendrive भरला असेल तर `CLEAN.cmd` चालवा. तो duplicate driver packs, जुनी versions आणि अर्धवट downloads शोधतो. आधी यादी दाखवतो आणि Y दिल्यावरच त्या फाईली `_to_delete` मध्ये हलवतो. `Reports` आणि `Rescue` (ग्राहकांचा data) ला तो कधीच हात लावत नाही.
 
 पूर्ण मार्गदर्शक: [`kit/Sanjeevani/Docs/guide-mr.html`](kit/Sanjeevani/Docs/guide-mr.html)
 

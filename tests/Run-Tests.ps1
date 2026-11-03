@@ -397,6 +397,50 @@ Test-Case 'New USB can be cloned from a ready one (no personal data copied)' {
     $true
 }
 
+Test-Case 'Cleaner removes duplicate driver packs and leftovers, keeps customer data' {
+    $dir = Join-Path $env:TEMP ('sjv-clean-' + [guid]::NewGuid().ToString('N').Substring(0, 6))
+    $letter = [char[]](68..90) | ForEach-Object { "$_" } | Where-Object { -not (Test-Path "$($_):\") } | Select-Object -Last 1
+    $sd = 'Tools\Drivers\Snappy Driver Installer Origin'
+    foreach ($d in 'ISO', 'Sanjeevani', "$sd\drivers", "$sd\update\SDIO_Update\drivers", "$sd\SDIO_Update\drivers", 'Reports\PC1', 'Tools\Hardware\CPU-Z') { New-Item -ItemType Directory (Join-Path $dir $d) -Force | Out-Null }
+    $rnd = New-Object Random 7
+    function New-Blob([string]$rel, [int]$mb, [int]$seed) { $b = New-Object byte[] ($mb * 1MB); (New-Object Random $seed).NextBytes($b); [IO.File]::WriteAllBytes((Join-Path $dir $rel), $b) }
+    New-Blob "$sd\drivers\DP_Sound_26082.7z" 2 1
+    New-Blob "$sd\update\SDIO_Update\drivers\DP_Sound_26082.7z" 2 1
+    New-Blob "$sd\SDIO_Update\drivers\DP_Sound_26082.7z" 2 1
+    New-Blob "$sd\drivers\DP_Sound_25001.7z" 1 2
+    New-Blob "$sd\SDIO_x64_R887.exe" 1 3
+    New-Blob "$sd\SDIO_x64_R889.exe" 1 4
+    New-Blob 'ISO\01-hbcd.iso' 3 5
+    New-Blob 'ISO\HBCD_PE_x64.iso' 3 5
+    New-Blob 'Reports\PC1\photo.jpg' 3 5
+    New-Blob 'Tools\Hardware\CPU-Z\cpuz.exe' 1 6
+    New-Blob 'Tools\Hardware\CPU-Z\cpu-z_3.01-en.zip' 1 8
+    New-Blob 'ISO\gparted.iso.part' 1 9
+    Set-Content (Join-Path $dir 'Sanjeevani\installed.json') ('{"hbcd":{"url":"x","path":"ISO\\01-hbcd.iso"},"sdio":{"url":"x","path":"' + ($sd -replace '\\', '\\') + '\\SDIO_x64_R889.exe"}}')
+    & subst.exe "$($letter):" $dir
+    try {
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root 'Clean-Sanjeevani.ps1') -Usb "$($letter):" -Yes | Out-Host
+        $u = "$($letter):\"
+        Assert (Test-Path "$u$sd\drivers\DP_Sound_26082.7z") 'main driver pack must stay'
+        Assert (-not (Test-Path "$u$sd\update\SDIO_Update")) 'update\SDIO_Update copy not removed'
+        Assert (-not (Test-Path "$u$sd\SDIO_Update")) 'SDIO_Update copy not removed'
+        Assert (-not (Test-Path "$u$sd\drivers\DP_Sound_25001.7z")) 'older pack version not removed'
+        Assert (-not (Test-Path "$u$sd\SDIO_x64_R887.exe")) 'older SDIO exe not removed'
+        Assert (Test-Path "$u$sd\SDIO_x64_R889.exe") 'current SDIO exe must stay'
+        Assert (Test-Path "$u\ISO\01-hbcd.iso") 'registered ISO must stay'
+        Assert (-not (Test-Path "$u\ISO\HBCD_PE_x64.iso")) 'duplicate ISO not removed'
+        Assert (Test-Path "$u\Reports\PC1\photo.jpg") 'customer data must never be touched'
+        Assert (-not (Test-Path "$u\Tools\Hardware\CPU-Z\cpu-z_3.01-en.zip")) 'unpacked archive not removed'
+        Assert (Test-Path "$u\Tools\Hardware\CPU-Z\cpuz.exe") 'tool must stay'
+        Assert (-not (Test-Path "$u\ISO\gparted.iso.part")) 'partial download not removed'
+        Assert (Test-Path "$u\_to_delete\ISO\HBCD_PE_x64.iso") 'removed files must be recoverable in _to_delete'
+    } finally {
+        & subst.exe "$($letter):" /D
+        Remove-Item $dir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    $true
+}
+
 Remove-Item $fakeUsb -Recurse -Force -ErrorAction SilentlyContinue
 
 # ------------------------------------------------------------------ summary
