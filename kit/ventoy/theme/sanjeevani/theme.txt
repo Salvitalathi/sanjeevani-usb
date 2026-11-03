@@ -72,6 +72,34 @@ terminal-border: "0"
     color = "#94a3b8"
 }
 
++ label {
+    left = 4%
+    top = 64%
+    width = 26%
+    height = 24
+    text = "WINDOWS WON'T START?"
+    font = "Sanjeevani Bold 20"
+    color = "#f59e0b"
+}
++ label {
+    left = 4%
+    top = 68%
+    width = 27%
+    height = 24
+    text = "Boot Hiren's PE, open the USB drive"
+    font = "Sanjeevani Regular 16"
+    color = "#94a3b8"
+}
++ label {
+    left = 4%
+    top = 71%
+    width = 27%
+    height = 24
+    text = "and run PCDoctor-Rescue.cmd"
+    font = "Sanjeevani Regular 16"
+    color = "#94a3b8"
+}
+
 # ---------- menu ----------
 + label {
     left = 35%

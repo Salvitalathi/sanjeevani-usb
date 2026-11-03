@@ -572,6 +572,18 @@ if (-not $SkipDownloads) {
     $installed | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $instFile -Encoding UTF8
 }
 
+# ------------------------------------------------------------------ 7-Zip for the boot-time rescue tool
+# PC Doctor Rescue (in Hiren's PE) opens the Windows ISO with 7-Zip to repair Windows offline.
+$binDir = Join-Path $UsbRoot 'Sanjeevani\bin'
+if (-not (Test-Path (Join-Path $binDir '7z.exe')) -and -not $ResolveOnly) {
+    try {
+        $sz = Get-7zFull
+        New-Item -ItemType Directory -Path $binDir -Force | Out-Null
+        Copy-Item (Join-Path (Split-Path $sz) '7z.exe'), (Join-Path (Split-Path $sz) '7z.dll') $binDir -Force
+        Ok '7-Zip copied to Sanjeevani\bin (for PC Doctor Rescue)'
+    } catch { Warn ('could not prepare 7-Zip for the rescue tool: ' + $_.Exception.Message) }
+}
+
 # ------------------------------------------------------------------ offline driver packs (SDIO)
 if ($WithDrivers -and $installed['sdio']) {
     Step 'Offline driver packs (Snappy Driver Installer Origin)'

@@ -286,6 +286,34 @@ terminal-border: "0"
     color = "#94a3b8"
 }}
 
++ label {{
+    left = 4%
+    top = 64%
+    width = 26%
+    height = 24
+    text = "WINDOWS WON'T START?"
+    font = {F("Bold", 20)}
+    color = "#f59e0b"
+}}
++ label {{
+    left = 4%
+    top = 68%
+    width = 27%
+    height = 24
+    text = "Boot Hiren's PE, open the USB drive"
+    font = {F("Regular", 16)}
+    color = "#94a3b8"
+}}
++ label {{
+    left = 4%
+    top = 71%
+    width = 27%
+    height = 24
+    text = "and run PCDoctor-Rescue.cmd"
+    font = {F("Regular", 16)}
+    color = "#94a3b8"
+}}
+
 # ---------- menu ----------
 + label {{
     left = 35%
@@ -412,7 +440,10 @@ def preview(W, H, out):
                                   (46, "INSIDE WINDOWS", "Bold", 20, "#2dd4bf"),
                                   (50, "Open the USB drive and run", "Regular", 16, "#94a3b8"),
                                   (53, "START-Sanjeevani.cmd for PC Doctor", "Regular", 16, "#94a3b8"),
-                                  (56, "and 40+ portable repair tools.", "Regular", 16, "#94a3b8")]:
+                                  (56, "and 40+ portable repair tools.", "Regular", 16, "#94a3b8"),
+                                  (64, "WINDOWS WON'T START?", "Bold", 20, "#f59e0b"),
+                                  (68, "Boot Hiren's PE, open the USB drive", "Regular", 16, "#94a3b8"),
+                                  (71, "and run PCDoctor-Rescue.cmd", "Regular", 16, "#94a3b8")]:
         pf2_text(cv, (P(4, W), P(top, H)), txt, fpath(st, sz), hexc(col))
     pf2_text(cv, (P(35, W), P(10, H)), "Boot Menu", fpath("Bold", 28), hexc("#ffffff"))
     pf2_text(cv, (P(35, W), P(15, H)), "Choose a tool with ↑ ↓ and press Enter", fpath("Regular", 16), hexc("#64748b"))

@@ -813,7 +813,7 @@ function Invoke-Repair([string]$what) {
             Start-PDJob -Title 'Drivers restore' -Work { param($P) Restore-PDDrivers -Path $P.Path } -Params @{ Path = $path } -OnDone { param($r) [void]$script:Actions.Add("Drivers restore: $($r.Count)"); Say ("{0} drivers तपासले/install केले. PC restart करा." -f $r.Count) }
         }
         'restorepoint' { Start-PDJob -Title 'Restore point' -Work { param($P) New-PDRestorePoint 'Sanjeevani: manual' } -OnDone { param($r) if ($r) { Say 'Restore point तयार झाला.' } else { Say 'Restore point बनला नाही (log पहा). System Protection बंद असू शकते.' 'Warning' } } }
-        'offline-info' { Say "Windows boot होत नसेल तर:`n`n1. PC बंद करा, USB लावा, Boot Menu key दाबा (Toolbox > Boot keys).`n2. 'Hiren's BootCD PE' निवडा.`n3. Desktop आल्यावर USB drive उघडा → Sanjeevani\PCDoctor\Offline-Repair.cmd वर right-click → Run as administrator.`n4. Menu मधून Offline SFC / DISM / Boot repair / अडकलेले updates revert निवडा." }
+        'offline-info' { Say "Windows सुरू होत नसेल / blue screen येत असेल तर:`n`n1. PC बंद करा, USB लावा, Boot Menu key दाबा (Toolbox > Boot keys).`n2. 'Hiren's BootCD PE' निवडा.`n3. Desktop आल्यावर USB drive उघडा → PCDoctor-Rescue.cmd चालवा.`n4. Menu: internet / missing drivers, blue screen चे कारण (driver), अडकलेले updates, SFC, ISO मधून DISM, chkdsk, boot repair, आणि personal files pendrive वर वाचवणे." }
     }
 }
 

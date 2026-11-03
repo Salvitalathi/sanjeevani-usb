@@ -18,6 +18,14 @@ jobs:
         shell: powershell
         run: .\tests\Run-Tests.ps1
 
+      - name: Rescue tool tests (Windows PowerShell 5.1)
+        shell: powershell
+        run: .\tests\Rescue-Tests.ps1
+
+      - name: Rescue tool tests (PowerShell 7, as in Hiren's PE)
+        shell: pwsh
+        run: .\tests\Rescue-Tests.ps1
+
       - name: PSScriptAnalyzer
         if: always()
         shell: powershell
