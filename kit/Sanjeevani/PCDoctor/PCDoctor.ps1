@@ -633,7 +633,7 @@ $repairCards = @(
     @('Windows Update दुरुस्ती', 'Update अडकले / error येत असल्यास update components reset करतो.', 'Reset करा', 'repair:wu'),
     @('Internet / Network reset', 'Internet चालत नाही, DNS error, "No internet" - winsock/IP reset.', 'Reset करा', 'repair:net'),
     @('Antivirus चालू करा + quick scan', 'Microsoft Defender चालू, definitions update आणि quick scan.', 'चालू करा', 'repair:defender'),
-    @('Drivers install / update', 'Snappy Driver Installer Origin (USB वरून) उघडतो. Internet शिवाय पण चालतो.', 'उघडा', 'repair:drivers'),
+    @('Drivers तपासा / update', 'कोणते drivers नाहीत, खराब किंवा जुने आहेत ते तपासते आणि सुरक्षित क्रमाने उपाय सुचवते. स्वतःहून काहीही install करत नाही.', 'तपासा', 'repair:drivers'),
     @('Drivers backup', 'या PC चे सगळे drivers (WiFi, LAN, audio, display...) pendrive वर save करा. Windows reinstall करण्याआधी नक्की करा.', 'Backup घ्या', 'repair:drvbackup'),
     @('Drivers restore', 'Windows reinstall नंतर backup केलेले drivers एका click मध्ये परत install करा.', 'Restore करा', 'repair:drvrestore'),
     @('Restore point आत्ता बनवा', 'मोठा बदल करण्याआधी सुरक्षिततेसाठी.', 'बनवा', 'repair:restorepoint'),
@@ -761,6 +761,29 @@ One-Click Optimize खालील गोष्टी करेल:
     }
 }
 
+function Show-DriverAdvice($r) {
+    $L = New-Object System.Collections.ArrayList
+    $p = @($r.Problems); $age = @($r.Age); $wu = @($r.WU)
+    if ($p.Count) { [void]$L.Add("⚠ नीट न चालणारे devices ($($p.Count)):"); foreach ($x in $p | Select-Object -First 8) { [void]$L.Add("   • $($x.Name) - $($x.Meaning)") } }
+    else { [void]$L.Add('✔ सगळ्या devices ना driver आहे आणि ते चालू आहेत.') }
+    $uns = @($age | Where-Object Unsigned)
+    if ($uns.Count) { [void]$L.Add(''); [void]$L.Add("⚠ Signature नसलेले drivers ($($uns.Count)):"); foreach ($x in $uns | Select-Object -First 5) { [void]$L.Add("   • $($x.Name) ($($x.Provider))") } }
+    $old = @($age | Where-Object Old)
+    if ($old.Count) { [void]$L.Add(''); [void]$L.Add("ℹ 3 वर्षांपेक्षा जुने ($($old.Count)) - चालत असतील तर बदलू नका:"); foreach ($x in $old | Select-Object -First 6) { [void]$L.Add("   • $($x.Name) - $($x.Version) ($(if ($x.Date) { $x.Date.ToString('yyyy-MM') }))") } }
+    if ($null -eq $r.WU) { [void]$L.Add(''); [void]$L.Add('ℹ Windows Update तपासता आले नाही (internet?).') }
+    elseif ($wu.Count) { [void]$L.Add(''); [void]$L.Add("✔ Windows Update मध्ये Microsoft ने तपासलेले $($wu.Count) driver updates:"); foreach ($x in $wu | Select-Object -First 6) { [void]$L.Add("   • $($x.Title)") } }
+    else { [void]$L.Add(''); [void]$L.Add('✔ Windows Update मध्ये नवीन driver updates नाहीत.') }
+    [void]$L.Add('')
+    [void]$L.Add('सुरक्षित क्रम: 1) Windows Update → Optional updates  2) PC निर्मात्याचे app / website  3) SDIO - फक्त driver नसलेल्या devices साठी.')
+    [void]$L.Add('')
+    [void]$L.Add('Yes = Windows Update (Optional updates) उघडा')
+    [void]$L.Add('No  = restore point बनवून SDIO उघडा (driver नसलेल्या devices साठी)')
+    [void]$L.Add('Cancel = काहीही नको')
+    $ans = [System.Windows.MessageBox]::Show($win, ($L -join "`n"), 'Drivers तपासणी', 'YesNoCancel', 'Information')
+    if ($ans -eq 'Yes') { Start-Process 'ms-settings:windowsupdate-optionalupdates' }
+    elseif ($ans -eq 'No') { Invoke-Repair 'sdio-safe' }
+}
+
 function Invoke-Repair([string]$what) {
     switch ($what) {
         'os' {
@@ -771,7 +794,12 @@ function Invoke-Repair([string]$what) {
         'wu' { if (Ask 'Windows Update components reset करायचे?') { Start-PDJob -Title 'Windows Update reset' -Work { param($P) Reset-PDWindowsUpdate; 'ok' } -OnDone { param($r) [void]$script:Actions.Add('Windows Update reset'); Say 'Windows Update reset पूर्ण. आता Settings > Windows Update मध्ये Check for updates करा.' } } }
         'net' { if (Ask 'Network reset केल्यावर PC restart करावा लागेल. सुरू करायचे?') { Start-PDJob -Title 'Network reset' -Work { param($P) Reset-PDNetwork; 'ok' } -OnDone { param($r) [void]$script:Actions.Add('Network reset'); Say 'Network reset पूर्ण. PC restart करा.' } } }
         'defender' { Start-PDJob -Title 'Defender' -Work { param($P) Repair-PDDefender; Start-PDQuickVirusScan; 'ok' } -OnDone { param($r) [void]$script:Actions.Add('Defender चालू + quick scan'); Say 'Defender तपासणी पूर्ण. Threats असतील तर Windows Security मध्ये दिसतील.' } }
-        'drivers' { Open-UsbTool $null 'sdio' }
+        'drivers' {
+            Start-PDJob -Title 'Drivers तपासणी' -Work { param($P) [pscustomobject]@{ Problems = @(Get-PDDriverProblems); Age = @(Get-PDDriverAge); WU = (Get-PDWindowsUpdateDrivers) } } -OnDone { param($r) Show-DriverAdvice $r }
+        }
+        'sdio-safe' {
+            Start-PDJob -Title 'Restore point + SDIO' -Work { param($P) New-PDRestorePoint 'Sanjeevani: before driver install' } -OnDone { param($r) Open-UsbTool $null 'sdio' }
+        }
         'drvbackup' {
             Start-PDJob -Title 'Drivers backup' -Work { param($P) Backup-PDDrivers } -OnDone { param($r) [void]$script:Actions.Add("Drivers backup: $($r.Count) drivers"); Say ("{0} drivers backup झाले:`n{1}`n`nWindows reinstall नंतर 'Drivers restore' मधून हाच folder निवडा." -f $r.Count, $r.Path) }
         }

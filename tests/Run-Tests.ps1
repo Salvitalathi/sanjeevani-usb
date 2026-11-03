@@ -261,6 +261,15 @@ Test-Case 'Disk event counting separates Windows disk from others' {
     $true
 }
 
+Test-Case 'Driver checks (problems, age, Windows Update) run' {
+    $p = @(Get-PDDriverProblems); $a = @(Get-PDDriverAge)
+    foreach ($x in $p) { Assert $x.Meaning "no meaning for code $($x.Code)" }
+    Write-Host "      problem devices: $($p.Count) ; third-party drivers checked: $($a.Count) ; old: $(@($a | Where-Object Old).Count) ; unsigned: $(@($a | Where-Object Unsigned).Count)"
+    $w = Get-PDWindowsUpdateDrivers
+    Write-Host "      Windows Update driver offers: $(if ($null -eq $w) { 'not reachable' } else { @($w).Count })"
+    $true
+}
+
 Test-Case 'OS advisor produces recommendations' {
     Assert $script:ScanResult 'scan missing'
     $adv = Get-PDOSAdvice -Info $script:ScanResult.Info -DataDir $DataDir

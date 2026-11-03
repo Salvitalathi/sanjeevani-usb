@@ -254,9 +254,66 @@ function Get-PDEventSummary {
     }
 }
 
+# Device Manager problem codes, in plain Marathi
+$script:CmCodes = @{
+    1 = 'device नीट configure झाले नाही'; 3 = 'driver खराब आहे किंवा memory कमी पडते'; 10 = 'device सुरू होत नाही'
+    12 = 'दुसऱ्या device शी resources चा संघर्ष'; 14 = 'PC restart करावा लागेल'; 18 = 'driver पुन्हा install करा'
+    19 = 'registry मध्ये चूक'; 24 = 'device नीट जोडलेले नाही'; 28 = 'driver install केलेला नाही'
+    31 = 'driver load होत नाही'; 32 = 'driver बंद (disabled) आहे'; 37 = 'driver सुरू होत नाही'
+    39 = 'driver खराब आहे किंवा सापडत नाही'; 43 = 'hardware ने बिघाड कळवला (device / cable तपासा)'
+    48 = 'हा driver Windows ने block केला आहे'; 52 = 'driver ची digital signature पडताळता येत नाही'
+}
+
 function Get-PDDriverProblems {
-    @(Get-CimInstance Win32_PnPEntity -ErrorAction SilentlyContinue | Where-Object { $_.ConfigManagerErrorCode -ne 0 -and $_.ConfigManagerErrorCode -ne 22 } |
-        ForEach-Object { [pscustomobject]@{ Name = $(if ($_.Name) { $_.Name } else { $_.DeviceID }); Code = $_.ConfigManagerErrorCode } })
+    # 22 = disabled by the user, 45 = device not plugged in right now: not problems
+    @(Get-CimInstance Win32_PnPEntity -ErrorAction SilentlyContinue | Where-Object { $_.ConfigManagerErrorCode -notin 0, 22, 45 } |
+        ForEach-Object {
+            $c = [int]$_.ConfigManagerErrorCode
+            [pscustomobject]@{
+                Name = $(if ($_.Name) { $_.Name } else { $_.DeviceID }); Code = $c; Class = [string]$_.PNPClass
+                Meaning = $(if ($script:CmCodes[$c]) { $script:CmCodes[$c] } else { "समस्या code $c" })
+                HardwareId = @($_.HardwareID)[0]
+            }
+        })
+}
+
+# Installed third-party drivers for the classes that matter most; flags old and unsigned ones.
+function Get-PDDriverAge {
+    param([int]$OldYears = 3)
+    $classes = 'DISPLAY', 'NET', 'MEDIA', 'BLUETOOTH', 'HDC', 'SCSIADAPTER', 'USB', 'CAMERA', 'IMAGE', 'BIOMETRIC', 'MOUSE', 'KEYBOARD'
+    $cut = (Get-Date).AddYears(-$OldYears)
+    $out = @()
+    foreach ($d in @(Get-CimInstance Win32_PnPSignedDriver -ErrorAction SilentlyContinue)) {
+        if (-not $d.DeviceName -or -not $d.DriverVersion) { continue }
+        if ($classes -notcontains ([string]$d.DeviceClass).ToUpper()) { continue }
+        if ($d.DriverProviderName -match '^Microsoft') { continue }   # inbox drivers are serviced by Windows Update
+        $date = $d.DriverDate
+        $out += [pscustomobject]@{
+            Name = $d.DeviceName; Class = [string]$d.DeviceClass; Provider = [string]$d.DriverProviderName
+            Version = [string]$d.DriverVersion; Date = $date
+            Old = [bool]($date -and $date -lt $cut); Unsigned = ($d.IsSigned -eq $false)
+        }
+    }
+    return ($out | Sort-Object Date)
+}
+
+# Driver updates Microsoft offers for this PC (Windows Update "Optional updates"). Read-only; installs nothing.
+function Get-PDWindowsUpdateDrivers {
+    Write-PDLog 'Windows Update वर drivers शोधत आहे (1-2 मिनिटे, internet लागते)...' 'STEP'
+    try {
+        $session = New-Object -ComObject Microsoft.Update.Session
+        $searcher = $session.CreateUpdateSearcher()
+        $res = $searcher.Search("IsInstalled=0 and Type='Driver' and IsHidden=0")
+        $list = @()
+        foreach ($u in $res.Updates) {
+            $list += [pscustomobject]@{ Title = [string]$u.Title; Class = [string]$u.DriverClass; Date = $u.DriverVerDate }
+        }
+        Write-PDLog ("Windows Update: {0} driver updates उपलब्ध" -f $list.Count) 'OK'
+        return $list
+    } catch {
+        Write-PDLog ('Windows Update शी संपर्क झाला नाही: ' + $_.Exception.Message) 'WARN'
+        return $null
+    }
 }
 
 function Get-PDSecurityStatus {
@@ -370,6 +427,9 @@ function Invoke-PDScan {
     $events = Get-PDEventSummary
     Set-PDProgress 65 'Drivers / Security'
     $drivers = @(Get-PDDriverProblems)
+    $drvAge = @(Get-PDDriverAge)
+    $wuDrivers = $null
+    if ($Deep) { $wuDrivers = Get-PDWindowsUpdateDrivers }
     $sec = Get-PDSecurityStatus
     $pending = Test-PDPendingReboot
     Set-PDProgress 72 'Temp files'
@@ -444,7 +504,12 @@ function Invoke-PDScan {
     if ($events.BlueScreens -gt 0) { add 'Warning' 'Stability' "Blue screen crash: $($events.BlueScreens) वेळा" 'Toolbox मधील BlueScreenView / WhoCrashed ने कारण (driver) शोधा. RAM test (MemTest86) चालवा.' 'bsod' }
     if ($events.UnexpectedShutdown -gt 2) { add 'Warning' 'Stability' "अचानक बंद पडणे: $($events.UnexpectedShutdown) वेळा" 'Power supply / battery / overheating तपासा.' $null }
     if ($events.HardwareErrors -gt 0) { add 'Warning' 'Hardware' "Hardware (WHEA) errors: $($events.HardwareErrors)" 'CPU/RAM/PCIe hardware त्रास. Stress test आणि RAM test चालवा.' $null }
-    if ($drivers.Count -gt 0) { add 'Warning' 'Drivers' "$($drivers.Count) devices चे drivers नीट नाहीत" (($drivers | Select-Object -First 4 | ForEach-Object { $_.Name }) -join ', ') 'drivers' }
+    if ($drivers.Count -gt 0) { add 'Warning' 'Drivers' "$($drivers.Count) devices चे drivers नीट नाहीत" (($drivers | Select-Object -First 4 | ForEach-Object { "$($_.Name): $($_.Meaning)" }) -join ' · ') 'drivers' }
+    $unsigned = @($drvAge | Where-Object { $_.Unsigned })
+    if ($unsigned.Count -gt 0) { add 'Warning' 'Drivers' "Signature नसलेले drivers: $($unsigned.Count)" ((($unsigned | Select-Object -First 3 | ForEach-Object { $_.Name }) -join ', ') + ' - कोणी तपासलेले नाहीत; निर्मात्याच्या site वरचा driver लावा.') 'drivers' }
+    $old = @($drvAge | Where-Object { $_.Old })
+    if ($old.Count -gt 0) { add 'Info' 'Drivers' "$($old.Count) महत्त्वाचे drivers 3 वर्षांपेक्षा जुने" ((($old | Select-Object -First 4 | ForEach-Object { "$($_.Name) ($(if ($_.Date) { $_.Date.Year }))" }) -join ', ') + '. Device नीट चालत असेल तर बदलायची गरज नाही.') 'drivers' }
+    if ($wuDrivers -and $wuDrivers.Count -gt 0) { add 'Info' 'Drivers' "Windows Update मध्ये $($wuDrivers.Count) driver updates उपलब्ध" ((($wuDrivers | Select-Object -First 3 | ForEach-Object { $_.Title }) -join ' · ') + ' - Microsoft ने तपासलेले, सर्वात सुरक्षित.') 'drivers' }
 
     # --- security
     $avs = @($sec.AntivirusProducts | Where-Object { $_ -notmatch 'Windows Defender|Microsoft Defender' })
@@ -472,7 +537,7 @@ function Invoke-PDScan {
     [pscustomobject]@{
         Time = Get-Date; Score = $score; Info = $info; Load = $load; Events = $events
         Startup = $startup; Apps = $apps; AppAdvice = $appAdvice; Bloat = $bloat
-        Drivers = $drivers; Security = $sec; ImageHealth = $image; Sfc = $sfc
+        Drivers = $drivers; DriverAge = $drvAge; WUDrivers = $wuDrivers; Security = $sec; ImageHealth = $image; Sfc = $sfc
         TempBytes = $tempBytes; WindowsOldBytes = $winOld; PowerPlan = $power; PendingReboot = $pending
         Findings = @($f | Sort-Object { $sevOrder[$_.Severity] })
     }

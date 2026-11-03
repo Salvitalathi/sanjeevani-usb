@@ -55,6 +55,13 @@ th{background:#f8fafc;font-weight:600}
         if ($OSAdvice.Upgrades.Count) { [void]$sb.Append('<p><b>Hardware upgrade सल्ला:</b></p><ul>'); foreach ($u in $OSAdvice.Upgrades) { [void]$sb.Append("<li>$(& $e $u)</li>") }; [void]$sb.Append('</ul>') }
         [void]$sb.Append('</div>')
     }
+    $dp = @($Scan.Drivers); $da = @($Scan.DriverAge | Where-Object { $_.Old -or $_.Unsigned })
+    if ($dp.Count -or $da.Count) {
+        [void]$sb.Append('<h2>Drivers</h2><div class="card"><table><tr><th>Device</th><th>स्थिती</th></tr>')
+        foreach ($x in $dp) { [void]$sb.Append("<tr><td>$(& $e $x.Name)</td><td>$(& $e $x.Meaning)</td></tr>") }
+        foreach ($x in $da) { [void]$sb.Append("<tr><td>$(& $e $x.Name)</td><td>$(if ($x.Unsigned) { 'Signature नाही' } else { 'जुना driver' }) - $(& $e $x.Version) $(if ($x.Date) { $x.Date.ToString('yyyy-MM') })</td></tr>") }
+        [void]$sb.Append('</table></div>')
+    }
     if ($Scan.AppAdvice.Count) {
         [void]$sb.Append('<h2>Apps: काढा / बदला</h2><div class="card"><table><tr><th>App</th><th>का?</th><th>हलका पर्याय</th></tr>')
         foreach ($a in $Scan.AppAdvice) { [void]$sb.Append("<tr><td>$(& $e $a.App)</td><td>$(& $e $a.Reason)</td><td>$(& $e $a.Alternatives)</td></tr>") }
