@@ -325,7 +325,7 @@ Test-Case 'USB virus check: finds and quarantines what malware typically does' {
     Assert ((Get-SJIssueCount $c) -eq 0) ('after repair: ' + ((Format-SJResult $c 'en') -join ' | '))
     Assert ((Update-SJManifest -Root $u) -eq 2) 'quarantined files not dropped from the record'
     # --- write-protected USB
-    & icacls.exe $u /deny "$($env:USERNAME):(OI)(CI)(W)" | Out-Null
+    & icacls.exe $u /deny "$($env:USERNAME):(OI)(CI)(WD,AD,WEA,WA)" | Out-Null
     try {
         Assert (-not (Test-SJWritable $u)) 'locked USB reported as writable'
         $c = Test-SJIntegrity -Root $u
@@ -340,11 +340,11 @@ Test-Case 'Locked USB: tools that write settings run from a temp copy' {
     $d = Join-Path $env:TEMP ('sjv-ro-' + [guid]::NewGuid().ToString('N').Substring(0, 6) + '\FakeTool')
     New-Item -ItemType Directory $d -Force | Out-Null
     Set-Content (Join-Path $d 'fake.exe') 'MZ'; Set-Content (Join-Path $d 'fake.dll') 'x'
-    $ic = & icacls.exe $d /deny "$($env:USERNAME):(OI)(CI)(W)" 2>&1
-    Write-Host "      whoami: $(whoami) | icacls: $($ic -join ' ')" -ForegroundColor DarkGray
+    & icacls.exe $d /deny "$($env:USERNAME):(OI)(CI)(WD,AD,WEA,WA)" | Out-Null      # like a locked USB: readable, not writable
     try {
         $probe = $false; try { [IO.File]::WriteAllText((Join-Path $d 'probe.txt'), 'x'); $probe = $true } catch { }
-        Write-Host "      write after deny: $probe" -ForegroundColor DarkGray
+        Assert (-not $probe) 'test setup: folder is still writable'
+        Assert ((Get-Content (Join-Path $d 'fake.dll')) -eq 'x') 'test setup: a locked USB must stay readable'
         $run = Get-TGRunPath (Join-Path $d 'fake.exe')
         Assert ($run -ne (Join-Path $d 'fake.exe')) 'tool would run from the locked USB'
         Assert ((Test-Path $run) -and (Test-Path (Join-Path (Split-Path $run) 'fake.dll'))) "temp copy incomplete: $run"
