@@ -404,6 +404,8 @@ Test-Case 'Registry check finds virus-style and broken entries, fixes them and U
         Assert ((Get-PDCommandTarget '%windir%\system32\SecurityHealthSystray.exe') -like '*\SecurityHealthSystray.exe') 'env var target'
         $all = @(Get-PDRegistryIssues)
         Write-Host ("      found {0} issue(s) on this PC: {1}" -f $all.Count, (($all | ForEach-Object { $_.Title }) -join ' | ')) -ForegroundColor DarkGray
+        $foreign = @($all | Where-Object { $_.Name -notlike 'SanjeevaniTest*' -and $_.Key -notlike '*SanjeevaniTestOrphan' -and $_.Name -ne 'DisableRegistryTools' -and $_.Kind -eq 'malware' -and $_.Severity -eq 'Critical' })
+        Assert (-not $foreign.Count) ('clean Windows reported as infected: ' + (($foreign | ForEach-Object { "$($_.Title) [$($_.Detail)]" }) -join ' | '))
         $mine = @($all | Where-Object { ($_.Name -in 'SanjeevaniTestMissing', 'SanjeevaniTestOk', 'DisableRegistryTools' -and $_.Key -like 'HKCU:*') -or $_.Key -like '*SanjeevaniTestOrphan' })
         Assert ($mine.Name -contains 'SanjeevaniTestMissing') 'startup entry with a missing program not found'
         Assert ($mine.Name -notcontains 'SanjeevaniTestOk') 'working startup entry reported'

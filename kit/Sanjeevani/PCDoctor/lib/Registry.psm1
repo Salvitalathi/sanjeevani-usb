@@ -40,7 +40,7 @@ function Test-PDTargetExists([string]$Path) {
     return $false
 }
 
-function ConvertTo-PDInt($v) { try { return (ConvertTo-PDInt $v) } catch { return 0 } }
+function ConvertTo-PDInt($v) { try { return [int64]$v } catch { return 0 } }
 
 function New-PDRegIssue {
     param([string]$Kind, [string]$Severity, [string]$Title, [string]$Detail, [string]$Key, [string]$Name, [string]$Action, $Value = $null, [string]$Type = 'String', [bool]$Selected = $true)
