@@ -18,7 +18,11 @@ $script:Skip = '^(Reports|Rescue|_to_delete|System Volume Information|\$RECYCLE\
 # folders Sanjeevani hides on purpose (Hidden only, never System)
 $script:OwnHidden = @('Tools', 'Installers', 'autorun.inf')
 
-function Get-SJRoot([string]$Root) { return ($Root.TrimEnd('\') + '\') }
+function Get-SJRoot([string]$Root) {
+    # long path form (C:\Users\RUNNER~1 -> C:\Users\runneradmin) so relative paths are cut correctly
+    try { $Root = (Get-Item -LiteralPath $Root -Force -ErrorAction Stop).FullName } catch { }
+    return ($Root.TrimEnd('\') + '\')
+}
 
 function Test-SJWritable([string]$Root) {
     $Root = Get-SJRoot $Root

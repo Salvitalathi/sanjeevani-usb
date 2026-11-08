@@ -340,8 +340,11 @@ Test-Case 'Locked USB: tools that write settings run from a temp copy' {
     $d = Join-Path $env:TEMP ('sjv-ro-' + [guid]::NewGuid().ToString('N').Substring(0, 6) + '\FakeTool')
     New-Item -ItemType Directory $d -Force | Out-Null
     Set-Content (Join-Path $d 'fake.exe') 'MZ'; Set-Content (Join-Path $d 'fake.dll') 'x'
-    & icacls.exe $d /deny "$($env:USERNAME):(OI)(CI)(W)" | Out-Null
+    $ic = & icacls.exe $d /deny "$($env:USERNAME):(OI)(CI)(W)" 2>&1
+    Write-Host "      whoami: $(whoami) | icacls: $($ic -join ' ')" -ForegroundColor DarkGray
     try {
+        $probe = $false; try { [IO.File]::WriteAllText((Join-Path $d 'probe.txt'), 'x'); $probe = $true } catch { }
+        Write-Host "      write after deny: $probe" -ForegroundColor DarkGray
         $run = Get-TGRunPath (Join-Path $d 'fake.exe')
         Assert ($run -ne (Join-Path $d 'fake.exe')) 'tool would run from the locked USB'
         Assert ((Test-Path $run) -and (Test-Path (Join-Path (Split-Path $run) 'fake.dll'))) "temp copy incomplete: $run"
