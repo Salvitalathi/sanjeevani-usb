@@ -90,6 +90,22 @@ Test-Case 'Scripts define every function before the main flow calls it' {
     Assert (-not $bad.Count) ($bad -join '; ')
 }
 
+Test-Case 'No [math]::Max/Min mixes a small int with a byte count (Int32 overflow)' {
+    # [math]::Max(0, $bytes) picks the Int32 overload and fails once the value passes 2 GB
+    $bad = @()
+    foreach ($f in $psFiles) {
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$null, [ref]$null)
+        foreach ($c in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.InvokeMemberExpressionAst] -and $n.Expression.Extent.Text -eq '[math]' -and $n.Member.Extent.Text -in 'Max', 'Min' }, $true)) {
+            $args2 = @($c.Arguments)
+            $hasInt = @($args2 | Where-Object { $_ -is [System.Management.Automation.Language.ConstantExpressionAst] -and $_.Value -is [int] }).Count
+            $big = @($args2 | Where-Object { $_.Extent.Text -match '(?i)byte|size|free|need|total|after|before|\$now|keep|extent|length\b' -and $_.Extent.Text -notmatch '^\[(double|long|int64|uint64)\]' -and $_.Extent.Text -notmatch '\.Count$' }).Count
+            if ($hasInt -and $big) { $bad += "$($f.Name) line $($c.Extent.StartLineNumber): $($c.Extent.Text)" }
+        }
+    }
+    Assert (-not $bad.Count) ($bad -join '; ')
+    Assert ([math]::Max([double]0, [double](6795890688 - 0)) -eq 6795890688) 'double overload'
+}
+
 Test-Case 'Catalog regexes compile in .NET' {
     $cat = Get-Content (Join-Path $Kit 'Sanjeevani\tools.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     foreach ($e in @($cat.isos) + @($cat.tools)) {

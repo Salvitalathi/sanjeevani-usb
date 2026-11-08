@@ -585,7 +585,7 @@ function Show-Storage($a) {
     $ui.StorageSummary.Text = ("{0}: {1} पैकी {2} वापरले, {3} मोकळे.`nतुमचे files (हलवता येतील): {4} · Hibernation file: {5} · Page file: {6}`nDisk style: {7} · Unallocated: {8} · C: मधून सुरक्षित shrink: {9}" -f
         $a.Drive, (Format-PDSize $a.SizeBytes), (Format-PDSize $used), (Format-PDSize $a.FreeBytes), (Format-PDSize $userTotal),
         (Format-PDSize $a.HiberfilBytes), (Format-PDSize $a.PagefileBytes), $a.DiskStyle, (Format-PDSize $a.UnallocatedBytes), (Format-PDSize $a.ShrinkableBytes))
-    $ui.ShrinkInfo.Text = "(जास्तीत जास्त ~{0:N0} GB)" -f ([math]::Floor(([math]::Max($a.UnallocatedBytes, $a.ShrinkableBytes)) / 1GB))
+    $ui.ShrinkInfo.Text = "(जास्तीत जास्त ~{0:N0} GB)" -f ([math]::Floor(([math]::Max([double]$a.UnallocatedBytes, [double]$a.ShrinkableBytes)) / 1GB))
     $ui.TargetCombo.Items.Clear()
     foreach ($t in $a.Targets) { [void]$ui.TargetCombo.Items.Add(("{0}:  {1}  - {2} मोकळे" -f $t.Letter, $t.Label, (Format-PDSize $t.FreeBytes))) }
     if ($ui.TargetCombo.Items.Count -gt 0) { $ui.TargetCombo.SelectedIndex = 0 }

@@ -46,7 +46,7 @@ function Clear-PDJunk {
         try { Clear-RecycleBin -Force -ErrorAction Stop } catch { }
     }
     $after = (Get-Volume -DriveLetter $drive).SizeRemaining
-    $freed = [math]::Max(0, $after - $before)
+    $freed = [math]::Max([double]0, [double]($after - $before))
     Set-PDProgress -1
     Write-PDLog ("Cleanup पूर्ण - {0} जागा मोकळी झाली. आता {1} free." -f (Format-PDSize $freed), (Format-PDSize $after)) 'OK'
     return $freed

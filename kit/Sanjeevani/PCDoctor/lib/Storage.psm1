@@ -121,10 +121,10 @@ function Get-PDShrinkable {
         $part = Get-Partition -DriveLetter $l
         $sup = Get-PartitionSupportedSize -DriveLetter $l -ErrorAction Stop
         $vol = Get-Volume -DriveLetter $l
-        $keep = [math]::Max(20GB, 0.15 * $vol.Size)
+        $keep = [math]::Max([double]20GB, 0.15 * [double]$vol.Size)
         $byFree = $vol.SizeRemaining - $keep
         $byFs = $part.Size - $sup.SizeMin
-        return [double][math]::Max(0, [math]::Min($byFree, $byFs))
+        return [math]::Max([double]0, [math]::Min([double]$byFree, [double]$byFs))
     } catch { return 0 }
 }
 
@@ -154,7 +154,7 @@ function New-PDDataPartition {
     Set-PDProgress 70 'New partition'
     try {
         $free = [uint64](Get-Disk -Number $disk.Number).LargestFreeExtent
-        $size = [math]::Min($need, $free)
+        $size = [math]::Min([double]$need, [double]$free)
         $np = New-Partition -DiskNumber $disk.Number -Size $size -AssignDriveLetter -ErrorAction Stop
         $null = Format-Volume -Partition $np -FileSystem NTFS -NewFileSystemLabel $Label -Confirm:$false -ErrorAction Stop
     } catch {

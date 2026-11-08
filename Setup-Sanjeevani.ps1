@@ -788,7 +788,7 @@ if ($WithDrivers -and $installed['sdio']) {
                 $now = & $sizeOf
                 if ($now -gt $prev) { $lastGrow = Get-Date }
                 $avg = ($now - $start) / [math]::Max(1, ((Get-Date) - $t0).TotalSeconds)
-                $left = if ($avg -gt 0) { '{0:N1} h' -f ([math]::Max(0, $total - $now) / $avg / 3600) } else { '?' }
+                $left = if ($avg -gt 0) { '{0:N1} h' -f ([math]::Max([double]0, [double]($total - $now)) / $avg / 3600) } else { '?' }
                 Write-Host ("`r    Driver packs: {0,6:N2} GB of ~70 GB   {1,6:N2} MB/s   time left ~{2}      " -f ($now / 1GB), ((($now - $prev) / 30) / 1MB), $left) -NoNewline
                 $prev = $now
                 if (((Get-Date) - $lastGrow).TotalMinutes -ge 15) {
