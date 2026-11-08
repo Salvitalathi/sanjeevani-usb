@@ -70,6 +70,26 @@ Test-Case 'All JSON files are valid' {
     $true
 }
 
+Test-Case 'Scripts define every function before the main flow calls it' {
+    $bad = @()
+    foreach ($f in @(Get-ChildItem $Root -File -Filter *.ps1) + @(Get-ChildItem (Join-Path $Kit 'Sanjeevani\PCDoctor') -Recurse -File -Filter *.ps1)) {
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$null, [ref]$null)
+        $defs = @{}
+        foreach ($fn in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)) {
+            if (-not $defs.ContainsKey($fn.Name)) { $defs[$fn.Name] = $fn.Extent.StartOffset }
+        }
+        foreach ($c in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.CommandAst] }, $true)) {
+            $name = $c.GetCommandName()
+            if (-not $name -or -not $defs.ContainsKey($name)) { continue }
+            # calls inside a function body run later, when that function is called; only the top-level flow matters
+            $p = $c.Parent; $inFn = $false
+            while ($p) { if ($p -is [System.Management.Automation.Language.FunctionDefinitionAst] -or $p -is [System.Management.Automation.Language.ScriptBlockExpressionAst]) { $inFn = $true; break }; $p = $p.Parent }
+            if (-not $inFn -and $c.Extent.StartOffset -lt $defs[$name]) { $bad += "$($f.Name) line $($c.Extent.StartLineNumber): $name used before it is defined" }
+        }
+    }
+    Assert (-not $bad.Count) ($bad -join '; ')
+}
+
 Test-Case 'Catalog regexes compile in .NET' {
     $cat = Get-Content (Join-Path $Kit 'Sanjeevani\tools.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     foreach ($e in @($cat.isos) + @($cat.tools)) {

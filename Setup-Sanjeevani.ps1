@@ -26,6 +26,15 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# any unexpected error: show it and keep the (elevated) window open instead of closing silently
+trap {
+    Write-Host ''
+    Write-Host ("    [XX]  Setup stopped: " + $_.Exception.Message) -ForegroundColor Red
+    Write-Host ("          at line " + $_.InvocationInfo.ScriptLineNumber + ": " + $_.InvocationInfo.Line.Trim()) -ForegroundColor DarkGray
+    Write-Host '          Take a photo / screenshot of this and report it on GitHub (Issues).' -ForegroundColor Yellow
+    if (-not $ResolveOnly) { Read-Host 'Press Enter to close' }
+    exit 1
+}
 Set-StrictMode -Off
 if ($Only -and $Only.Count -eq 1 -and $Only[0] -match ',') { $Only = $Only[0].Split(',') | ForEach-Object { $_.Trim() } }
 $ProgressPreference = 'SilentlyContinue'
@@ -296,6 +305,34 @@ if ($ResolveOnly) {
     exit $bad.Count
 }
 
+# A ready Sanjeevani USB (or a folder copy of one) can be cloned instead of downloading everything again.
+# Personal data folders (Reports, Rescue) are never copied.
+function Test-SanjeevaniSource([string]$Path) {
+    return ($Path -and (Test-Path -LiteralPath (Join-Path $Path 'Sanjeevani\installed.json')) -and (Test-Path -LiteralPath (Join-Path $Path 'ISO')))
+}
+
+function Get-SourceSizeGB([string]$From) {
+    $sum = 0
+    foreach ($d in 'ISO', 'Tools', 'Installers') { $p = Join-Path $From $d; if (Test-Path -LiteralPath $p) { Get-ChildItem -LiteralPath $p -Recurse -File -Force -ErrorAction SilentlyContinue | ForEach-Object { $sum += $_.Length } } }
+    return [math]::Round($sum / 1GB, 1)
+}
+
+function Copy-SanjeevaniContent([string]$From, [string]$To) {
+    $From = $From.TrimEnd('\'); $To = $To.TrimEnd('\')
+    foreach ($d in 'ISO', 'Tools', 'Installers', 'Sanjeevani\bin') {
+        $src = Join-Path $From $d
+        if (-not (Test-Path -LiteralPath $src)) { continue }
+        Say "    copying $d ..." DarkGray
+        & robocopy.exe $src (Join-Path $To $d) /E /R:1 /W:1 /MT:8 /NFL /NDL /NJH /NJS /NP | Out-Null
+        if ($LASTEXITCODE -ge 8) { throw "copy of $d failed (robocopy $LASTEXITCODE)" }
+    }
+    $inst = Join-Path $From 'Sanjeevani\installed.json'
+    if (Test-Path -LiteralPath $inst) {
+        New-Item -ItemType Directory -Path (Join-Path $To 'Sanjeevani') -Force | Out-Null
+        Copy-Item -LiteralPath $inst (Join-Path $To 'Sanjeevani\installed.json') -Force
+    }
+}
+
 # ------------------------------------------------------------------ choose USB
 function Get-VentoyVolume([int]$DiskNumber) {
     Get-Partition -DiskNumber $DiskNumber -ErrorAction SilentlyContinue | ForEach-Object {
@@ -533,34 +570,6 @@ function Set-IsoOrderName([string]$RelPath, $e) {
     if (Test-Path -LiteralPath (Join-Path (Split-Path $full) $newName)) { return $RelPath }
     try { Rename-Item -LiteralPath $full -NewName $newName -ErrorAction Stop; Ok "renamed to $newName (boot menu order)"; return "ISO\$newName" }
     catch { return $RelPath }
-}
-
-# A ready Sanjeevani USB (or a folder copy of one) can be cloned instead of downloading everything again.
-# Personal data folders (Reports, Rescue) are never copied.
-function Test-SanjeevaniSource([string]$Path) {
-    return ($Path -and (Test-Path -LiteralPath (Join-Path $Path 'Sanjeevani\installed.json')) -and (Test-Path -LiteralPath (Join-Path $Path 'ISO')))
-}
-
-function Get-SourceSizeGB([string]$From) {
-    $sum = 0
-    foreach ($d in 'ISO', 'Tools', 'Installers') { $p = Join-Path $From $d; if (Test-Path -LiteralPath $p) { Get-ChildItem -LiteralPath $p -Recurse -File -Force -ErrorAction SilentlyContinue | ForEach-Object { $sum += $_.Length } } }
-    return [math]::Round($sum / 1GB, 1)
-}
-
-function Copy-SanjeevaniContent([string]$From, [string]$To) {
-    $From = $From.TrimEnd('\'); $To = $To.TrimEnd('\')
-    foreach ($d in 'ISO', 'Tools', 'Installers', 'Sanjeevani\bin') {
-        $src = Join-Path $From $d
-        if (-not (Test-Path -LiteralPath $src)) { continue }
-        Say "    copying $d ..." DarkGray
-        & robocopy.exe $src (Join-Path $To $d) /E /R:1 /W:1 /MT:8 /NFL /NDL /NJH /NJS /NP | Out-Null
-        if ($LASTEXITCODE -ge 8) { throw "copy of $d failed (robocopy $LASTEXITCODE)" }
-    }
-    $inst = Join-Path $From 'Sanjeevani\installed.json'
-    if (Test-Path -LiteralPath $inst) {
-        New-Item -ItemType Directory -Path (Join-Path $To 'Sanjeevani') -Force | Out-Null
-        Copy-Item -LiteralPath $inst (Join-Path $To 'Sanjeevani\installed.json') -Force
-    }
 }
 
 function Install-Item($e, [string]$Kind) {

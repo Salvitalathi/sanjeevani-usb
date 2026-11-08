@@ -11,3 +11,8 @@ if not exist "%~dp0Setup-Sanjeevani.ps1" (
   exit /b 1
 )
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Setup-Sanjeevani.ps1" %*
+if errorlevel 1 (
+  echo.
+  echo   Setup stopped with an error. Take a photo or screenshot of the message above and report it.
+  pause
+)
