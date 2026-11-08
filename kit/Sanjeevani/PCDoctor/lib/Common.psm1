@@ -211,4 +211,47 @@ function Save-PDRegBackup {
     return $null
 }
 
+# Registry backup that does not need reg.exe (reg.exe refuses to run when a virus set DisableRegistryTools).
+function ConvertTo-PDRegTree([string]$Key, [int]$Depth = 0) {
+    $k = Get-Item -LiteralPath $Key -ErrorAction SilentlyContinue
+    if (-not $k) { return [pscustomobject]@{ Key = $Key; Exists = $false } }
+    $vals = @(foreach ($n in $k.GetValueNames()) {
+            $kind = $k.GetValueKind($n).ToString()
+            $d = $k.GetValue($n, $null, 'DoNotExpandEnvironmentNames')
+            if ($d -is [byte[]]) { $d = [Convert]::ToBase64String($d) }
+            [pscustomobject]@{ Name = $n; Kind = $kind; Data = $d }
+        })
+    $subs = @()
+    if ($Depth -lt 8) { $subs = @(foreach ($c in @(Get-ChildItem -LiteralPath $Key -ErrorAction SilentlyContinue)) { ConvertTo-PDRegTree ($Key.TrimEnd('\') + '\' + $c.PSChildName) ($Depth + 1) }) }
+    [pscustomobject]@{ Key = $Key; Exists = $true; Values = $vals; Subkeys = $subs }
+}
+
+function Save-PDRegTree {
+    param([Parameter(Mandatory)][string]$Key, [Parameter(Mandatory)][string]$Name)
+    $file = Join-Path $global:PDCtx.BackupDir ("{0}-{1:yyyyMMdd-HHmmss-fff}.regtree.json" -f $Name, (Get-Date))
+    ConvertTo-Json -InputObject (ConvertTo-PDRegTree $Key) -Depth 30 | Set-Content -LiteralPath $file -Encoding UTF8
+    return $file
+}
+
+function Restore-PDRegTree {
+    param([Parameter(Mandatory)]$Tree)
+    if ($Tree -is [string]) { $Tree = Get-Content -LiteralPath $Tree -Raw -Encoding UTF8 | ConvertFrom-Json }
+    if (-not $Tree.Exists) { return }
+    if (-not (Test-Path -LiteralPath $Tree.Key)) { New-Item -Path $Tree.Key -Force | Out-Null }
+    foreach ($v in @($Tree.Values)) {
+        if ($null -eq $v) { continue }
+        $data = $v.Data
+        switch ($v.Kind) {
+            'Binary'      { $data = [Convert]::FromBase64String([string]$v.Data) }
+            'MultiString' { $data = [string[]]@($v.Data) }
+            'DWord'       { $data = [int64]$v.Data; if ($data -gt [int]::MaxValue) { $data = [int]($data - 4294967296) } }
+            'QWord'       { $data = [int64]$v.Data }
+        }
+        $nm = if ($v.Name) { $v.Name } else { '(default)' }
+        $kind = if ($v.Kind -in 'String', 'ExpandString', 'Binary', 'DWord', 'QWord', 'MultiString') { $v.Kind } else { 'String' }
+        Set-ItemProperty -LiteralPath $Tree.Key -Name $nm -Value $data -Type $kind -ErrorAction Stop
+    }
+    foreach ($c in @($Tree.Subkeys)) { if ($c) { Restore-PDRegTree $c } }
+}
+
 Export-ModuleMember -Function *

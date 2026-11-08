@@ -8,7 +8,8 @@
 #              "show hidden files" switch broken, proxy set behind the user's back
 #   broken   - startup entries whose program no longer exists (errors at every start), entries in "Programs and
 #              Features" whose uninstaller and folder are gone, App Paths to missing programs
-# Every fix: restore point first, the key is exported to Reports\...\backup\*.reg and journaled, so Undo restores it.
+# Every fix: restore point first, the key is saved to Reports\...\backup (JSON, plus .reg when reg.exe is allowed)
+# and journaled, so Undo restores it - even when the virus blocked reg.exe / regedit.
 Set-StrictMode -Off
 
 function ConvertTo-PDRegExePath([string]$Key) { return ($Key -replace '^HKLM:\\', 'HKLM\' -replace '^HKCU:\\', 'HKCU\' -replace '^HKCR:\\', 'HKCR\') }
@@ -186,9 +187,11 @@ function Repair-PDRegistryIssues {
         try {
             $key = ($i.Key -replace '^Microsoft\.PowerShell\.Core\\Registry::HKEY_LOCAL_MACHINE', 'HKLM:' -replace '^Microsoft\.PowerShell\.Core\\Registry::HKEY_CURRENT_USER', 'HKCU:')
             $label = ($key -replace '[^\w]+', '_'); if ($label.Length -gt 60) { $label = $label.Substring($label.Length - 60) }
-            $bak = Save-PDRegBackup -RegPath (ConvertTo-PDRegExePath $key) -Name ("reg-$n-$label")
-            if (-not $bak) { throw "backup of $key failed - not changed" }
-            Add-PDUndo @{ Type = 'RegFile'; File = $bak; Label = $i.Title }
+            # own backup (works even when a virus blocked reg.exe / regedit) + a .reg copy when reg.exe is allowed
+            $bak = Save-PDRegTree -Key $key -Name ("reg-$n-$label")
+            if (-not (Test-Path -LiteralPath $bak)) { throw "backup of $key failed - not changed" }
+            Add-PDUndo @{ Type = 'RegTree'; File = $bak; Label = $i.Title }
+            try { [void](Save-PDRegBackup -RegPath (ConvertTo-PDRegExePath $key) -Name ("reg-$n-$label")) } catch { }
             switch ($i.Action) {
                 'removevalue' { Remove-ItemProperty -LiteralPath $key -Name $i.Name -ErrorAction Stop }
                 'removekey'   { Remove-Item -LiteralPath $key -Recurse -Force -ErrorAction Stop }

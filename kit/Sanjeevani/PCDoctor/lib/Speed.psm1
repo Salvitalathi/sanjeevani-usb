@@ -272,6 +272,7 @@ function Undo-PDChanges {
                 'Startup'        { Set-PDStartupState -Item ([pscustomobject]@{ ApprovedKey = $u.ApprovedKey; ValueName = $u.ValueName; Name = $u.ValueName; Enabled = $false }) -Enabled ([bool]$u.WasEnabled) -NoUndo }
                 'Service'        { Set-Service -Name $u.Name -StartupType $u.StartType -ErrorAction Stop; Write-PDLog "Service $($u.Name) -> $($u.StartType)" 'OK' }
                 'RegFile'        { $null = & reg.exe import $u.File 2>&1; Write-PDLog "Registry restore: $($u.Label)" 'OK' }
+                'RegTree'        { Restore-PDRegTree $u.File; Write-PDLog "Registry restore: $($u.Label)" 'OK' }
                 'PowerPlan'      { if ($u.Guid) { $null = & powercfg.exe /setactive $u.Guid 2>&1; Write-PDLog 'Power plan restore' 'OK' } }
                 'Hibernate'      { $null = & powercfg.exe /h on 2>&1; Write-PDLog 'Hibernation परत चालू' 'OK' }
                 'RegValue'       {
