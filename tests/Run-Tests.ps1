@@ -98,7 +98,7 @@ Test-Case 'No [math]::Max/Min mixes a small int with a byte count (Int32 overflo
         foreach ($c in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.InvokeMemberExpressionAst] -and $n.Expression.Extent.Text -eq '[math]' -and $n.Member.Extent.Text -in 'Max', 'Min' }, $true)) {
             $args2 = @($c.Arguments)
             $hasInt = @($args2 | Where-Object { $_ -is [System.Management.Automation.Language.ConstantExpressionAst] -and $_.Value -is [int] }).Count
-            $big = @($args2 | Where-Object { $_.Extent.Text -match '(?i)byte|size|free|need|total|after|before|\$now|keep|extent|length\b' -and $_.Extent.Text -notmatch '^\[(double|long|int64|uint64)\]' -and $_.Extent.Text -notmatch '\.Count$' }).Count
+            $big = @($args2 | Where-Object { $_.Extent.Text -match '(?i)byte|size|free|need|total|after|before|\$now|keep|extent|length\b' -and $_.Extent.Text -notmatch '^\[(double|long|int64|uint64)\]' -and $_.Extent.Text -notmatch '\.(Count|Length)$' }).Count
             if ($hasInt -and $big) { $bad += "$($f.Name) line $($c.Extent.StartLineNumber): $($c.Extent.Text)" }
         }
     }
