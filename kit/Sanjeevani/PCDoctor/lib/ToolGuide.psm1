@@ -236,7 +236,12 @@ function Invoke-TGSystemSummary([string]$UsbRoot, $P) {
     $type = ($mods | ForEach-Object { Get-TGRamType ([int]$_.SMBIOSMemoryType) } | Where-Object { $_ } | Select-Object -First 1)
     $speed = ($mods | ForEach-Object { if ($_.ConfiguredClockSpeed) { $_.ConfiguredClockSpeed } else { $_.Speed } } | Measure-Object -Maximum).Maximum
     $modTxt = ($mods | ForEach-Object { "$([math]::Round($_.Capacity / 1GB)) GB" }) -join ' + '
-    Add-TGLine $r ("RAM: {0} GB {1} {2} MHz ({3}) · slots: {4}" -f $ramGB, $type, $speed, $modTxt, $(if ($slots) { $slots } else { '?' })) ''
+    $ramTxt = "RAM: $ramGB GB"
+    if ($type) { $ramTxt += " $type" }
+    if ($speed) { $ramTxt += " $speed MHz" }
+    if ($mods.Count) { $ramTxt += " ($modTxt)" }
+    if ($slots) { $ramTxt += " · slots: $slots" }
+    Add-TGLine $r $ramTxt ''
     foreach ($g in $gpu) { Add-TGLine $r "Graphics: $($g.Name)" '' }
     Add-TGLine $r "Windows: $($os.Caption) ($($os.Version))" ''
     # system disk type
@@ -251,7 +256,8 @@ function Invoke-TGSystemSummary([string]$UsbRoot, $P) {
     elseif ($ramGB -lt 8) { Set-TGWorse $r 'warn'; Add-TGLine $r '⚠ RAM 8 GB पेक्षा कमी - browser + office एकत्र हळू. 8 GB केल्यास फरक जाणवेल.' '⚠ Less than 8 GB RAM - browser + office together are slow. 8 GB makes a clear difference.' }
     if ($mods.Count -eq 1 -and $slots -gt 1) {
         Set-TGWorse $r 'warn'
-        Add-TGLine $r ("⚠ एकच RAM stick (single channel). मोकळ्या slot मध्ये तशीच {0} {1} MHz RAM लावल्यास dual channel होऊन वेग वाढतो." -f $type, $speed) ("⚠ Only one RAM stick (single channel). Adding a matching {0} {1} MHz stick in the free slot enables dual channel and speeds it up." -f $type, $speed)
+        $same = (("$type $(if ($speed) { "$speed MHz" })").Trim())
+        Add-TGLine $r ("⚠ एकच RAM stick (single channel). मोकळ्या slot मध्ये तशीच {0} RAM लावल्यास dual channel होऊन वेग वाढतो." -f $same) ("⚠ Only one RAM stick (single channel). Adding a matching {0} stick in the free slot enables dual channel and speeds it up." -f $same)
     }
     if ($sysType -eq 'HDD') { Set-TGWorse $r 'warn'; Add-TGLine $r '⚠ Windows hard disk (HDD) वर आहे. SSD लावल्यास PC 3-5 पट लवकर सुरू होतो - सगळ्यात मोठा फायदा.' '⚠ Windows runs from a hard disk (HDD). An SSD makes it start 3-5 times faster - the biggest single upgrade.' }
     if ($r.Status -eq 'ok') { Add-TGLine $r '✔ RAM आणि disk या कामांसाठी पुरेसे आहेत.' '✔ RAM and disk are adequate.' }
@@ -468,19 +474,30 @@ function Invoke-TGNetwork([string]$UsbRoot, $P) {
         return $r
     }
     Add-TGLine $r ("जोडलेले: " + (($up | ForEach-Object { "$($_.Name) ($($_.LinkSpeed))" }) -join ', ')) ("Connected: " + (($up | ForEach-Object { "$($_.Name) ($($_.LinkSpeed))" }) -join ', '))
-    if ($gw) {
-        $g = & $ping $gw
-        if ($g.Ok) { Add-TGLine $r "✔ Router ($gw): $($g.Ms) ms" '' } else { Set-TGWorse $r 'bad'; Add-TGLine $r "✖ Router ($gw) उत्तर देत नाही - router restart करा / WiFi password / cable तपासा." "✖ Router ($gw) does not answer - restart the router / check the WiFi password / cable." }
-    } else { Set-TGWorse $r 'bad'; Add-TGLine $r '✖ Router (gateway) मिळाला नाही - IP मिळत नाही. PC Doctor → दुरुस्ती → "Internet / Network reset".' '✖ No router (gateway) - no IP address. PC Doctor → Repair → "Internet / Network reset".' }
+    $g = if ($gw) { & $ping $gw } else { $null }
     $i = & $ping '8.8.8.8'
-    if ($i.Ok) {
-        Add-TGLine $r "✔ Internet (8.8.8.8): $($i.Ms) ms$(if ($i.Lost) { ", $($i.Lost)/4 lost" })" ''
-        if ($i.Lost -ge 1 -or $i.Ms -gt 150) { Set-TGWorse $r 'warn'; Add-TGLine $r '⚠ Internet हळू / packets हरवतात - WiFi signal कमी किंवा ISP.' '⚠ Slow internet / packet loss - weak WiFi signal or the ISP.' }
-    } else { Set-TGWorse $r 'bad'; Add-TGLine $r '✖ Router चालतो पण internet नाही → ISP / recharge / router चा internet light तपासा.' '✖ The router works but there is no internet → check the ISP / recharge / the router''s internet light.' }
     $dnsOk = $false
-    try { $null = Resolve-DnsName -Name 'www.google.com' -Type A -ErrorAction Stop -QuickTimeout; $dnsOk = $true } catch { }
-    if ($dnsOk) { Add-TGLine $r '✔ DNS (website नावे) ठीक' '✔ DNS (website names) works' }
-    elseif ($i.Ok) { Set-TGWorse $r 'bad'; Add-TGLine $r '✖ Internet आहे पण website नावे उघडत नाहीत (DNS). PC Doctor → दुरुस्ती → "Internet / Network reset".' '✖ Internet works but website names do not resolve (DNS). PC Doctor → Repair → "Internet / Network reset".' }
+    try { $null = Resolve-DnsName -Name 'www.msftconnecttest.com' -Type A -ErrorAction Stop -QuickTimeout; $dnsOk = $true } catch { }
+    # a real web request - some routers / networks block ping but the internet works
+    $webOk = $false
+    try { $w = Invoke-WebRequest -Uri 'http://www.msftconnecttest.com/connecttest.txt' -UseBasicParsing -TimeoutSec 15; $webOk = ($w.Content -match 'Microsoft Connect Test') } catch { }
+    if ($g -and $g.Ok) { Add-TGLine $r "✔ Router ($gw): $($g.Ms) ms" '' }
+    elseif ($gw) { Add-TGLine $r "• Router ($gw) ping ला उत्तर देत नाही (काही routers देत नाहीत)." "• Router ($gw) does not answer ping (some routers never do)." }
+    if ($i.Ok) { Add-TGLine $r "✔ Internet ping (8.8.8.8): $($i.Ms) ms$(if ($i.Lost) { ", $($i.Lost)/4 lost" })" '' }
+    if ($webOk) {
+        Add-TGLine $r '✔ Website उघडते - internet चालू आहे.' '✔ A website loads - the internet works.'
+        if ($i.Ok -and ($i.Lost -ge 1 -or $i.Ms -gt 150)) { Set-TGWorse $r 'warn'; Add-TGLine $r '⚠ Internet हळू / packets हरवतात - WiFi signal कमी किंवा ISP.' '⚠ Slow internet / packet loss - weak WiFi signal or the ISP.' }
+    } elseif ($i.Ok -and -not $dnsOk) {
+        Set-TGWorse $r 'bad'; Add-TGLine $r '✖ Internet आहे पण website नावे उघडत नाहीत (DNS). PC Doctor → दुरुस्ती → "Internet / Network reset".' '✖ Internet works but website names do not resolve (DNS). PC Doctor → Repair → "Internet / Network reset".'
+    } elseif ($i.Ok) {
+        Set-TGWorse $r 'warn'; Add-TGLine $r '⚠ Internet आहे पण website उघडली नाही - proxy / firewall / antivirus तपासा.' '⚠ The internet answers but the website did not load - check proxy / firewall / antivirus.'
+    } elseif (-not $gw) {
+        Set-TGWorse $r 'bad'; Add-TGLine $r '✖ Router (gateway) मिळाला नाही - IP मिळत नाही. Router restart करा; मग PC Doctor → दुरुस्ती → "Internet / Network reset".' '✖ No router (gateway) - no IP address. Restart the router, then PC Doctor → Repair → "Internet / Network reset".'
+    } elseif ($g.Ok) {
+        Set-TGWorse $r 'bad'; Add-TGLine $r '✖ Router चालतो पण internet नाही → ISP / recharge / router चा internet light तपासा.' '✖ The router works but there is no internet → check the ISP / recharge / the router''s internet light.'
+    } else {
+        Set-TGWorse $r 'bad'; Add-TGLine $r '✖ Router पर्यंतच पोहोचत नाही - WiFi password / cable / router restart करा.' '✖ Cannot reach the router - check the WiFi password / cable, restart the router.'
+    }
     $r.HeadMr = switch ($r.Status) { 'bad' { 'Internet मध्ये समस्या सापडली' } 'warn' { 'Internet चालते पण हळू' } default { 'Internet ठीक चालते' } }
     $r.HeadEn = switch ($r.Status) { 'bad' { 'Internet problem found' } 'warn' { 'Internet works but slowly' } default { 'Internet works fine' } }
     return $r
