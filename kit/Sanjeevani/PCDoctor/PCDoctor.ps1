@@ -24,7 +24,7 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, Sys
 $Here    = $PSScriptRoot
 $UsbRoot = (Resolve-Path (Join-Path $Here '..\..')).Path
 $DataDir = Join-Path $Here 'data'
-$Modules = @('Common', 'Diagnostics', 'Repair', 'Speed', 'Storage', 'Advisor', 'Report') | ForEach-Object { Join-Path $Here "lib\$_.psm1" }
+$Modules = @('Common', 'Diagnostics', 'Repair', 'Speed', 'Storage', 'Advisor', 'Report', 'ToolGuide') | ForEach-Object { Join-Path $Here "lib\$_.psm1" }
 
 try {
     foreach ($m in $Modules) { Import-Module $m -Force -DisableNameChecking -ErrorAction Stop }
@@ -35,7 +35,7 @@ try {
 }
 
 $global:PDLogQueue = New-Object 'System.Collections.Concurrent.ConcurrentQueue[string]'
-$global:PDState = [hashtable]::Synchronized(@{ Progress = -1; Status = '' })
+$global:PDState = [hashtable]::Synchronized(@{ Progress = -1; Status = ''; Cancel = $false })
 
 # ---------------------------------------------------------------- row types for WPF binding
 class FindingRow { [string]$Title; [string]$Detail; [string]$Color; [string]$SevText; [string]$FixTag; [string]$FixVisible; [string]$FixText }
@@ -173,7 +173,7 @@ class InfoRow    { [string]$Title; [string]$Badge; [string]$Color; [string]$Deta
           <Button Style="{StaticResource Nav}" Tag="nav:speed"     Content="⚡  वेग वाढवा (Speed)"/>
           <Button Style="{StaticResource Nav}" Tag="nav:storage"   Content="💾  C: drive जागा"/>
           <Button Style="{StaticResource Nav}" Tag="nav:advisor"   Content="💡  OS / Apps सल्ला"/>
-          <Button Style="{StaticResource Nav}" Tag="nav:toolbox"   Content="🧰  Toolbox"/>
+          <Button Style="{StaticResource Nav}" Tag="nav:toolbox"   Content="🧰  Tools मार्गदर्शक"/>
           <Button Style="{StaticResource Nav}" Tag="nav:report"    Content="📄  Report"/>
         </StackPanel>
       </DockPanel>
@@ -363,14 +363,30 @@ class InfoRow    { [string]$Title; [string]$Badge; [string]$Color; [string]$Deta
         </StackPanel>
       </ScrollViewer>
 
-      <!-- TOOLBOX -->
-      <ScrollViewer Name="Page_toolbox" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
-        <StackPanel>
-          <TextBlock Style="{StaticResource H1}" Text="Toolbox"/>
-          <TextBlock Style="{StaticResource Sub}" Text="USB वरील portable tools - install न करता चालतात." Margin="0,0,0,14"/>
-          <StackPanel Name="ToolPanel"/>
-        </StackPanel>
-      </ScrollViewer>
+      <!-- TOOLS GUIDE -->
+      <Grid Name="Page_toolbox" Visibility="Collapsed">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+            <Button Name="LangMr" Style="{StaticResource Btn}" Tag="tg:lang:mr" Content="मराठी"/>
+            <Button Name="LangEn" Style="{StaticResource Btn}" Tag="tg:lang:en" Content="English" Margin="0"/>
+          </StackPanel>
+          <StackPanel>
+            <TextBlock Name="TgTitle" Style="{StaticResource H1}" Text="Tools मार्गदर्शक"/>
+            <TextBlock Name="TgSub" Style="{StaticResource Sub}"/>
+          </StackPanel>
+        </DockPanel>
+        <Grid Grid.Row="1" Margin="0,12,0,0">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="320"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+          <DockPanel>
+            <TextBox Name="TgSearch" DockPanel.Dock="Top" Margin="0,0,0,8" Padding="8,6" Background="#0B1220" Foreground="#E2E8F0" BorderBrush="#334155" CaretBrush="#E2E8F0"/>
+            <ListBox Name="TgList" Background="#0B1220" BorderBrush="#22304D" Foreground="#E2E8F0" ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+          </DockPanel>
+          <ScrollViewer Grid.Column="1" Margin="16,0,0,0" VerticalScrollBarVisibility="Auto">
+            <StackPanel Name="TgDetail"/>
+          </ScrollViewer>
+        </Grid>
+      </Grid>
 
       <!-- REPORT -->
       <ScrollViewer Name="Page_report" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
@@ -391,6 +407,7 @@ class InfoRow    { [string]$Title; [string]$Badge; [string]$Color; [string]$Deta
       <DockPanel Margin="26,8,26,10">
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
           <ProgressBar Name="Progress" DockPanel.Dock="Right" Width="260" Height="8" Background="#1E293B" Foreground="#2DD4BF" BorderThickness="0" Minimum="0" Maximum="100"/>
+          <Button Name="StopBtn" DockPanel.Dock="Right" Style="{StaticResource Btn}" Tag="job:stop" Content="■ थांबवा / Stop" Padding="10,2" Margin="0,0,12,0" Visibility="Collapsed"/>
           <TextBlock Name="StatusText" Text="तयार" Foreground="#94A3B8"/>
         </DockPanel>
         <TextBox Name="LogBox" Height="120" IsReadOnly="True" Background="#0B1220" Foreground="#A7F3D0" BorderBrush="#1E293B"
@@ -457,6 +474,7 @@ function Complete-PDJob {
     } catch { $global:PDLogQueue.Enqueue('[ERR] ' + $_.Exception.Message) }
     $j.PS.Dispose(); $j.RS.Close(); $j.RS.Dispose()
     $script:Job = $null
+    $ui.StopBtn.Visibility = 'Collapsed'
     Set-Busy $false
     Flush-Log
     $ui.StatusText.Text = $j.Title + ' - पूर्ण'
@@ -641,44 +659,252 @@ $repairCards = @(
 )
 foreach ($c in $repairCards) { [void]$ui.RepairCards.Children.Add((New-ActionCard $c[0] $c[1] $c[2] $c[3])) }
 
+# ---------------------------------------------------------------- Tools मार्गदर्शक (tools guide)
+$script:Tg = $null            # guide + catalog, loaded once
+$script:TgLang = 'mr'
+$script:TgSel = $null
+$script:TgResults = @{}
+$TgText = @{
+    mr = @{ title = 'Tools मार्गदर्शक'; sub = 'प्रत्येक tool काय करतो, कधी वापरायचा आणि कसा - सोप्या भाषेत. "आपोआप तपासा" tool स्वतः चालवून निकाल समजावून सांगतो.'
+        search = 'शोधा: disk, battery, virus, गरम...'; what = 'काय करतो'; when = 'कधी वापरायचा'; how = 'कसा वापरायचा'; good = 'निकाल कसा वाचायचा'; warn = 'इशारे'
+        auto = '▶ आपोआप तपासा'; open = 'उघडा (स्वतः वापरा)'; install = 'Install करा'; pd = 'PC Doctor मध्ये पहा'; web = 'Download page उघडा'; file = 'Report उघडा'
+        safe = 'सुरक्षित'; caution = 'काळजीपूर्वक'; danger = 'धोकादायक'; onusb = 'Pendrive वर आहे'; notusb = 'Pendrive वर नाही'; boot = 'Pendrive वरून boot करून'
+        builtin = 'Windows मध्येच आहे'; autoyes = 'आपोआप तपासणी'; pick = '← डावीकडून tool निवडा.'; confirm = 'हा tool वापरताना लक्षात ठेवा:'; go = 'समजले. उघडायचे?'
+        stress = 'Stress test 10 मिनिटे चालेल. PC खूप गरम होईल आणि fan जोरात फिरेल; CPU 95°C ओलांडल्यास test आपोआप थांबेल. Laptop ला charger लावा. सुरू करायचे?'
+        optional = 'हा optional tool आहे - pendrive वर नसला तरी चालतो.'; docs = 'Tests आणि माहिती'; result = 'निकाल' }
+    en = @{ title = 'Tools guide'; sub = 'What each tool does, when to use it and how - in plain words. "Check automatically" runs the tool itself and explains the result.'
+        search = 'Search: disk, battery, virus, hot...'; what = 'What it does'; when = 'When to use it'; how = 'How to use it'; good = 'How to read the result'; warn = 'Warnings'
+        auto = '▶ Check automatically'; open = 'Open (use it yourself)'; install = 'Install'; pd = 'See in PC Doctor'; web = 'Open download page'; file = 'Open report'
+        safe = 'Safe'; caution = 'Use with care'; danger = 'Dangerous'; onusb = 'On the USB'; notusb = 'Not on the USB'; boot = 'Boot from the USB'
+        builtin = 'Built into Windows'; autoyes = 'Automatic check'; pick = '← Pick a tool on the left.'; confirm = 'Keep in mind when using this tool:'; go = 'Understood. Open it?'
+        stress = 'The stress test runs for 10 minutes. The PC gets very hot and the fan loud; it stops by itself if the CPU passes 95°C. Plug in the laptop charger. Start?'
+        optional = 'This is an optional tool - the USB works fine without it.'; docs = 'Tests and information'; result = 'Result' }
+}
+$RiskColor = @{ safe = '#16A34A'; caution = '#D97706'; danger = '#E11D48' }
+$StatusColor = @{ ok = '#16A34A'; warn = '#D97706'; bad = '#E11D48'; info = '#2563EB' }
+
+function Get-TgState {
+    if ($script:Tg) { return $script:Tg }
+    $guide = Get-TGGuide $DataDir
+    $info = Get-TGCatalog $UsbRoot
+    $entries = @{}
+    foreach ($k in $info.Catalog.isos) { $entries[$k.id] = [pscustomobject]@{ Id = $k.id; Name = ($k.alias -replace '\s+-\s+.*$', ''); Cat = $k; Iso = $true } }
+    foreach ($k in $info.Catalog.tools) { $entries[$k.id] = [pscustomobject]@{ Id = $k.id; Name = ($k.name -replace '\s*\((installer|portable|free, installer)\)', ''); Cat = $k; Iso = $false } }
+    foreach ($p in $guide.tools.PSObject.Properties) {
+        if (-not $entries[$p.Name]) { $entries[$p.Name] = [pscustomobject]@{ Id = $p.Name; Name = $p.Value.name; Cat = $null; Iso = $false } }
+        $entries[$p.Name] | Add-Member -NotePropertyName G -NotePropertyValue $p.Value -Force
+    }
+    $script:Tg = [pscustomobject]@{ Guide = $guide; Info = $info; Entries = $entries; Paths = @{} }
+    return $script:Tg
+}
+
+function Get-TgPath($e) {
+    $st = Get-TgState
+    if (-not $st.Paths.ContainsKey($e.Id)) {
+        $p = $null
+        if ($e.Iso) { $i = $st.Info.Installed[$e.Id]; if ($i -and $i.path -and (Test-Path -LiteralPath (Join-Path $UsbRoot $i.path))) { $p = Join-Path $UsbRoot $i.path } }
+        elseif ($e.G.builtin) { $p = 'builtin' }
+        else { $p = Find-TGTool -UsbRoot $UsbRoot -Id $e.Id -Info $st.Info }
+        $st.Paths[$e.Id] = $p
+    }
+    return $st.Paths[$e.Id]
+}
+
+function New-Tb([string]$text, [int]$size = 14, [string]$color = '#E2E8F0', [string]$weight = 'Normal', [string]$margin = '0,0,0,4') {
+    $t = New-Object Windows.Controls.TextBlock
+    $t.Text = $text; $t.FontSize = $size; $t.Foreground = Brush $color; $t.FontWeight = $weight; $t.TextWrapping = 'Wrap'; $t.Margin = $margin
+    return $t
+}
+function New-Badge([string]$text, [string]$color) {
+    $b = New-Object Windows.Controls.Border; $b.Background = Brush $color; $b.CornerRadius = 5; $b.Padding = '8,2'; $b.Margin = '0,0,6,0'
+    $b.Child = (New-Tb $text 12 '#FFFFFF' 'SemiBold' '0'); return $b
+}
+
+function Build-TgList {
+    $st = Get-TgState
+    $L = $TgText[$script:TgLang]
+    $q = $ui.TgSearch.Text.Trim().ToLower()
+    $ui.TgList.Items.Clear()
+    foreach ($g in $st.Guide.groups) {
+        $items = @($st.Entries.Values | Where-Object { $_.G -and $_.G.group -eq $g.id } | Sort-Object Name)
+        if ($q) { $items = @($items | Where-Object { ($_.Name + ' ' + $_.G.mr.what + ' ' + $_.G.en.what + ' ' + $_.G.mr.when + ' ' + $_.G.en.when).ToLower().Contains($q) }) }
+        if (-not $items.Count) { continue }
+        $h = New-Object Windows.Controls.ListBoxItem; $h.IsEnabled = $false; $h.Margin = '0,8,0,2'
+        $h.Content = (New-Tb $g.$($script:TgLang) 13 '#2DD4BF' 'SemiBold' '0'); [void]$ui.TgList.Items.Add($h)
+        foreach ($e in $items) {
+            $it = New-Object Windows.Controls.ListBoxItem; $it.Tag = $e.Id; $it.Padding = '8,5'
+            $sp = New-Object Windows.Controls.StackPanel
+            $row = New-Object Windows.Controls.StackPanel; $row.Orientation = 'Horizontal'
+            $dot = New-Object Windows.Shapes.Ellipse; $dot.Width = 8; $dot.Height = 8; $dot.Margin = '0,0,8,0'; $dot.Fill = Brush $RiskColor[$e.G.risk]
+            [void]$row.Children.Add($dot)
+            $nm = New-Tb $e.Name 14 '#E2E8F0' 'SemiBold' '0'
+            $path = Get-TgPath $e
+            if (-not $path -and -not $e.G.builtin) { $nm.Opacity = 0.5 }
+            if ($e.G.auto -and $e.G.auto -notlike 'pd:*') { $nm.Text = $nm.Text + '  ▶' }
+            [void]$row.Children.Add($nm); [void]$sp.Children.Add($row)
+            $w = New-Tb $e.G.$($script:TgLang).what 12 '#94A3B8' 'Normal' '16,1,0,0'; $w.TextTrimming = 'CharacterEllipsis'; $w.TextWrapping = 'NoWrap'
+            [void]$sp.Children.Add($w)
+            $it.Content = $sp
+            [void]$ui.TgList.Items.Add($it)
+            if ($script:TgSel -eq $e.Id) { $ui.TgList.SelectedItem = $it }
+        }
+    }
+    # extra pages (screen test, keyboard test, BIOS keys, guide)
+    if (-not $q -and $st.Info.Catalog.docs) {
+        $h = New-Object Windows.Controls.ListBoxItem; $h.IsEnabled = $false; $h.Margin = '0,8,0,2'
+        $h.Content = (New-Tb $L.docs 13 '#2DD4BF' 'SemiBold' '0'); [void]$ui.TgList.Items.Add($h)
+        foreach ($d in $st.Info.Catalog.docs) {
+            $it = New-Object Windows.Controls.ListBoxItem; $it.Tag = "doc:$($d.file)"; $it.Padding = '8,5'
+            $it.Content = (New-Tb ('📄 ' + $d.name) 14 '#E2E8F0' 'Normal' '0'); [void]$ui.TgList.Items.Add($it)
+        }
+    }
+}
+
+function Add-TgSection($panel, [string]$title, $lines, [string]$color = '#E2E8F0') {
+    $lines = @($lines | Where-Object { $_ })
+    if (-not $lines.Count) { return }
+    [void]$panel.Children.Add((New-Tb $title 15 '#2DD4BF' 'SemiBold' '0,12,0,4'))
+    $n = 1
+    foreach ($l in $lines) {
+        $prefix = if ($lines.Count -gt 1) { "$n. " } else { '' }
+        [void]$panel.Children.Add((New-Tb ($prefix + $l) 14 $color 'Normal' '0,0,0,4')); $n++
+    }
+}
+
+function Show-TgDetail([string]$id) {
+    $ui.TgDetail.Children.Clear()
+    $L = $TgText[$script:TgLang]
+    $st = Get-TgState
+    $e = $st.Entries[$id]
+    if (-not $e -or -not $e.G) { [void]$ui.TgDetail.Children.Add((New-Tb $L.pick 15 '#94A3B8')); return }
+    $script:TgSel = $id
+    $t = $e.G.$($script:TgLang)
+    $path = Get-TgPath $e
+    [void]$ui.TgDetail.Children.Add((New-Tb $e.Name 24 '#E2E8F0' 'SemiBold' '0,0,0,6'))
+    $badges = New-Object Windows.Controls.WrapPanel; $badges.Margin = '0,0,0,6'
+    [void]$badges.Children.Add((New-Badge $L[$e.G.risk] $RiskColor[$e.G.risk]))
+    if ($e.G.boot) { [void]$badges.Children.Add((New-Badge $L.boot '#475569')) }
+    elseif ($e.G.builtin) { [void]$badges.Children.Add((New-Badge $L.builtin '#475569')) }
+    elseif ($path) { [void]$badges.Children.Add((New-Badge $L.onusb '#0F766E')) }
+    else { [void]$badges.Children.Add((New-Badge $L.notusb '#475569')) }
+    if ($e.G.auto -and $e.G.auto -notlike 'pd:*') { [void]$badges.Children.Add((New-Badge $L.autoyes '#1D4ED8')) }
+    [void]$ui.TgDetail.Children.Add($badges)
+    [void]$ui.TgDetail.Children.Add((New-Tb $t.what 15 '#E2E8F0' 'Normal' '0,4,0,0'))
+    if ($t.when) { Add-TgSection $ui.TgDetail $L.when @($t.when) '#CBD5E1' }
+
+    # buttons
+    $bp = New-Object Windows.Controls.WrapPanel; $bp.Margin = '0,14,0,0'
+    $mk = { param($text, $tag, $primary) $b = New-Object Windows.Controls.Button; $b.Content = $text; $b.Tag = $tag; $b.Margin = '0,0,8,8'; $b.Style = $win.FindResource($(if ($primary) { 'Primary' } else { 'Btn' })); $b }
+    $auto = [string]$e.G.auto
+    if ($auto -like 'pd:*') { [void]$bp.Children.Add((& $mk $L.pd "tg:pd:$($auto.Substring(3))" $true)) }
+    elseif ($auto) { [void]$bp.Children.Add((& $mk $L.auto "tg:auto:$id" $true)) }
+    if (-not $e.G.boot) {
+        if ($path) {
+            $label = if ($e.Cat -and $e.Cat.installer) { $L.install } else { $L.open }
+            [void]$bp.Children.Add((& $mk $label "tg:open:$id" (-not $auto)))
+        } elseif ($e.Cat -and $e.Cat.page) { [void]$bp.Children.Add((& $mk $L.web "tg:web:$id" $false)) }
+    }
+    if ($script:TgResults[$id] -and $script:TgResults[$id].File) { [void]$bp.Children.Add((& $mk $L.file "tg:file:$id" $false)) }
+    [void]$ui.TgDetail.Children.Add($bp)
+
+    if (-not $path -and -not $e.G.builtin -and -not $e.G.boot -and $e.Cat -and $e.Cat.optional) {
+        $note = $L.optional; if ($e.Cat.alt) { $note += "`n" + $e.Cat.alt }
+        [void]$ui.TgDetail.Children.Add((New-Tb $note 13 '#94A3B8' 'Normal' '0,0,0,6'))
+    }
+    # last result
+    $res = $script:TgResults[$id]
+    if ($res) {
+        $box = New-Object Windows.Controls.Border; $box.BorderBrush = Brush $StatusColor[$res.Status]; $box.BorderThickness = '2'; $box.CornerRadius = 10; $box.Padding = '14,10'; $box.Margin = '0,6,0,6'; $box.Background = Brush '#0F172A'
+        $sp = New-Object Windows.Controls.StackPanel
+        [void]$sp.Children.Add((New-Tb $(if ($script:TgLang -eq 'en') { $res.HeadEn } else { $res.HeadMr }) 17 $StatusColor[$res.Status] 'SemiBold' '0,0,0,6'))
+        foreach ($l in $(if ($script:TgLang -eq 'en') { $res.LinesEn } else { $res.LinesMr })) { $tb = New-Tb $l 13 '#E2E8F0' 'Normal' '0,0,0,3'; $tb.FontFamily = 'Consolas, Nirmala UI'; [void]$sp.Children.Add($tb) }
+        $box.Child = $sp; [void]$ui.TgDetail.Children.Add($box)
+    }
+    Add-TgSection $ui.TgDetail $L.how $t.steps
+    if ($t.good) { Add-TgSection $ui.TgDetail $L.good @($t.good) '#CBD5E1' }
+    Add-TgSection $ui.TgDetail ('⚠ ' + $L.warn) $t.warn '#FBBF24'
+}
+
+function Set-TgLang([string]$lang) {
+    $script:TgLang = $lang
+    $L = $TgText[$lang]
+    $ui.TgTitle.Text = $L.title; $ui.TgSub.Text = $L.sub; $ui.TgSearch.ToolTip = $L.search
+    $ui.LangMr.Style = $win.FindResource($(if ($lang -eq 'mr') { 'Primary' } else { 'Btn' }))
+    $ui.LangEn.Style = $win.FindResource($(if ($lang -eq 'en') { 'Primary' } else { 'Btn' }))
+    Build-TgList
+    if ($script:TgSel) { Show-TgDetail $script:TgSel } else { Show-TgDetail '' }
+}
+
 $script:ToolboxBuilt = $false
 function Build-Toolbox {
     if ($script:ToolboxBuilt) { return }
     $script:ToolboxBuilt = $true
-    $catFile = Join-Path $UsbRoot 'Sanjeevani\tools.json'
-    $instFile = Join-Path $UsbRoot 'Sanjeevani\installed.json'
-    if (-not (Test-Path $catFile)) { return }
-    $cat = Get-Content $catFile -Raw -Encoding UTF8 | ConvertFrom-Json
-    $inst = @{}
-    if (Test-Path $instFile) { (Get-Content $instFile -Raw -Encoding UTF8 | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $inst[$_.Name] = $_.Value } }
-    $groups = $cat.tools | Group-Object category
-    foreach ($g in $groups) {
-        $h = New-Object Windows.Controls.TextBlock; $h.Text = $g.Name; $h.Style = $win.FindResource('H2'); $h.Margin = '0,10,0,8'
-        [void]$ui.ToolPanel.Children.Add($h)
-        $wp = New-Object Windows.Controls.WrapPanel
-        foreach ($t in $g.Group) {
-            $rel = $null
-            if ($inst[$t.id] -and $inst[$t.id].path) { $rel = $inst[$t.id].path }
-            $btn = New-Object Windows.Controls.Button
-            $btn.Style = $win.FindResource('Btn'); $btn.Margin = '0,0,10,10'; $btn.Width = 250; $btn.HorizontalContentAlignment = 'Left'
-            $sp = New-Object Windows.Controls.StackPanel
-            $n = New-Object Windows.Controls.TextBlock; $n.Text = $t.name; $n.FontWeight = 'SemiBold'
-            $d = New-Object Windows.Controls.TextBlock; $d.Text = $t.desc; $d.Foreground = Brush '#94A3B8'; $d.FontSize = 12; $d.TextWrapping = 'Wrap'
-            [void]$sp.Children.Add($n); [void]$sp.Children.Add($d)
-            $btn.Content = $sp
-            if ($rel) { $btn.Tag = "tool:$rel" } else { $btn.Tag = "web:$($t.page)"; $btn.Opacity = 0.6; $btn.ToolTip = 'USB वर नाही - download page उघडेल' }
-            [void]$wp.Children.Add($btn)
+    try { [void](Get-TgState) } catch { [void]$ui.TgDetail.Children.Add((New-Tb ("Tools guide could not load: " + $_.Exception.Message) 14 '#F43F5E')); return }
+    $ui.TgList.Add_SelectionChanged({
+        $it = $ui.TgList.SelectedItem
+        if (-not $it -or -not $it.Tag) { return }
+        $tag = [string]$it.Tag
+        if ($tag -like 'doc:*') { Open-UsbTool $tag.Substring(4) $null; return }
+        Show-TgDetail $tag
+    })
+    $ui.TgSearch.Add_TextChanged({ Build-TgList })
+    Set-TgLang $script:TgLang
+}
+
+function Confirm-TgWarnings($e) {
+    if ($e.G.risk -eq 'safe') { return $true }
+    $L = $TgText[$script:TgLang]
+    $w = @($e.G.$($script:TgLang).warn | Where-Object { $_ })
+    if (-not $w.Count) { return $true }
+    $text = "$($e.Name)`n`n$($L.confirm)`n`n" + (($w | ForEach-Object { "⚠ $_" }) -join "`n`n") + "`n`n$($L.go)"
+    $icon = if ($e.G.risk -eq 'danger') { 'Warning' } else { 'Question' }
+    return ([System.Windows.MessageBox]::Show($win, $text, 'संजीवनी PC Doctor', 'YesNo', $icon) -eq 'Yes')
+}
+
+function Invoke-ToolGuide([string]$arg) {
+    $act, $id = $arg.Split(':', 2)
+    $st = Get-TgState
+    $e = $st.Entries[$id]
+    switch ($act) {
+        'lang' { Set-TgLang $id; return }
+        'pd' {
+            switch ($id) {
+                'drivers' { Show-Page 'repair'; Invoke-Repair 'drivers' }
+                'advisor' { Show-Page 'advisor'; Invoke-Advisor }
+                default   { Show-Page $id }
+            }
+            return
         }
-        [void]$ui.ToolPanel.Children.Add($wp)
+        'web'  { if ($e.Cat.page) { Start-Process $e.Cat.page } ; return }
+        'file' { $f = $script:TgResults[$id].File; if ($f -and (Test-Path -LiteralPath $f)) { Start-Process -FilePath $f } ; return }
+        'open' {
+            if (-not (Confirm-TgWarnings $e)) { return }
+            if ($id -eq 'win-memdiag') { Start-Process -FilePath "$env:WINDIR\System32\mdsched.exe"; return }
+            $path = Get-TgPath $e
+            if (-not $path -or $path -eq 'builtin') { Say $TgText[$script:TgLang].notusb 'Warning'; return }
+            Initialize-TGToolConfig $id $path
+            try { Start-Process -FilePath $path -WorkingDirectory (Split-Path $path) } catch { Say $_.Exception.Message 'Warning' }
+            return
+        }
+        'auto' {
+            $h = [string]$e.G.auto
+            if ($h -eq 'stress-cpu' -and -not (Ask $TgText[$script:TgLang].stress)) { return }
+            $script:TgRunning = $id
+            $ui.StopBtn.Visibility = 'Visible'
+            Start-PDJob -Title ("{0} - {1}" -f $e.Name, $TgText[$script:TgLang].result) -Work { param($P) Invoke-TGAuto -Handler $P.Handler -UsbRoot $P.UsbRoot -P $P } `
+                -Params @{ Handler = $h; UsbRoot = $UsbRoot; ReportDir = $global:PDCtx.ReportDir; Minutes = 10 } -OnDone {
+                    param($r)
+                    $ui.StopBtn.Visibility = 'Collapsed'
+                    if ($r -and $r.PSObject.Properties['HeadMr']) {
+                        $script:TgResults[$script:TgRunning] = $r
+                        Write-PDLog ("{0}: {1}" -f $script:TgRunning, $r.HeadMr) $(if ($r.Status -eq 'bad') { 'WARN' } else { 'OK' })
+                    }
+                    Show-Page 'toolbox'
+                    Show-TgDetail $script:TgRunning
+                }
+            if (-not $script:Job) { $ui.StopBtn.Visibility = 'Collapsed' }
+        }
     }
-    $h = New-Object Windows.Controls.TextBlock; $h.Text = 'Tests आणि माहिती'; $h.Style = $win.FindResource('H2'); $h.Margin = '0,10,0,8'
-    [void]$ui.ToolPanel.Children.Add($h)
-    $wp = New-Object Windows.Controls.WrapPanel
-    foreach ($d in $cat.docs) {
-        $btn = New-Object Windows.Controls.Button; $btn.Style = $win.FindResource('Btn'); $btn.Margin = '0,0,10,10'; $btn.Content = $d.name; $btn.Tag = "tool:$($d.file)"
-        [void]$wp.Children.Add($btn)
-    }
-    [void]$ui.ToolPanel.Children.Add($wp)
 }
 
 function Open-UsbTool([string]$rel, [string]$toolId) {
@@ -686,7 +912,7 @@ function Open-UsbTool([string]$rel, [string]$toolId) {
         $instFile = Join-Path $UsbRoot 'Sanjeevani\installed.json'
         if (Test-Path $instFile) { $i = Get-Content $instFile -Raw -Encoding UTF8 | ConvertFrom-Json; if ($i.$toolId) { $rel = $i.$toolId.path } }
     }
-    if (-not $rel) { Say 'हा tool USB वर नाही. Setup script पुन्हा चालवा किंवा Toolbox मधून download page उघडा.' 'Warning'; Show-Page 'toolbox'; return }
+    if (-not $rel) { Say 'हा tool USB वर नाही. Setup script पुन्हा चालवा किंवा Tools मार्गदर्शक मधून download page उघडा.' 'Warning'; Show-Page 'toolbox'; return }
     $full = Join-Path $UsbRoot $rel
     if (-not (Test-Path -LiteralPath $full)) { Say "File सापडली नाही:`n$full" 'Warning'; return }
     try { Start-Process -FilePath $full -WorkingDirectory (Split-Path $full) } catch { Say $_.Exception.Message 'Warning' }
@@ -813,7 +1039,7 @@ function Invoke-Repair([string]$what) {
             Start-PDJob -Title 'Drivers restore' -Work { param($P) Restore-PDDrivers -Path $P.Path } -Params @{ Path = $path } -OnDone { param($r) [void]$script:Actions.Add("Drivers restore: $($r.Count)"); Say ("{0} drivers तपासले/install केले. PC restart करा." -f $r.Count) }
         }
         'restorepoint' { Start-PDJob -Title 'Restore point' -Work { param($P) New-PDRestorePoint 'Sanjeevani: manual' } -OnDone { param($r) if ($r) { Say 'Restore point तयार झाला.' } else { Say 'Restore point बनला नाही (log पहा). System Protection बंद असू शकते.' 'Warning' } } }
-        'offline-info' { Say "Windows सुरू होत नसेल / blue screen येत असेल तर:`n`n1. PC बंद करा, USB लावा, Boot Menu key दाबा (Toolbox > Boot keys).`n2. 'Hiren's BootCD PE' निवडा.`n3. Desktop आल्यावर USB drive उघडा → PCDoctor-Rescue.cmd चालवा.`n4. Menu: internet / missing drivers, blue screen चे कारण (driver), अडकलेले updates, SFC, ISO मधून DISM, chkdsk, boot repair, आणि personal files pendrive वर वाचवणे." }
+        'offline-info' { Say "Windows सुरू होत नसेल / blue screen येत असेल तर:`n`n1. PC बंद करा, USB लावा, Boot Menu key दाबा (Tools मार्गदर्शक > Boot Menu / BIOS keys).`n2. 'Hiren's BootCD PE' निवडा.`n3. Desktop आल्यावर USB drive उघडा → PCDoctor-Rescue.cmd चालवा.`n4. Menu: internet / missing drivers, blue screen चे कारण (driver), अडकलेले updates, SFC, ISO मधून DISM, chkdsk, boot repair, आणि personal files pendrive वर वाचवणे." }
     }
 }
 
@@ -973,8 +1199,8 @@ function Invoke-Fix([string]$id) {
         'wureset'   { Invoke-Repair 'wu' }
         'defender'  { Invoke-Repair 'defender' }
         'drivers'   { Invoke-Repair 'drivers' }
-        'bsod'      { Open-UsbTool $null 'bluescreenview' }
-        'backup'    { Say "Disk खराब होत आहे. लगेच:`n1. महत्त्वाचे files external disk / pendrive वर copy करा.`n2. पूर्ण disk साठी USB वरून boot करून Rescuezilla / Clonezilla वापरा.`n3. Toolbox > CrystalDiskInfo ने health पहा." 'Warning' }
+        'bsod'      { Show-Page 'toolbox'; Show-TgDetail 'bluescreenview'; Invoke-ToolGuide 'auto:bluescreenview' }
+        'backup'    { Say "Disk खराब होत आहे. लगेच:`n1. महत्त्वाचे files external disk / pendrive वर copy करा.`n2. पूर्ण disk साठी USB वरून boot करून Rescuezilla / Clonezilla वापरा.`n3. Tools मार्गदर्शक > CrystalDiskInfo > "आपोआप तपासा" ने health पहा." 'Warning' }
     }
 }
 
@@ -997,6 +1223,8 @@ $win.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, [Windows.R
             'advisor' { Invoke-Advisor }
             'uninst'  { Invoke-AppUninstall ([int]$arg) }
             'tool'    { Open-UsbTool $arg $null }
+            'tg'      { Invoke-ToolGuide $arg }
+            'job'     { $global:PDState.Cancel = $true; $ui.StatusText.Text = 'थांबवत आहे... / Stopping...' }
             'web'     { if ($arg) { Start-Process $arg } }
             'report'  { Invoke-Report }
             'open'    { Start-Process explorer.exe $global:PDCtx.ReportDir }

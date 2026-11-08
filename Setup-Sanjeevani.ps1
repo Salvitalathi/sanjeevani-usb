@@ -810,6 +810,16 @@ $json = $json.Replace('\u0026', '&').Replace('\u0027', "'").Replace('\u003c', '<
 [IO.File]::WriteAllText((Join-Path $UsbRoot 'ventoy\ventoy.json'), $json, (New-Object System.Text.UTF8Encoding($false)))
 Ok "$($isoFiles.Count) boot entries configured"
 
+# ------------------------------------------------------------------ hide the raw tool folders
+# Tools are meant to be used through PC Doctor -> "Tools मार्गदर्शक" (explanations, safe settings, warnings),
+# so the raw Tools / Installers folders are hidden. They still work normally ("Show hidden items" shows them).
+foreach ($d in 'Tools', 'Installers') {
+    $p = Join-Path $UsbRoot $d
+    if (Test-Path -LiteralPath $p) {
+        try { $it = Get-Item -LiteralPath $p -Force; $it.Attributes = $it.Attributes -bor [IO.FileAttributes]::Hidden } catch { Warn "could not hide $d" }
+    }
+}
+
 # ------------------------------------------------------------------ manual / optional list
 function Get-Row($e, [string]$why) {
     $where = if ($e.order) { "ISO\" } elseif ($e.installer) { 'Installers\' } else { "Tools\$($e.category)\$($e.name)\" }

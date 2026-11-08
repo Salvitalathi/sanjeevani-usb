@@ -64,7 +64,7 @@ ol li,ul li{margin:4px 0}
 <li><b>वेग वाढवा:</b> startup programs, tweaks, bloatware. <b>सर्व बदल Undo करता येतात.</b></li>
 <li><b>C: drive जागा:</b> Desktop, Documents, Downloads, Photos आणि C:\ मधले स्वतःचे folders दुसऱ्या drive वर हलवा. दुसरा drive नसेल तर C: लहान करून नवीन DATA drive बनवता येतो.</li>
 <li><b>सल्ला:</b> Windows 11 चालेल का, या PC ला कोणते OS योग्य, कोणते apps काढावेत आणि त्यांचे हलके पर्याय कोणते, RAM/SSD upgrade.</li>
-<li><b>Toolbox:</b> 30+ portable tools, screen test आणि keyboard test.</li>
+<li><b>Tools मार्गदर्शक:</b> 60+ tools - प्रत्येक tool काय करतो, कधी आणि कसा वापरायचा (मराठी / English), धोक्याचे इशारे. disk, battery, तापमान, RAM, crash, virus, internet, C: drive अशा तपासण्या "आपोआप तपासा" ने tool स्वतः चालवून निकाल सोप्या भाषेत सांगतो. (Pendrive वरचे Tools / Installers folders लपवलेले आहेत - सगळे tools इथूनच वापरा.)</li>
 <li><b>Report:</b> customer ला देण्यासाठी HTML report. तो pendrive वरील <code>Reports\</code> folder मध्ये save होतो.</li>
 </ul>
 </div>
@@ -75,11 +75,11 @@ ol li,ul li{margin:4px 0}
 <tr><td>PC खूप slow आहे</td><td>PC Doctor → Scan → One-Click Optimize. Windows HDD वर असेल तर SSD लावा (Rescuezilla ने clone करा). RAM 8 GB करा.</td></tr>
 <tr><td>C: drive भरला आहे</td><td>PC Doctor → C: drive जागा → files दुसऱ्या drive वर हलवा. Speed tab मधील cleanup चालवा.</td></tr>
 <tr><td>Windows सुरू होत नाही / restart loop / blue screen</td><td>Boot menu → Hiren's BootCD PE → USB उघडा → <b>PCDoctor-Rescue.cmd</b>. आधी 8 (files वाचवा, disk खराब असल्यास), मग 3 (अडकलेले updates), 2 (blue screen चा driver), 4 (SFC), 7 (boot files). Wi-Fi नसेल तर 1 - तो त्याच PC च्या Windows मधले drivers load करतो.</td></tr>
-<tr><td>Blue screen</td><td>PC Doctor → Toolbox → BlueScreenView (कोणता driver). Boot menu मधून MemTest86+ चालवा.</td></tr>
-<tr><td>Virus / ads / browser homepage बदलला</td><td>Toolbox → AdwCleaner, KVRT. फार infected असेल तर boot menu मधील Kaspersky Rescue Disk.</td></tr>
+<tr><td>Blue screen</td><td>PC Doctor → Tools मार्गदर्शक → BlueScreenView → "आपोआप तपासा" (कोणता driver आणि उपाय). Boot menu मधून MemTest86+ चालवा.</td></tr>
+<tr><td>Virus / ads / browser homepage बदलला</td><td>Tools मार्गदर्शक → Microsoft Safety Scanner (आपोआप तपासा), AdwCleaner, KVRT. फार infected असेल तर boot menu मधील Kaspersky Rescue Disk.</td></tr>
 <tr><td>File delete झाली / pendrive format झाला</td><td>त्या drive वर काहीही नवीन लिहू नका. Recuva (Windows मध्ये) किंवा SystemRescue → PhotoRec वापरा.</td></tr>
-<tr><td>Windows reinstall करायचे आहे</td><td>आधी PC Doctor → दुरुस्ती → <b>Drivers backup</b> (आणि Toolbox → ProduKey ने product key लिहून ठेवा). Reinstall नंतर → <b>Drivers restore</b>.</td></tr>
-<tr><td>Drivers नाहीत (नवीन Windows नंतर)</td><td>Toolbox → Snappy Driver Installer Origin. Setup करताना "offline driver packs" ला Y दिल्यास (~70 GB) internet शिवाय कोणत्याही PC चे drivers मिळतात.</td></tr>
+<tr><td>Windows reinstall करायचे आहे</td><td>आधी PC Doctor → दुरुस्ती → <b>Drivers backup</b> (आणि Tools मार्गदर्शक → ProduKey → "आपोआप तपासा" ने product key save करा). Reinstall नंतर → <b>Drivers restore</b>.</td></tr>
+<tr><td>Drivers नाहीत (नवीन Windows नंतर)</td><td>PC Doctor → दुरुस्ती → Drivers, किंवा Tools मार्गदर्शक → Snappy Driver Installer Origin. Setup करताना "offline driver packs" ला Y दिल्यास (~70 GB) internet शिवाय कोणत्याही PC चे drivers मिळतात.</td></tr>
 <tr><td>Internet चालत नाही</td><td>PC Doctor → दुरुस्ती → Network reset → restart.</td></tr>
 </table>
 
