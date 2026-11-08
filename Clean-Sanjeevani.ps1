@@ -78,6 +78,27 @@ function Test-Archive([string]$f) {
     return ($LASTEXITCODE -eq 0)
 }
 
+# ------------------------------------------------------------------ 0. viruses that reached the USB
+$sjMod = Join-Path $Root 'Sanjeevani\PCDoctor\lib\Integrity.psm1'
+$sjOk = $false
+if (Test-Path -LiteralPath $sjMod) {
+    try {
+        Import-Module $sjMod -Force -DisableNameChecking
+        $sjOk = $true
+        Say "`n  Checking for changes made by viruses (checksums) ..." White
+        $chk = Test-SJIntegrity -Root $Root -Full
+        foreach ($l in (Format-SJResult $chk 'en')) { Say "   $l" $(if ($l -match '^✖') { 'Red' } elseif ($l -match '^✔') { 'Green' } else { 'DarkGray' }) }
+        if ((Get-SJIssueCount $chk) -and -not $ReportOnly) {
+            $go = $Yes -or ((Read-Host '  Quarantine these files and un-hide the folders now? Y/N') -match '^[yY]')
+            if ($go) {
+                $fix = Repair-SJIntegrity $chk
+                Say ("  Quarantined {0} file(s) in _to_delete\quarantine, un-hid {1} folder(s)." -f @($fix.Quarantined).Count, @($fix.Unhidden).Count) Green
+                if (@($fix.Redownload).Count) { Say '  Changed tools were quarantined - run UPDATE.cmd to download clean copies.' Yellow }
+            }
+        }
+    } catch { Say "  (virus check skipped: $($_.Exception.Message))" DarkYellow }
+}
+
 # ------------------------------------------------------------------ 1. Snappy Driver Installer copies
 $toolsDir = Join-Path $Root 'Tools'
 $sdioExe = Get-ChildItem $toolsDir -Recurse -File -Filter 'SDIO_x64*.exe' -ErrorAction SilentlyContinue |
@@ -285,6 +306,7 @@ foreach ($p in ($plan | Where-Object { $_.Op -eq 'empty-recycle' })) {
     $done++
 }
 Say ("  Done: {0} item(s) cleaned." -f $done) Green
+if ($sjOk) { try { [void](Update-SJManifest -Root $Root) } catch { } }
 
 if (Test-Path -LiteralPath $Bin) {
     $binBytes = Get-DirBytes $Bin

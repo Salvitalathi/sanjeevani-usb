@@ -147,7 +147,7 @@ Copy-Item (Join-Path $Kit '*') $fakeUsb -Recurse -Force
 $DataDir = Join-Path $fakeUsb 'Sanjeevani\PCDoctor\data'
 
 Test-Case 'Modules import' {
-    foreach ($m in 'Common', 'Diagnostics', 'Repair', 'Speed', 'Storage', 'Advisor', 'Report', 'ToolGuide') {
+    foreach ($m in 'Common', 'Diagnostics', 'Repair', 'Speed', 'Storage', 'Advisor', 'Report', 'ToolGuide', 'Integrity') {
         Import-Module (Join-Path $fakeUsb "Sanjeevani\PCDoctor\lib\$m.psm1") -Force -DisableNameChecking
     }
     $ctx = Initialize-PDContext -UsbRoot $fakeUsb
@@ -278,6 +278,77 @@ Test-Case 'Tools guide: real tools are found, set up and driven automatically' {
     }
     Assert (-not $fails.Count) ($fails -join '; ')
     Assert ($got.Count -ge 4) "only $($got.Count) tools could be downloaded"
+}
+
+Test-Case 'USB virus check: finds and quarantines what malware typically does' {
+    $u = Join-Path $env:TEMP ('sjv-int-' + [guid]::NewGuid().ToString('N').Substring(0, 6))
+    foreach ($d in 'Sanjeevani', 'Tools\Hardware\CPU-Z', 'ISO', 'Photos', 'Reports\PC1') { New-Item -ItemType Directory (Join-Path $u $d) -Force | Out-Null }
+    $blob = { param($rel, $n, $seed) $b = New-Object byte[] $n; (New-Object Random $seed).NextBytes($b); [IO.File]::WriteAllBytes((Join-Path $u $rel), $b) }
+    & $blob 'Tools\Hardware\CPU-Z\cpuz_x64.exe' 300000 1
+    & $blob 'Tools\Hardware\CPU-Z\cpuz.dll' 200000 2
+    Set-Content (Join-Path $u 'Tools\Hardware\CPU-Z\cpuz.ini') 'a=1'
+    Set-Content (Join-Path $u 'START-Sanjeevani.cmd') '@echo off'
+    Set-Content (Join-Path $u 'Photos\family.jpg') 'jpg'
+    $tools = Get-Item (Join-Path $u 'Tools') -Force; $tools.Attributes = 'Directory, Hidden'
+    $n = New-SJManifest -Root $u
+    Assert ($n -eq 3) "recorded $n files"
+    $c = Test-SJIntegrity -Root $u -Full
+    Assert ((Get-SJIssueCount $c) -eq 0) ('clean USB reported issues: ' + ((Format-SJResult $c 'en') -join ' | '))
+    # --- what malware does
+    [IO.File]::AppendAllText((Join-Path $u 'Tools\Hardware\CPU-Z\cpuz_x64.exe'), 'VIRUS')           # file infector (size changes)
+    $b = [IO.File]::ReadAllBytes((Join-Path $u 'Tools\Hardware\CPU-Z\cpuz.dll')); $b[100] = $b[100] -bxor 0xFF
+    [IO.File]::WriteAllBytes((Join-Path $u 'Tools\Hardware\CPU-Z\cpuz.dll'), $b)                      # same size, different content
+    Set-Content (Join-Path $u 'Tools\Hardware\CPU-Z\svchost.exe') 'MZ evil'
+    Set-Content (Join-Path $u 'autorun.inf') "[autorun]`r`nopen=svchost.exe"
+    (Get-Item (Join-Path $u 'Photos') -Force).Attributes = 'Directory, Hidden, System'                # shortcut virus
+    Set-Content (Join-Path $u 'Photos.lnk') 'lnk'
+    Set-Content (Join-Path $u 'Tools\Hardware\CPU-Z\cpuz.ini') 'a=2'                                  # normal settings change
+    Set-Content (Join-Path $u 'Reports\PC1\evil-from-customer.exe') 'x'                              # customer data: not judged
+    $c = Test-SJIntegrity -Root $u
+    Assert ($c.Changed -contains 'Tools\Hardware\CPU-Z\cpuz_x64.exe') 'size change not found'
+    Assert ($c.Changed -notcontains 'Tools\Hardware\CPU-Z\cpuz.dll') 'quick check must not hash'
+    Assert ($c.NewExec -contains 'Tools\Hardware\CPU-Z\svchost.exe') 'new program not found'
+    Assert ($c.Autorun) 'autorun.inf not found'
+    Assert ($c.HiddenFolders -contains 'Photos' -and $c.HiddenFolders -notcontains 'Tools') "hidden folders: $($c.HiddenFolders -join ',')"
+    Assert ($c.RootLinks -contains 'Photos.lnk') 'root shortcut not found'
+    Assert (-not ($c.NewExec -match 'Reports')) 'customer data must not be judged'
+    $c = Test-SJIntegrity -Root $u -Full
+    Assert ($c.Changed -contains 'Tools\Hardware\CPU-Z\cpuz.dll') 'full check missed a same-size change'
+    $fix = Repair-SJIntegrity $c
+    Assert (Test-Path (Join-Path $u '_to_delete\quarantine\Tools\Hardware\CPU-Z\svchost.exe.quarantine')) 'not quarantined'
+    Assert (-not (Test-Path (Join-Path $u 'Tools\Hardware\CPU-Z\cpuz_x64.exe'))) 'infected program still in place'
+    Assert ((Get-Item (Join-Path $u 'autorun.inf') -Force).PSIsContainer) 'autorun.inf not blocked by a folder'
+    Assert (-not ((Get-Item (Join-Path $u 'Photos') -Force).Attributes -band [IO.FileAttributes]::Hidden)) 'folder still hidden'
+    Assert (((Get-Item (Join-Path $u 'Tools') -Force).Attributes -band [IO.FileAttributes]::Hidden)) 'Sanjeevani''s own hidden Tools folder must stay hidden'
+    Assert ($fix.Redownload -contains 'Tools\Hardware\CPU-Z\cpuz_x64.exe') 'changed tool not listed for re-download'
+    $c = Test-SJIntegrity -Root $u -Full
+    Assert ((Get-SJIssueCount $c) -eq 0) ('after repair: ' + ((Format-SJResult $c 'en') -join ' | '))
+    Assert ((Update-SJManifest -Root $u) -eq 2) 'quarantined files not dropped from the record'
+    # --- write-protected USB
+    & icacls.exe $u /deny "$($env:USERNAME):(OI)(CI)(W)" | Out-Null
+    try {
+        Assert (-not (Test-SJWritable $u)) 'locked USB reported as writable'
+        $c = Test-SJIntegrity -Root $u
+        Assert ($c.Locked) 'lock not detected'
+        Assert ((Repair-SJIntegrity $c).Error -eq 'locked') 'repair must not try on a locked USB'
+    } finally { & icacls.exe $u /remove:d $env:USERNAME /T | Out-Null }
+    Remove-Item $u -Recurse -Force
+    $true
+}
+
+Test-Case 'Locked USB: tools that write settings run from a temp copy' {
+    $d = Join-Path $env:TEMP ('sjv-ro-' + [guid]::NewGuid().ToString('N').Substring(0, 6) + '\FakeTool')
+    New-Item -ItemType Directory $d -Force | Out-Null
+    Set-Content (Join-Path $d 'fake.exe') 'MZ'; Set-Content (Join-Path $d 'fake.dll') 'x'
+    & icacls.exe $d /deny "$($env:USERNAME):(OI)(CI)(W)" | Out-Null
+    try {
+        $run = Get-TGRunPath (Join-Path $d 'fake.exe')
+        Assert ($run -ne (Join-Path $d 'fake.exe')) 'tool would run from the locked USB'
+        Assert ((Test-Path $run) -and (Test-Path (Join-Path (Split-Path $run) 'fake.dll'))) "temp copy incomplete: $run"
+        Initialize-TGToolConfig 'hwinfo' $run
+    } finally { & icacls.exe $d /remove:d $env:USERNAME /T | Out-Null }
+    Remove-Item (Split-Path $d) -Recurse -Force
+    $true
 }
 
 Test-Case 'Undo journal keeps every entry' {

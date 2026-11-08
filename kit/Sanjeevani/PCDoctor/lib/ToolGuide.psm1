@@ -59,6 +59,30 @@ function Find-TGTool {
     return $null
 }
 
+# ------------------------------------------------------------------ write-protected (locked) USB
+$script:TGWritable = @{}
+function Test-TGDirWritable([string]$Dir) {
+    if ($script:TGWritable.ContainsKey($Dir)) { return $script:TGWritable[$Dir] }
+    $ok = $false
+    try { $f = Join-Path $Dir ('.sjw-' + [guid]::NewGuid().ToString('N').Substring(0, 6)); [IO.File]::WriteAllText($f, 'x'); Remove-Item -LiteralPath $f -Force; $ok = $true } catch { }
+    $script:TGWritable[$Dir] = $ok
+    return $ok
+}
+# Many tools write their settings / reports next to their program. On a locked USB the tool folder is copied
+# to this PC's temp folder and run from there (big folders such as the driver packs are run in place).
+function Get-TGRunPath([string]$Exe) {
+    if (-not $Exe -or -not (Test-Path -LiteralPath $Exe)) { return $Exe }
+    $dir = Split-Path $Exe
+    if (Test-TGDirWritable $dir) { return $Exe }
+    $size = [double](Get-ChildItem -LiteralPath $dir -Recurse -File -Force -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum
+    if ($size -gt 600MB) { return $Exe }
+    $dst = Join-Path $env:TEMP ('Sanjeevani-tools' + (Split-Path $dir -Leaf))
+    & robocopy.exe $dir $dst /MIR /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
+    $run = Join-Path $dst (Split-Path $Exe -Leaf)
+    if (Test-Path -LiteralPath $run) { Write-PDLog "USB locked - running $(Split-Path $Exe -Leaf) from $dst" 'INFO'; return $run }
+    return $Exe
+}
+
 # ------------------------------------------------------------------ settings prepared for this PC ("auto set")
 function Set-TGIniValue([string]$File, [string]$Section, [hashtable]$Values) {
     $lines = New-Object System.Collections.ArrayList
@@ -127,7 +151,7 @@ function Get-TGThermalC {
 function Invoke-TGDiskHealth([string]$UsbRoot, $P) {
     $r = New-TGResult 'ok' 'Disk ची तब्येत' 'Disk health'
     $cdiDone = $false
-    $exe = Find-TGTool -UsbRoot $UsbRoot -Id 'crystaldiskinfo'
+    $exe = Get-TGRunPath (Find-TGTool -UsbRoot $UsbRoot -Id 'crystaldiskinfo')
     if ($exe) {
         $txt = Join-Path (Split-Path $exe) 'DiskInfo.txt'
         Remove-Item -LiteralPath $txt -ErrorAction SilentlyContinue
@@ -262,7 +286,7 @@ function Invoke-TGSystemSummary([string]$UsbRoot, $P) {
     if ($sysType -eq 'HDD') { Set-TGWorse $r 'warn'; Add-TGLine $r '⚠ Windows hard disk (HDD) वर आहे. SSD लावल्यास PC 3-5 पट लवकर सुरू होतो - सगळ्यात मोठा फायदा.' '⚠ Windows runs from a hard disk (HDD). An SSD makes it start 3-5 times faster - the biggest single upgrade.' }
     if ($r.Status -eq 'ok') { Add-TGLine $r '✔ RAM आणि disk या कामांसाठी पुरेसे आहेत.' '✔ RAM and disk are adequate.' }
     # full CPU-Z report
-    $exe = Find-TGTool -UsbRoot $UsbRoot -Id 'cpuz'
+    $exe = Get-TGRunPath (Find-TGTool -UsbRoot $UsbRoot -Id 'cpuz')
     if ($exe -and $P.ReportDir) {
         $base = Join-Path $P.ReportDir ("cpuz-{0:yyyyMMdd-HHmm}" -f (Get-Date))
         Set-PDProgress -1 'CPU-Z report'
@@ -280,7 +304,7 @@ function Invoke-TGTemps([string]$UsbRoot, $P) {
         if ($c -ge 90) { Set-TGWorse $r 'bad'; Add-TGLine $r '✖ खूप गरम. Fan / heatsink ची धूळ साफ करा, thermal paste बदला.' '✖ Very hot. Clean the fan / heatsink and renew the thermal paste.' }
         elseif ($c -ge 80) { Set-TGWorse $r 'warn'; Add-TGLine $r '⚠ गरम. Vents मोकळे आहेत ना ते पाहा.' '⚠ Hot. Check that the vents are not blocked.' }
     }
-    $exe = Find-TGTool -UsbRoot $UsbRoot -Id 'hwinfo'
+    $exe = Get-TGRunPath (Find-TGTool -UsbRoot $UsbRoot -Id 'hwinfo')
     if ($exe) {
         Initialize-TGToolConfig 'hwinfo' $exe
         Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) | Out-Null
@@ -322,7 +346,7 @@ function Invoke-TGCrashes([string]$UsbRoot, $P) {
     $dumpDir = Join-Path $env:SystemRoot 'Minidump'
     $dumps = @(Get-ChildItem -LiteralPath $dumpDir -Filter *.dmp -ErrorAction SilentlyContinue)
     Add-TGLine $r ("मागच्या 60 दिवसांत: {0} blue screen, {1} वेळा अचानक बंद / restart (power cut धरून)." -f $bug.Count, $kp.Count) ("Last 60 days: {0} blue screens, {1} sudden shutdowns / restarts (power cuts included)." -f $bug.Count, $kp.Count)
-    $exe = Find-TGTool -UsbRoot $UsbRoot -Id 'bluescreenview'
+    $exe = Get-TGRunPath (Find-TGTool -UsbRoot $UsbRoot -Id 'bluescreenview')
     $crashes = @()
     if ($exe -and $dumps.Count) {
         Initialize-TGToolConfig 'bluescreenview' $exe
@@ -361,7 +385,7 @@ function Invoke-TGCrashes([string]$UsbRoot, $P) {
 
 function Invoke-TGMsert([string]$UsbRoot, $P) {
     $r = New-TGResult 'info' 'Virus scan' 'Virus scan'
-    $exe = Find-TGTool -UsbRoot $UsbRoot -Id 'msert'
+    $exe = Get-TGRunPath (Find-TGTool -UsbRoot $UsbRoot -Id 'msert')
     if (-not $exe) { $r.HeadMr = 'Microsoft Safety Scanner pendrive वर नाही'; $r.HeadEn = 'Microsoft Safety Scanner is not on the USB'; Add-TGLine $r 'Setup चालवून tools update करा, किंवा PC Doctor → दुरुस्ती → "Antivirus चालू करा + quick scan".' 'Run Setup to update the tools, or PC Doctor → Repair → "Turn on antivirus + quick scan".'; return $r }
     $log = Join-Path $env:SystemRoot 'debug\msert.log'
     $before = if (Test-Path -LiteralPath $log) { (Get-Item -LiteralPath $log).Length } else { 0 }
@@ -387,7 +411,7 @@ function Invoke-TGMsert([string]$UsbRoot, $P) {
 
 function Invoke-TGBigFolders([string]$UsbRoot, $P) {
     $r = New-TGResult 'info' 'C: वरचे सगळ्यात मोठे folders' 'Biggest folders on C:'
-    $exe = Find-TGTool -UsbRoot $UsbRoot -Id 'wiztree'
+    $exe = Get-TGRunPath (Find-TGTool -UsbRoot $UsbRoot -Id 'wiztree')
     if (-not $exe) { $r.HeadMr = 'WizTree pendrive वर नाही'; $r.HeadEn = 'WizTree is not on the USB'; Add-TGLine $r 'PC Doctor → "C: drive जागा" → "C: drive तपासा" वापरा.' 'Use PC Doctor → "C: drive space" → "Check C: drive".'; return $r }
     $csv = Join-Path $env:TEMP 'sjv-wiztree.csv'
     Remove-Item -LiteralPath $csv -ErrorAction SilentlyContinue
@@ -436,7 +460,7 @@ function Invoke-TGKeys([string]$UsbRoot, $P) {
         if ($k) { $lines += "Windows (BIOS): $k"; Add-TGLine $r "Windows key BIOS मध्ये आहे: $k - reinstall नंतर आपोआप activate होईल." "Windows key stored in the BIOS: $k - it activates by itself after a reinstall." }
         else { Add-TGLine $r 'BIOS मध्ये Windows key नाही (जुना PC / retail key).' 'No Windows key in the BIOS (older PC / retail key).' }
     } catch { }
-    $exe = Find-TGTool -UsbRoot $UsbRoot -Id 'produkey'
+    $exe = Get-TGRunPath (Find-TGTool -UsbRoot $UsbRoot -Id 'produkey')
     if ($exe) {
         $out = Join-Path $env:TEMP 'sjv-keys.txt'
         Remove-Item -LiteralPath $out -ErrorAction SilentlyContinue
@@ -521,7 +545,7 @@ function Invoke-TGMemDiag([string]$UsbRoot, $P) {
 function Invoke-TGStressCpu([string]$UsbRoot, $P) {
     $minutes = if ($P.Minutes) { [double]$P.Minutes } else { 10.0 }
     $r = New-TGResult 'info' 'CPU / RAM stress test' 'CPU / RAM stress test'
-    $exe = Find-TGTool -UsbRoot $UsbRoot -Id 'prime95'
+    $exe = Get-TGRunPath (Find-TGTool -UsbRoot $UsbRoot -Id 'prime95')
     if (-not $exe) { $r.HeadMr = 'Prime95 pendrive वर नाही'; $r.HeadEn = 'Prime95 is not on the USB'; return $r }
     $dir = Split-Path $exe
     Initialize-TGToolConfig 'prime95' $exe
@@ -588,5 +612,5 @@ function Invoke-TGAuto {
     }
 }
 
-Export-ModuleMember -Function New-TGResult, Add-TGLine, Get-TGCatalog, Get-TGGuide, Find-TGTool, Initialize-TGToolConfig, Set-TGIniValue,
+Export-ModuleMember -Function New-TGResult, Add-TGLine, Get-TGCatalog, Get-TGGuide, Find-TGTool, Get-TGRunPath, Test-TGDirWritable, Initialize-TGToolConfig, Set-TGIniValue,
     ConvertFrom-TGDiskInfo, ConvertFrom-TGWizTreeCsv, Get-TGDriverHint, Invoke-TGAuto

@@ -48,8 +48,13 @@ else {
 }
 $script:Info = Get-RXOfflineInfo $script:Win
 $pcName = if ($script:Info.ComputerName) { $script:Info.ComputerName } else { 'PC' }
-$ReportDir = Join-Path $UsbRoot "Reports\$pcName"
+# a write-protected (locked) Sanjeevani USB cannot take reports: keep them on the PC's own Windows disk
+$UsbLocked = $false
+try { $t = Join-Path $UsbRoot ('Sanjeevani\.wt-' + [guid]::NewGuid().ToString('N').Substring(0, 6)); [IO.File]::WriteAllText($t, 'x'); Remove-Item -LiteralPath $t -Force } catch { $UsbLocked = $true }
+$WorkRoot = if ($UsbLocked) { Join-Path $script:Win.Root 'Sanjeevani' } else { $UsbRoot }
+$ReportDir = Join-Path $WorkRoot "Reports\$pcName"
 New-Item -ItemType Directory -Path $ReportDir -Force | Out-Null
+if ($UsbLocked) { Write-Host "  USB is write-protected (locked) - reports are kept on this PC in $ReportDir" -ForegroundColor Yellow }
 Set-RXLogFile (Join-Path $ReportDir ("rescue-{0:yyyyMMdd-HHmm}.txt" -f (Get-Date)))
 $UndoFile = Join-Path $ReportDir 'rescue-undo.json'
 Write-RX ("Rescue session for {0} ({1}, build {2}) on {3}" -f $pcName, $script:Info.ProductName, $script:Win.Build, $script:Win.Drive) 'OK'
@@ -147,7 +152,7 @@ function Do-Dism {
     if ($isos.Count -gt 1) { for ($i = 0; $i -lt $isos.Count; $i++) { Write-Host ("   {0}. {1}" -f ($i + 1), $isos[$i].Name) }; $n = Pick-RX 'Which ISO?' $isos.Count; if (-not $n) { return }; $iso = $isos[$n - 1] }
     $sz = Find-RX7z $UsbRoot
     if (-not $sz) { Write-RX '7-Zip not found (needed to open the ISO). Run UPDATE.cmd on a working PC.' 'ERR'; Pause-RX; return }
-    $cache = Join-Path $UsbRoot 'Rescue\wim'
+    $cache = Join-Path $WorkRoot 'Rescue\wim'
     $wim = Export-RXInstallImage -Iso $iso.FullName -SevenZip $sz -Dest $cache
     if (-not $wim) { Write-RX 'Could not extract install.wim / install.esd from the ISO.' 'ERR'; Pause-RX; return }
     $idx = @(Get-RXWimIndexes $wim)
@@ -221,8 +226,14 @@ function Do-Rescue {
     Write-RX ("Total: {0}" -f (Format-RXSize $total))
     $usbFree = ([IO.DriveInfo]::new($UsbRoot.Substring(0, 3))).AvailableFreeSpace
     $dest = Join-Path $UsbRoot ("Rescue\{0}-{1:yyyyMMdd}" -f $pcName, (Get-Date))
-    Write-RX ("Destination: {0}  (free: {1})" -f $dest, (Format-RXSize $usbFree))
-    $alt = Read-Host '   Press Enter to use it, or type another drive letter (e.g. E) for an external disk'
+    if ($UsbLocked) {
+        Write-RX 'The Sanjeevani USB is write-protected (locked) - files cannot be saved on it.' 'WARN'
+        $alt = Read-Host '   Plug in an external disk / another pendrive and type its drive letter (e.g. E), or press Enter to cancel'
+        if ($alt -notmatch '^[A-Za-z]$') { return }
+    } else {
+        Write-RX ("Destination: {0}  (free: {1})" -f $dest, (Format-RXSize $usbFree))
+        $alt = Read-Host '   Press Enter to use it, or type another drive letter (e.g. E) for an external disk'
+    }
     if ($alt -match '^[A-Za-z]$') { $dest = "$($alt.ToUpper()):\Sanjeevani-Rescue\$pcName-$(Get-Date -Format yyyyMMdd)"; $usbFree = ([IO.DriveInfo]::new("$($alt.ToUpper()):\")).AvailableFreeSpace }
     if ($total -gt $usbFree - 1GB) { Write-RX 'Not enough free space there.' 'ERR'; Pause-RX; return }
     if (-not (Ask-RX 'Start copying?')) { return }

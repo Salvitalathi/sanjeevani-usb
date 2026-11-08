@@ -24,7 +24,7 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, Sys
 $Here    = $PSScriptRoot
 $UsbRoot = (Resolve-Path (Join-Path $Here '..\..')).Path
 $DataDir = Join-Path $Here 'data'
-$Modules = @('Common', 'Diagnostics', 'Repair', 'Speed', 'Storage', 'Advisor', 'Report', 'ToolGuide') | ForEach-Object { Join-Path $Here "lib\$_.psm1" }
+$Modules = @('Common', 'Diagnostics', 'Repair', 'Speed', 'Storage', 'Advisor', 'Report', 'ToolGuide', 'Integrity') | ForEach-Object { Join-Path $Here "lib\$_.psm1" }
 
 try {
     foreach ($m in $Modules) { Import-Module $m -Force -DisableNameChecking -ErrorAction Stop }
@@ -654,6 +654,7 @@ $repairCards = @(
     @('Drivers तपासा / update', 'कोणते drivers नाहीत, खराब किंवा जुने आहेत ते तपासते आणि सुरक्षित क्रमाने उपाय सुचवते. स्वतःहून काहीही install करत नाही.', 'तपासा', 'repair:drivers'),
     @('Drivers backup', 'या PC चे सगळे drivers (WiFi, LAN, audio, display...) pendrive वर save करा. Windows reinstall करण्याआधी नक्की करा.', 'Backup घ्या', 'repair:drvbackup'),
     @('Drivers restore', 'Windows reinstall नंतर backup केलेले drivers एका click मध्ये परत install करा.', 'Restore करा', 'repair:drvrestore'),
+    @('Pendrive virus तपासणी', 'या Sanjeevani pendrive वरचे सगळे programs Setup च्या नोंदीशी (SHA-256) जुळवतो. बदललेले / नवीन संशयास्पद files, autorun.inf, shortcut virus शोधून quarantine करतो.', 'तपासा', 'repair:usbcheck'),
     @('Restore point आत्ता बनवा', 'मोठा बदल करण्याआधी सुरक्षिततेसाठी.', 'बनवा', 'repair:restorepoint'),
     @('Windows सुरूच होत नाही?', 'USB वरून boot करा → "Hiren''s BootCD PE" → USB वरील Sanjeevani\PCDoctor\Offline-Repair.cmd चालवा (offline SFC/DISM, boot repair, अडकलेले updates).', 'माहिती', 'repair:offline-info')
 )
@@ -882,6 +883,7 @@ function Invoke-ToolGuide([string]$arg) {
             if ($id -eq 'win-memdiag') { Start-Process -FilePath "$env:WINDIR\System32\mdsched.exe"; return }
             $path = Get-TgPath $e
             if (-not $path -or $path -eq 'builtin') { Say $TgText[$script:TgLang].notusb 'Warning'; return }
+            if (-not ($e.Cat -and $e.Cat.installer)) { $path = Get-TGRunPath $path }   # locked USB: run from a temp copy
             Initialize-TGToolConfig $id $path
             try { Start-Process -FilePath $path -WorkingDirectory (Split-Path $path) } catch { Say $_.Exception.Message 'Warning' }
             return
@@ -1010,8 +1012,33 @@ function Show-DriverAdvice($r) {
     elseif ($ans -eq 'No') { Invoke-Repair 'sdio-safe' }
 }
 
+# ---------------------------------------------------------------- USB virus check
+function Show-UsbCheck($r, [bool]$quiet) {
+    if (-not $r -or -not $r.PSObject.Properties['Root']) { return }
+    $lock = if ($r.Locked) { '🔒 Pendrive locked (सुरक्षित)' } else { '🔓 Pendrive unlocked' }
+    $ui.AdminText.Text = "Administrator ✓ · $lock`nReports: $($global:PDCtx.ReportDir)"
+    $lines = Format-SJResult $r 'mr'
+    if (-not (Get-SJIssueCount $r)) { if (-not $quiet) { Say ($lines -join "`n") }; return }
+    if ($r.Locked) {
+        Say ("या pendrive वर संशयास्पद बदल आहेत:`n`n" + ($lines -join "`n") + "`n`nPendrive locked असल्यामुळे इथे साफ करता येत नाही. तुमच्या स्वच्छ PC वर unlock करून CLEAN.cmd / UPDATE.cmd चालवा.`nतोपर्यंत ✖ खूण असलेले programs चालवू नका.") 'Warning'
+        return
+    }
+    if (Ask ("या pendrive वर virus ने बदल केल्याची शक्यता:`n`n" + ($lines -join "`n") + "`n`nसंशयास्पद files quarantine (_to_delete\quarantine) करून लपवलेले folders परत दाखवायचे?")) {
+        $fix = Repair-SJIntegrity $r
+        $msg = "Quarantine: $(@($fix.Quarantined).Count) files · परत दाखवलेले folders: $(@($fix.Unhidden).Count)"
+        if (@($fix.Redownload).Count) { $msg += "`n`nबदललेले tools quarantine केले. तुमच्या स्वच्छ PC वर UPDATE.cmd चालवा म्हणजे ते पुन्हा download होतील." }
+        Write-PDLog $msg 'OK'; Say $msg
+    }
+}
+function Invoke-UsbCheck([bool]$full, [bool]$quiet) {
+    $script:UsbCheckQuiet = $quiet
+    Start-PDJob -Title $(if ($full) { 'Pendrive virus तपासणी (पूर्ण)' } else { 'Pendrive तपासणी' }) -Work { param($P) Test-SJIntegrity -Root $P.Root -Full:$P.Full } `
+        -Params @{ Root = $UsbRoot; Full = $full } -OnDone { param($r) Show-UsbCheck $r $script:UsbCheckQuiet }
+}
+
 function Invoke-Repair([string]$what) {
     switch ($what) {
+        'usbcheck' { Invoke-UsbCheck $true $false; return }
         'os' {
             if (-not (Ask "Windows system files दुरुस्ती सुरू करायची? (15-40 मिनिटे, Internet असल्यास चांगले)")) { return }
             Start-PDJob -Title 'System repair' -Work { param($P) Invoke-PDRepairOS } -OnDone { param($r) if ($r) { [void]$script:Actions.Add("System repair - DISM: $($r.Dism); SFC: $($r.Sfc)"); Say ("DISM: {0}`nSFC: {1}`n`n{2}" -f $r.Dism, $r.Sfc, ($r.Notes -join "`n")) } }
@@ -1246,6 +1273,8 @@ if (-not (Test-PDSameUserAsDesktop)) {
     $win.Add_ContentRendered({ Say "लक्ष द्या: PC Doctor दुसऱ्या (admin) account ने चालू आहे. Startup, visual effects आणि folders चे बदल त्या admin account ला लागतील, या user ला नाही.`n`nयोग्य मार्ग: ज्या user चा PC आहे त्यालाच admin बनवून / त्याच्या login मधून चालवा." 'Warning' })
 }
 Show-Page 'dashboard'
+# quick check of the USB itself (lock switch, changes made by viruses) as soon as the window is shown
+$win.Add_ContentRendered({ Invoke-UsbCheck $false $true })
 $timer.Start()
 Write-PDLog "PC Doctor सुरू - USB: $UsbRoot" 'INFO'
 [void]$win.ShowDialog()

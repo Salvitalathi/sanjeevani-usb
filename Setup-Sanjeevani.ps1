@@ -444,6 +444,31 @@ if ($Usb) {
     Ok "USB data partition: $UsbRoot"
 }
 
+# ------------------------------------------------------------------ write-protect switch / virus check
+$wt = Join-Path $UsbRoot ('.sjw-' + [guid]::NewGuid().ToString('N').Substring(0, 6))
+try { [IO.File]::WriteAllText($wt, 'x'); Remove-Item -LiteralPath $wt -Force }
+catch {
+    Fail 'The USB is write-protected (lock switch ON). Slide the switch to unlock, plug it in again and run Setup / UPDATE.cmd again.'
+    Say '    (Keep it locked when you use it on other PCs, unlock it only on your own clean PC for updates.)' DarkGray
+    Read-Host 'Press Enter to close'; exit 1
+}
+# before anything is copied: did a PC's malware change this USB since the last Setup?
+$sjRedownload = @()
+$sjMod = Join-Path $KitDir 'Sanjeevani\PCDoctor\lib\Integrity.psm1'
+if ((Test-Path -LiteralPath (Join-Path $UsbRoot 'Sanjeevani\integrity.json')) -and (Test-Path -LiteralPath $sjMod)) {
+    Step 'Checking the USB for changes made by viruses'
+    try {
+        Import-Module $sjMod -Force -DisableNameChecking
+        $chk = Test-SJIntegrity -Root $UsbRoot -Full
+        foreach ($l in (Format-SJResult $chk 'en')) { Say "    $l" $(if ($l -match '^✖') { 'Red' } elseif ($l -match '^✔') { 'Green' } else { 'Gray' }) }
+        if (Get-SJIssueCount $chk) {
+            $fix = Repair-SJIntegrity $chk
+            Ok ("Moved {0} suspicious file(s) to _to_delete\quarantine; un-hid {1} folder(s)" -f @($fix.Quarantined).Count, @($fix.Unhidden).Count)
+            $sjRedownload = @($fix.Redownload)
+        }
+    } catch { Warn ('USB check could not run: ' + $_.Exception.Message) }
+}
+
 # ------------------------------------------------------------------ copy kit
 if (-not $RunningFromUsb) {
     Step 'Copying Sanjeevani kit (theme, PC Doctor, docs)'
@@ -477,6 +502,18 @@ $catalog = Get-Content (Join-Path $UsbRoot 'Sanjeevani\tools.json') -Raw -Encodi
 $instFile = Join-Path $UsbRoot 'Sanjeevani\installed.json'
 $installed = @{}
 if (Test-Path $instFile) { (Get-Content $instFile -Raw -Encoding UTF8 | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $installed[$_.Name] = $_.Value } }
+# tools whose programs a virus changed are downloaded again
+foreach ($rel in $sjRedownload) {
+    foreach ($id in @($installed.Keys)) {
+        $ip = [string]$installed[$id].path
+        if (-not $ip) { continue }
+        $toolDir = if ($ip -match '^(Tools\\[^\\]+\\[^\\]+)\\') { $Matches[1] + '\' } else { $ip }
+        if ($rel -ieq $ip -or $rel.StartsWith($toolDir, [StringComparison]::OrdinalIgnoreCase)) {
+            if ($installed[$id].url -eq 'manual') { Warn "$id was changed by a virus and was added by hand - copy a clean copy again" }
+            else { Warn "$id was changed by a virus - downloading it again"; $installed.Remove($id) }
+        }
+    }
+}
 $manual = New-Object System.Collections.ArrayList
 $optionalList = New-Object System.Collections.ArrayList
 $failed = New-Object System.Collections.ArrayList
@@ -819,6 +856,14 @@ foreach ($d in 'Tools', 'Installers') {
         try { $it = Get-Item -LiteralPath $p -Force; $it.Attributes = $it.Attributes -bor [IO.FileAttributes]::Hidden } catch { Warn "could not hide $d" }
     }
 }
+
+# ------------------------------------------------------------------ integrity record (lets PC Doctor notice virus changes later)
+try {
+    Import-Module (Join-Path $UsbRoot 'Sanjeevani\PCDoctor\lib\Integrity.psm1') -Force -DisableNameChecking
+    Step 'Recording program checksums (virus check)'
+    $n = New-SJManifest -Root $UsbRoot
+    Ok "$n programs and big files recorded in Sanjeevani\integrity.json"
+} catch { Warn ('integrity record not written: ' + $_.Exception.Message) }
 
 # ------------------------------------------------------------------ manual / optional list
 function Get-Row($e, [string]$why) {
