@@ -192,7 +192,8 @@ function Invoke-TGBattery([string]$UsbRoot, $P) {
     $r = New-TGResult 'info' 'Battery' 'Battery'
     $xmlFile = Join-Path $env:TEMP 'sjv-battery.xml'
     Remove-Item -LiteralPath $xmlFile -ErrorAction SilentlyContinue
-    & powercfg.exe /batteryreport /xml /output $xmlFile 2>$null | Out-Null
+    # via cmd so that powercfg's error text on PCs without a battery never becomes a PowerShell error
+    $null = & cmd.exe /c "powercfg.exe /batteryreport /xml /output `"$xmlFile`" >nul 2>&1"
     $bats = @()
     if (Test-Path -LiteralPath $xmlFile) { try { [xml]$x = Get-Content -LiteralPath $xmlFile -Raw; $bats = @($x.BatteryReport.Batteries.Battery | Where-Object { $_ }) } catch { } }
     if (-not $bats.Count) {

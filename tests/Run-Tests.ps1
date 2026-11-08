@@ -246,33 +246,37 @@ Test-Case 'Tools guide: real tools are found, set up and driven automatically' {
         }
     }
     $P = @{ ReportDir = $global:PDCtx.ReportDir; Minutes = 0.5 }
-    $show = { param($h, $r) Write-Host ("      {0,-15} [{1}] {2} | {3}" -f $h, $r.Status, $r.HeadEn, (($r.LinesEn | Select-Object -First 3) -join ' / ')) -ForegroundColor DarkGray }
+    $fails = @()
+    $run = { param($h) $r = Invoke-TGAuto -Handler $h -UsbRoot $fakeUsb -P $P
+        Write-Host ("      {0,-15} [{1}] {2} | {3}" -f $h, $r.Status, $r.HeadEn, (($r.LinesEn | Select-Object -First 3) -join ' / ')) -ForegroundColor DarkGray; $r }
     if ($got.crystaldiskinfo) {
-        $r = Invoke-TGAuto -Handler 'disk-health' -UsbRoot $fakeUsb -P $P; & $show 'disk-health' $r
-        Assert (Test-Path (Join-Path (Split-Path $got.crystaldiskinfo) 'DiskInfo.txt')) 'CrystalDiskInfo /CopyExit wrote no DiskInfo.txt'
-        Assert (-not ($r.LinesEn -match 'From Windows')) 'CrystalDiskInfo result was not used'
+        $r = & $run 'disk-health'
+        $txt = Join-Path (Split-Path $got.crystaldiskinfo) 'DiskInfo.txt'
+        if (-not (Test-Path $txt)) { $fails += 'CrystalDiskInfo /CopyExit wrote no DiskInfo.txt' }
+        else {
+            $raw = Get-Content $txt -Raw
+            Write-Host '      --- DiskInfo.txt (start) ---' -ForegroundColor DarkGray
+            ($raw -split "`r?`n" | Select-Object -First 45) | ForEach-Object { Write-Host "      | $_" -ForegroundColor DarkGray }
+            # virtual disks on CI have no SMART data, so CrystalDiskInfo may list none; parsing must work when it does
+            if (($raw -match '(?m)^\s*Model\s*:') -and ($r.LinesEn -match 'From Windows')) { $fails += 'CrystalDiskInfo listed disks but its result was not used' }
+        }
     }
-    if ($got.wiztree) {
-        $r = Invoke-TGAuto -Handler 'bigfolders' -UsbRoot $fakeUsb -P $P; & $show 'bigfolders' $r
-        Assert ($r.Status -eq 'ok' -and $r.LinesEn.Count -ge 3) 'WizTree export gave no folder list'
-    }
-    if ($got.produkey) { $r = Invoke-TGAuto -Handler 'keys' -UsbRoot $fakeUsb -P $P; & $show 'keys' $r }
-    if ($got.bluescreenview) { $r = Invoke-TGAuto -Handler 'crashes' -UsbRoot $fakeUsb -P $P; & $show 'crashes' $r }
-    if ($got.cpuz) {
-        $r = Invoke-TGAuto -Handler 'system-summary' -UsbRoot $fakeUsb -P $P; & $show 'system-summary' $r
-        Assert ($r.File -and (Test-Path $r.File)) 'CPU-Z -txt report not written'
-    }
+    if ($got.wiztree) { $r = & $run 'bigfolders'; if (-not ($r.Status -eq 'ok' -and $r.LinesEn.Count -ge 3)) { $fails += 'WizTree export gave no folder list' } }
+    if ($got.produkey) { $r = & $run 'keys' }
+    if ($got.bluescreenview) { $r = & $run 'crashes' }
+    if ($got.cpuz) { $r = & $run 'system-summary'; if (-not ($r.File -and (Test-Path $r.File))) { $fails += 'CPU-Z -txt report not written' } }
     if ($got.hwinfo) {
-        $r = Invoke-TGAuto -Handler 'temps' -UsbRoot $fakeUsb -P $P; & $show 'temps' $r
+        $r = & $run 'temps'
         Start-Sleep 3; Get-Process HWiNFO* -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
         $ini = Get-ChildItem (Split-Path $got.hwinfo) -Filter 'HWiNFO*.INI' | Select-Object -First 1
-        Assert ($ini -and ((Get-Content $ini.FullName -Raw) -match 'SensorsOnly=1')) 'HWiNFO not set to open the Sensors window'
+        if (-not ($ini -and ((Get-Content $ini.FullName -Raw) -match 'SensorsOnly=1'))) { $fails += 'HWiNFO not set to open the Sensors window' }
     }
     if ($got.prime95) {
-        $r = Invoke-TGAuto -Handler 'stress-cpu' -UsbRoot $fakeUsb -P $P; & $show 'stress-cpu' $r
+        $r = & $run 'stress-cpu'
         Get-Process prime95 -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-        Assert ($r.Status -in 'ok', 'warn' -and $r.HeadEn -match 'no errors') "stress test: $($r.HeadEn)"
+        if (-not ($r.Status -in 'ok', 'warn' -and $r.HeadEn -match 'no errors')) { $fails += "stress test: $($r.HeadEn)" }
     }
+    Assert (-not $fails.Count) ($fails -join '; ')
     Assert ($got.Count -ge 4) "only $($got.Count) tools could be downloaded"
 }
 
