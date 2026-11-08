@@ -149,7 +149,7 @@ Test-Case 'PC Doctor window (XAML) loads' {
     Assert $m.Success 'XAML block not found'
     [xml]$x = $m.Groups[1].Value
     $win = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $x))
-    foreach ($n in 'FindingsList', 'StartupList', 'BloatList', 'FolderList', 'LogBox', 'Progress', 'TargetCombo', 'Win11List', 'AppList', 'TgList', 'TgDetail', 'TgSearch', 'StopBtn', 'LangMr', 'LangEn') {
+    foreach ($n in 'FindingsList', 'StartupList', 'BloatList', 'FolderList', 'LogBox', 'Progress', 'TargetCombo', 'Win11List', 'AppList', 'TgList', 'TgDetail', 'TgSearch', 'StopBtn', 'LangMr', 'LangEn', 'RegList', 'RegInfo', 'OptCard', 'OptPanel') {
         Assert ($null -ne $win.FindName($n)) "element $n missing"
     }
     $win.Close()
@@ -163,7 +163,7 @@ Copy-Item (Join-Path $Kit '*') $fakeUsb -Recurse -Force
 $DataDir = Join-Path $fakeUsb 'Sanjeevani\PCDoctor\data'
 
 Test-Case 'Modules import' {
-    foreach ($m in 'Common', 'Diagnostics', 'Repair', 'Speed', 'Storage', 'Advisor', 'Report', 'ToolGuide', 'Integrity') {
+    foreach ($m in 'Common', 'Diagnostics', 'Repair', 'Speed', 'Storage', 'Advisor', 'Report', 'ToolGuide', 'Integrity', 'Registry') {
         Import-Module (Join-Path $fakeUsb "Sanjeevani\PCDoctor\lib\$m.psm1") -Force -DisableNameChecking
     }
     $ctx = Initialize-PDContext -UsbRoot $fakeUsb
@@ -367,6 +367,64 @@ Test-Case 'Locked USB: tools that write settings run from a temp copy' {
         Initialize-TGToolConfig 'hwinfo' $run
     } finally { & icacls.exe $d /remove:d $env:USERNAME /T | Out-Null }
     Remove-Item (Split-Path $d) -Recurse -Force
+    $true
+}
+
+Test-Case 'Junk is measured per category; blue-screen dumps are kept' {
+    $d = Join-Path $env:TEMP ('sjv-junk-' + [guid]::NewGuid().ToString('N').Substring(0, 6))
+    New-Item -ItemType Directory $d -Force | Out-Null
+    [IO.File]::WriteAllBytes((Join-Path $d 'big.tmp'), (New-Object byte[] (6MB)))
+    $cats = @(Get-PDJunkCategories)
+    $ut = $cats | Where-Object { $_.Id -eq 'usertemp' }
+    Assert ($ut -and (Get-PDPathBytes $ut.Paths $ut.Filter) -ge 6MB) 'user temp not measured'
+    Assert (@($cats | Where-Object { $_.Id -eq 'browser' }).Count -eq 1) 'browser cache category missing'
+    $src = Get-Content (Join-Path $fakeUsb 'Sanjeevani\PCDoctor\lib\Speed.psm1') -Raw
+    Assert ($src -notmatch "'System error minidump files'") 'Disk Cleanup must keep minidumps (needed to find blue-screen drivers)'
+    Remove-Item $d -Recurse -Force
+    $true
+}
+
+Test-Case 'Registry check finds virus-style and broken entries, fixes them and Undo restores them' {
+    $keep = $global:PDCtx
+    $tmpRoot = Join-Path $env:TEMP ('sjv-reg-' + [guid]::NewGuid().ToString('N').Substring(0, 6))
+    New-Item -ItemType Directory $tmpRoot -Force | Out-Null
+    $null = Initialize-PDContext -UsbRoot $tmpRoot          # fresh undo journal
+    $run = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+    $pol = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\System'
+    $un = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\SanjeevaniTestOrphan'
+    try {
+        New-ItemProperty -Path $run -Name 'SanjeevaniTestMissing' -Value '"C:\NoSuchFolder\gone.exe" /min' -PropertyType String -Force | Out-Null
+        New-ItemProperty -Path $run -Name 'SanjeevaniTestOk' -Value "`"$env:WINDIR\System32\notepad.exe`"" -PropertyType String -Force | Out-Null
+        if (-not (Test-Path $pol)) { New-Item $pol -Force | Out-Null }
+        New-ItemProperty -Path $pol -Name 'DisableRegistryTools' -Value 1 -PropertyType DWord -Force | Out-Null
+        New-Item $un -Force | Out-Null
+        New-ItemProperty -Path $un -Name 'DisplayName' -Value 'Sanjeevani Test Orphan' -Force | Out-Null
+        New-ItemProperty -Path $un -Name 'UninstallString' -Value '"C:\NoSuchFolder\unins000.exe"' -Force | Out-Null
+        Assert ((Get-PDCommandTarget 'rundll32.exe "C:\NoSuch\x.dll",Run') -eq 'C:\NoSuch\x.dll') 'rundll32 target'
+        Assert ((Get-PDCommandTarget '%windir%\system32\SecurityHealthSystray.exe') -like '*\SecurityHealthSystray.exe') 'env var target'
+        $all = @(Get-PDRegistryIssues)
+        Write-Host ("      found {0} issue(s) on this PC: {1}" -f $all.Count, (($all | ForEach-Object { $_.Title }) -join ' | ')) -ForegroundColor DarkGray
+        $mine = @($all | Where-Object { ($_.Name -in 'SanjeevaniTestMissing', 'SanjeevaniTestOk', 'DisableRegistryTools' -and $_.Key -like 'HKCU:*') -or $_.Key -like '*SanjeevaniTestOrphan' })
+        Assert ($mine.Name -contains 'SanjeevaniTestMissing') 'startup entry with a missing program not found'
+        Assert ($mine.Name -notcontains 'SanjeevaniTestOk') 'working startup entry reported'
+        Assert ($mine.Name -contains 'DisableRegistryTools') 'blocked Registry Editor not found'
+        Assert (@($mine | Where-Object { $_.Action -eq 'removekey' }).Count -eq 1) 'orphan uninstall entry not found'
+        $r = Repair-PDRegistryIssues -Issues $mine -NoRestorePoint
+        Assert ($r.Fixed -eq 3 -and $r.Failed -eq 0) "fixed $($r.Fixed), failed $($r.Failed)"
+        Assert ($null -eq (Get-ItemProperty $run -Name 'SanjeevaniTestMissing' -ErrorAction SilentlyContinue)) 'startup entry not removed'
+        Assert (-not (Test-Path $un)) 'orphan entry not removed'
+        Assert ($null -eq (Get-ItemProperty $pol -Name 'DisableRegistryTools' -ErrorAction SilentlyContinue)) 'policy not removed'
+        Undo-PDChanges
+        Assert ((Get-ItemProperty $run -Name 'SanjeevaniTestMissing' -ErrorAction SilentlyContinue)) 'Undo did not restore the startup entry'
+        Assert (Test-Path $un) 'Undo did not restore the uninstall entry'
+        Assert ((Get-ItemProperty $pol -Name 'DisableRegistryTools' -ErrorAction SilentlyContinue).DisableRegistryTools -eq 1) 'Undo did not restore the policy value'
+    } finally {
+        Remove-ItemProperty -Path $run -Name 'SanjeevaniTestMissing', 'SanjeevaniTestOk' -ErrorAction SilentlyContinue
+        Remove-ItemProperty -Path $pol -Name 'DisableRegistryTools' -ErrorAction SilentlyContinue
+        Remove-Item $un -Recurse -Force -ErrorAction SilentlyContinue
+        $global:PDCtx = $keep
+        Remove-Item $tmpRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
     $true
 }
 

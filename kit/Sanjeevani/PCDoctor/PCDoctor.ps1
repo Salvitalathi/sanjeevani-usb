@@ -24,7 +24,7 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, Sys
 $Here    = $PSScriptRoot
 $UsbRoot = (Resolve-Path (Join-Path $Here '..\..')).Path
 $DataDir = Join-Path $Here 'data'
-$Modules = @('Common', 'Diagnostics', 'Repair', 'Speed', 'Storage', 'Advisor', 'Report', 'ToolGuide', 'Integrity') | ForEach-Object { Join-Path $Here "lib\$_.psm1" }
+$Modules = @('Common', 'Diagnostics', 'Repair', 'Speed', 'Storage', 'Advisor', 'Report', 'ToolGuide', 'Integrity', 'Registry') | ForEach-Object { Join-Path $Here "lib\$_.psm1" }
 
 try {
     foreach ($m in $Modules) { Import-Module $m -Force -DisableNameChecking -ErrorAction Stop }
@@ -208,6 +208,10 @@ class InfoRow    { [string]$Title; [string]$Badge; [string]$Color; [string]$Deta
             <StackPanel Name="ScoreWhy"/>
           </Border>
 
+          <Border Name="OptCard" Style="{StaticResource CardBorder}" BorderBrush="#14B8A6" Visibility="Collapsed">
+            <StackPanel Name="OptPanel"/>
+          </Border>
+
           <Border Style="{StaticResource CardBorder}" Background="#0F2A2A" BorderBrush="#115E59">
             <DockPanel>
               <Button DockPanel.Dock="Right" Style="{StaticResource Primary}" Tag="optimize" Content="⚡ One-Click Optimize" VerticalAlignment="Center" FontSize="15" Padding="18,10"/>
@@ -230,6 +234,22 @@ class InfoRow    { [string]$Title; [string]$Badge; [string]$Color; [string]$Deta
           <TextBlock Style="{StaticResource H1}" Text="Windows दुरुस्ती"/>
           <TextBlock Style="{StaticResource Sub}" Text="प्रत्येक दुरुस्तीआधी आपोआप System Restore point तयार होतो. Repair चालू असताना PC बंद करू नका." Margin="0,0,0,14"/>
           <WrapPanel Name="RepairCards"/>
+          <Border Style="{StaticResource CardBorder}" Margin="0,4,12,12">
+            <StackPanel>
+              <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+                  <Button Style="{StaticResource Btn}" Tag="reg:scan" Content="Registry तपासा"/>
+                  <Button Style="{StaticResource Primary}" Tag="reg:fix" Content="निवडलेले दुरुस्त करा" Margin="0"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Style="{StaticResource H2}" Text="🗝  Registry तपासणी"/>
+                  <TextBlock Style="{StaticResource Sub}" Text="Virus ने बदललेल्या settings (Task Manager बंद, programs उघडताना दुसरेच चालणे, Defender बंद...) आणि तुटलेल्या entries शोधतो. हजारो entries delete करणारा 'registry cleaner' नाही - त्याने PC वेगवान होत नाही, उलट बिघडू शकतो. प्रत्येक दुरुस्तीआधी restore point + .reg backup, Undo करता येते."/>
+                </StackPanel>
+              </DockPanel>
+              <TextBlock Name="RegInfo" Style="{StaticResource Sub}" Margin="0,8,0,4"/>
+              <ItemsControl Name="RegList" ItemTemplate="{StaticResource CheckTpl}"/>
+            </StackPanel>
+          </Border>
         </StackPanel>
       </ScrollViewer>
 
@@ -530,7 +550,7 @@ function Show-Page([string]$name) {
 # ---------------------------------------------------------------- rendering
 $SevColor = @{ Critical = '#E11D48'; Warning = '#D97706'; Info = '#2563EB'; OK = '#16A34A' }
 $SevMr = @{ Critical = 'गंभीर'; Warning = 'लक्ष द्या'; Info = 'माहिती'; OK = 'ठीक' }
-$FixText = @{ storage = 'जागा मोकळी करा'; cleanup = 'साफ करा'; startup = 'Startup पहा'; power = 'बदला'; visual = 'हलके करा'; debloat = 'काढा';
+$FixText = @{ registry = 'Registry दुरुस्ती'; storage = 'जागा मोकळी करा'; cleanup = 'साफ करा'; startup = 'Startup पहा'; power = 'बदला'; visual = 'हलके करा'; debloat = 'काढा';
     advisor = 'सल्ला पहा'; 'repair-os' = 'दुरुस्त करा'; chkdsk = 'Disk तपासा'; wureset = 'दुरुस्त करा'; defender = 'चालू करा'; drivers = 'Drivers'; bsod = 'कारण शोधा'; backup = 'Backup tools' }
 
 $KindInfo = [ordered]@{
@@ -568,6 +588,36 @@ function Show-ScoreWhy($s) {
     [void]$p.Children.Add((New-Tb $end 13 '#94A3B8' 'Normal' '0,8,0,0'))
 }
 
+function Show-OptimizeResult($r) {
+    $p = $ui.OptPanel; $p.Children.Clear(); $ui.OptCard.Visibility = 'Visible'
+    [void]$p.Children.Add((New-Tb ("⚡ One-Click Optimize - {0:dd-MM-yyyy HH:mm}" -f (Get-Date)) 17 '#5EEAD4' 'SemiBold' '0,0,0,6'))
+    $col = if ($r.Scan.Score -gt $r.Before) { '#22C55E' } else { '#E2E8F0' }
+    [void]$p.Children.Add((New-Tb ("Health score: {0}  →  {1}" -f $r.Before, $r.Scan.Score) 15 $col 'SemiBold' '0,0,0,8'))
+    if ($r.Junk) {
+        $j = $r.Junk
+        $found = ($j.Items | Measure-Object Found -Sum).Sum
+        [void]$p.Children.Add((New-Tb ("🧹 Junk files: {0} सापडले, {1} जागा मोकळी झाली (आता C: वर {2} मोकळे)" -f (Format-PDSize $found), (Format-PDSize $j.Freed), (Format-PDSize $j.FreeAfter)) 14 '#E2E8F0' 'SemiBold' '0,0,0,4'))
+        $g = New-Object Windows.Controls.Grid; $g.Margin = '16,0,0,8'
+        foreach ($w in '*', '110', '110') { $cd = New-Object Windows.Controls.ColumnDefinition; $cd.Width = $w; [void]$g.ColumnDefinitions.Add($cd) }
+        $row = 0
+        $addRow = { param($a, $b, $c, $color, $weight)
+            $rd = New-Object Windows.Controls.RowDefinition; $rd.Height = 'Auto'; [void]$g.RowDefinitions.Add($rd)
+            $k = 0
+            foreach ($t in $a, $b, $c) { $tb = New-Tb $t 13 $color $weight '0,1,8,1'; [Windows.Controls.Grid]::SetRow($tb, $row); [Windows.Controls.Grid]::SetColumn($tb, $k); if ($k) { $tb.TextAlignment = 'Right' }; [void]$g.Children.Add($tb); $k++ }
+            Set-Variable -Name row -Value ($row + 1) -Scope 1
+        }
+        & $addRow 'प्रकार' 'सापडले' 'साफ झाले' '#94A3B8' 'SemiBold'
+        foreach ($i in ($j.Items | Sort-Object Freed -Descending)) { & $addRow $i.Mr (Format-PDSize $i.Found) (Format-PDSize $i.Freed) '#CBD5E1' 'Normal' }
+        [void]$p.Children.Add($g)
+        $left = @($j.Items | Where-Object { $_.Left -ge 50MB })
+        if ($left.Count) { [void]$p.Children.Add((New-Tb ('काही files वापरात होत्या म्हणून राहिल्या (उदा. browser उघडा असल्यास). Browser / programs बंद करून पुन्हा Optimize केल्यास त्या पण साफ होतील.') 12 '#94A3B8' 'Normal' '16,0,0,6')) }
+        if ($j.RecycleBinBytes -ge 100MB) { [void]$p.Children.Add((New-Tb ("Recycle Bin मध्ये {0} आहेत - तुमच्या files असू शकतात म्हणून आपोआप रिकामा केला नाही. नको असल्यास 'वेग वाढवा' page वरून रिकामा करा." -f (Format-PDSize $j.RecycleBinBytes)) 12 '#FBBF24' 'Normal' '16,0,0,6')) }
+    }
+    [void]$p.Children.Add((New-Tb 'काय केले:' 14 '#E2E8F0' 'SemiBold' '0,6,0,2'))
+    foreach ($a in ($r.Actions | Where-Object { $_ -notmatch '^\s+•' })) { [void]$p.Children.Add((New-Tb ('   ' + $a) 13 '#CBD5E1' 'Normal' '0,0,0,1')) }
+    [void]$p.Children.Add((New-Tb 'सगळे बदल "वेग वाढवा → सर्व बदल Undo करा" ने परत करता येतात. पूर्ण फरकासाठी PC restart करा.' 12 '#94A3B8' 'Normal' '0,6,0,0'))
+}
+
 function Show-Scan($s) {
     $script:Scan = $s
     $i = $s.Info
@@ -591,6 +641,7 @@ function Show-Scan($s) {
     $ui.FindingsEmpty.Visibility = 'Collapsed'
     Show-ScoreWhy $s
     Show-SpeedLists
+    if ($s.PSObject.Properties['Registry']) { Show-RegIssues @($s.Registry) }
 }
 
 function Show-SpeedLists {
@@ -997,26 +1048,27 @@ One-Click Optimize खालील गोष्टी करेल:
         $acts = @()
         $s = Invoke-PDScan -DataDir $P.DataDir
         [void](New-PDRestorePoint 'Sanjeevani: One-click optimize')
-        $freed = Clear-PDJunk
-        $acts += ('Junk cleanup: ' + (Format-PDSize $freed) + ' मोकळे')
+        $junk = Clear-PDJunk
+        $acts += ('✔ Junk cleanup: ' + (Format-PDSize $junk.Freed) + ' जागा मोकळी झाली')
         $safe = @(Get-PDSafeStartupToDisable -Items $s.Startup -DataDir $P.DataDir -RamGB $s.Info.RAMGB)
         foreach ($it in $safe) { Set-PDStartupState -Item $it -Enabled $false }
-        if ($safe.Count) { $acts += ('Startup बंद: ' + (($safe | ForEach-Object { $_.Name }) -join ', ')) }
+        if ($safe.Count) { $acts += ('✔ Startup मधून बंद केले: ' + (($safe | ForEach-Object { $_.Name }) -join ', ')) }
         $sd = @($s.Info.Disks | Where-Object { $_.IsSystem })[0]
         $hdd = [bool]($sd -and $sd.MediaType -eq 'HDD')
-        if ($s.Info.RAMGB -lt 7.5 -or $hdd -or -not $s.Info.HasDedicatedGPU) { Set-PDVisualPerformance; $acts += 'Visual effects हलके केले' }
-        Set-PDPowerPlan -IsLaptop $s.Info.IsLaptop; $acts += 'Power plan तपासला'
-        Disable-PDSuggestions; $acts += 'Tips/ads बंद'
-        Optimize-PDServices -DataDir $P.DataDir -SystemOnHdd $hdd -RamGB $s.Info.RAMGB; $acts += 'Telemetry / अनावश्यक services कमी'
+        if ($s.Info.RAMGB -lt 7.5 -or $hdd -or -not $s.Info.HasDedicatedGPU) { Set-PDVisualPerformance; $acts += '✔ Visual effects हलके केले (कमकुवत PC)' }
+        Set-PDPowerPlan -IsLaptop $s.Info.IsLaptop; $acts += '✔ योग्य power plan लावला'
+        Disable-PDSuggestions; $acts += '✔ Windows tips / ads बंद केले'
+        Optimize-PDServices -DataDir $P.DataDir -SystemOnHdd $hdd -RamGB $s.Info.RAMGB; $acts += '✔ Telemetry / अनावश्यक services कमी केल्या'
         Set-PDPagefileAuto
         $bl = @($s.Bloat | Where-Object { $_.Default } | ForEach-Object { $_.Name })
-        if ($bl.Count) { Remove-PDBloat -Packages $bl; $acts += ('Bloatware काढले: ' + $bl.Count) }
+        if ($bl.Count) { Remove-PDBloat -Packages $bl; $acts += ('✔ Bloatware काढले (' + $bl.Count + '): ' + (($s.Bloat | Where-Object { $_.Default } | ForEach-Object { $_.Label }) -join ', ')) }
         if ($P.Repair) { $r = Invoke-PDRepairOS -SkipRestorePoint; $acts += ("System repair - DISM: {0}, SFC: {1}" -f $r.Dism, $r.Sfc) }
+        foreach ($i in $junk.Items) { $acts += ("   • {0}: {1} सापडले → {2} साफ" -f $i.Mr, (Format-PDSize $i.Found), (Format-PDSize $i.Freed)) }
         Write-PDLog 'पुन्हा scan करत आहे...' 'STEP'
         $s2 = Invoke-PDScan -DataDir $P.DataDir
         $adv = Get-PDOSAdvice -Info $s2.Info -DataDir $P.DataDir
         $rep = New-PDReport -Scan $s2 -OSAdvice $adv -Actions $acts
-        [pscustomobject]@{ Scan = $s2; Advice = $adv; Report = $rep; Actions = $acts; Before = $s.Score }
+        [pscustomobject]@{ Scan = $s2; Advice = $adv; Report = $rep; Actions = $acts; Before = $s.Score; Junk = $junk; StartupOff = @($safe | ForEach-Object { $_.Name }) }
     }
     Start-PDJob -Title 'One-Click Optimize' -Work $work -Params @{ DataDir = $DataDir; Repair = $repair } -OnDone {
         param($r)
@@ -1024,9 +1076,10 @@ One-Click Optimize खालील गोष्टी करेल:
         foreach ($a in $r.Actions) { [void]$script:Actions.Add($a) }
         Show-Scan $r.Scan; Show-Advice $r.Advice
         $ui.ReportInfo.Text = "शेवटचा report: $($r.Report)"
-        $left = @($r.Scan.Findings | Where-Object { $_.Points -gt 0 -and $_.Kind -ne 'auto' } | ForEach-Object { "• −$($_.Points)  $($_.Title)" })
-        $more = if ($left.Count) { "`n`nScore 100 का नाही - उरलेल्या गोष्टी (तपासणी page वर प्रत्येकाचा उपाय दिला आहे):`n" + ($left -join "`n") } else { '' }
-        Say ("Optimize पूर्ण!`n`nHealth score: {0} → {1}`n`n{2}{3}`n`nसगळे बदल लागू होण्यासाठी PC restart करा." -f $r.Before, $r.Scan.Score, ($r.Actions -join "`n"), $more)
+        Show-OptimizeResult $r
+        Show-Page 'dashboard'
+        $freedTxt = if ($r.Junk) { Format-PDSize $r.Junk.Freed } else { '?' }
+        Say ("Optimize पूर्ण!`n`nHealth score: {0} → {1}`nमोकळी झालेली जागा: {2}`n`nकाय केले, कोणते junk किती होते आणि score 100 का नाही - सगळे तपासणी page वर (वर) दिसत आहे. Report पण उघडत आहे.`n`nसगळे बदल लागू होण्यासाठी PC restart करा." -f $r.Before, $r.Scan.Score, $freedTxt)
         try { Start-Process $r.Report } catch { }
     }
 }
@@ -1052,6 +1105,38 @@ function Show-DriverAdvice($r) {
     $ans = [System.Windows.MessageBox]::Show($win, ($L -join "`n"), 'Drivers तपासणी', 'YesNoCancel', 'Information')
     if ($ans -eq 'Yes') { Start-Process 'ms-settings:windowsupdate-optionalupdates' }
     elseif ($ans -eq 'No') { Invoke-Repair 'sdio-safe' }
+}
+
+# ---------------------------------------------------------------- registry check
+$script:RegIssues = @()
+$script:RegRows = @()
+function Show-RegIssues($items) {
+    $script:RegIssues = @($items)
+    $k = 0
+    $script:RegRows = @(foreach ($i in $script:RegIssues) {
+            $r = [CheckRow]::new(); $r.Selected = [bool]$i.Selected; $r.Name = $i.Title; $r.Sub = $i.Detail; $r.Index = $k; $k++
+            $r.Badge = if ($i.Kind -eq 'malware') { if ($i.Severity -eq 'Critical') { 'virus चा संशय' } else { 'तपासा' } } else { 'तुटलेले' }
+            $r.BadgeVisible = 'Visible'; $r
+        })
+    $ui.RegList.ItemsSource = $script:RegRows
+    $mal = @($script:RegIssues | Where-Object { $_.Kind -eq 'malware' }).Count
+    $brk = @($script:RegIssues | Where-Object { $_.Kind -eq 'broken' }).Count
+    $ui.RegInfo.Text = if (-not $script:RegIssues.Count) { '✔ Registry मध्ये काही चुकीचे सापडले नाही.' }
+                       else { "सापडले: virus सारखे बदल $mal · तुटलेल्या entries $brk. सुरक्षित वाटणारे आधीच निवडले आहेत; बाकी (उदा. office proxy) तुम्ही ठरवा." }
+}
+function Invoke-RegScan {
+    Start-PDJob -Title 'Registry तपासणी' -Work { param($P) [pscustomobject]@{ Items = @(Get-PDRegistryIssues) } } -OnDone { param($r) Show-RegIssues $r.Items; Show-Page 'repair' }
+}
+function Invoke-RegFix {
+    $sel = @($script:RegRows | Where-Object { $_.Selected } | ForEach-Object { $script:RegIssues[$_.Index] })
+    if (-not $sel.Count) { Say 'आधी "Registry तपासा" करा आणि दुरुस्त करायच्या entries निवडा.'; return }
+    if (-not (Ask ("{0} registry entries दुरुस्त करायच्या?`n`nआधी restore point आणि प्रत्येक key चा .reg backup घेतला जाईल. 'वेग वाढवा → सर्व बदल Undo करा' ने परत करता येते." -f $sel.Count))) { return }
+    Start-PDJob -Title 'Registry दुरुस्ती' -Work { param($P) Repair-PDRegistryIssues -Issues $P.Issues } -Params @{ Issues = $sel } -OnDone {
+        param($r)
+        [void]$script:Actions.Add("Registry दुरुस्ती: $($r.Fixed) entries")
+        Say ("Registry: {0} दुरुस्त{1}. काही बदल restart नंतर लागू होतात." -f $r.Fixed, $(if ($r.Failed) { ", $($r.Failed) होऊ शकले नाहीत (log पहा)" } else { '' }))
+        Invoke-RegScan
+    }
 }
 
 # ---------------------------------------------------------------- USB virus check
@@ -1127,7 +1212,11 @@ function Invoke-Tweaks {
         param($P)
         $acts = @()
         [void](New-PDRestorePoint 'Sanjeevani: speed tweaks')
-        if ($P.Cleanup -or $P.Recycle -or $P.Component) { $f = Clear-PDJunk -RecycleBin:$P.Recycle -ComponentStore:$P.Component; $acts += ('Cleanup: ' + (Format-PDSize $f)) }
+        if ($P.Cleanup -or $P.Recycle -or $P.Component) {
+            $f = Clear-PDJunk -RecycleBin:$P.Recycle -ComponentStore:$P.Component
+            $acts += ('Cleanup: ' + (Format-PDSize $f.Freed) + ' मोकळे')
+            foreach ($i in $f.Items) { $acts += ("   • {0}: {1} सापडले → {2} साफ" -f $i.Mr, (Format-PDSize $i.Found), (Format-PDSize $i.Freed)) }
+        }
         if ($P.Visual) { Set-PDVisualPerformance; $acts += 'Visual effects हलके' }
         if ($P.Power) { Set-PDPowerPlan -IsLaptop $P.IsLaptop; $acts += 'Power plan' }
         if ($P.Suggest) { Disable-PDSuggestions; $acts += 'Tips/ads बंद' }
@@ -1268,6 +1357,7 @@ function Invoke-Fix([string]$id) {
         'wureset'   { Invoke-Repair 'wu' }
         'defender'  { Invoke-Repair 'defender' }
         'drivers'   { Invoke-Repair 'drivers' }
+        'registry'  { Show-Page 'repair'; Invoke-RegScan }
         'bsod'      { Show-Page 'toolbox'; Show-TgDetail 'bluescreenview'; Invoke-ToolGuide 'auto:bluescreenview' }
         'backup'    { Say "Disk खराब होत आहे. लगेच:`n1. महत्त्वाचे files external disk / pendrive वर copy करा.`n2. पूर्ण disk साठी USB वरून boot करून Rescuezilla / Clonezilla वापरा.`n3. Tools मार्गदर्शक > CrystalDiskInfo > "आपोआप तपासा" ने health पहा." 'Warning' }
     }
@@ -1293,6 +1383,7 @@ $win.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, [Windows.R
             'uninst'  { Invoke-AppUninstall ([int]$arg) }
             'tool'    { Open-UsbTool $arg $null }
             'tg'      { Invoke-ToolGuide $arg }
+            'reg'     { if ($arg -eq 'fix') { Invoke-RegFix } else { Invoke-RegScan } }
             'job'     { $global:PDState.Cancel = $true; $ui.StatusText.Text = 'थांबवत आहे... / Stopping...' }
             'web'     { if ($arg) { Start-Process $arg } }
             'report'  { Invoke-Report }

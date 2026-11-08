@@ -3,23 +3,82 @@
 Set-StrictMode -Off
 
 # ---------------- cleanup ----------------
+# Windows Disk Cleanup handlers used. Minidump files are kept on purpose: they tell which driver caused a blue screen.
 $script:CleanHandlers = @(
     'Temporary Files', 'Update Cleanup', 'Windows Error Reporting Files', 'Delivery Optimization Files',
     'Previous Installations', 'Temporary Setup Files', 'Thumbnail Cache', 'Old ChkDsk Files', 'Setup Log Files',
-    'System error memory dump files', 'System error minidump files', 'Downloaded Program Files',
+    'System error memory dump files', 'Downloaded Program Files',
     'Internet Cache Files', 'Windows Upgrade Log Files', 'D3D Shader Cache', 'Device Driver Packages',
     'Windows Defender', 'Language Pack', 'Temporary Sync Files', 'Diagnostic Data Viewer database files'
 )
 
+function Get-PDUserDirs {
+    @(Get-ChildItem -LiteralPath "$env:SystemDrive\Users" -Directory -Force -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -notin 'All Users', 'Default User', 'Public' -and -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) })
+}
+
+# The junk categories PC Doctor measures (and, where marked Delete, removes itself).
+function Get-PDJunkCategories {
+    $users = Get-PDUserDirs
+    $up = { param($rel) @($users | ForEach-Object { Join-Path $_.FullName $rel }) }
+    $browser = @()
+    foreach ($u in $users) {
+        $l = Join-Path $u.FullName 'AppData\Local'
+        foreach ($b in 'Google\Chrome\User Data', 'Microsoft\Edge\User Data', 'BraveSoftware\Brave-Browser\User Data') {
+            foreach ($prof in @(Get-ChildItem -LiteralPath (Join-Path $l $b) -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^(Default|Profile \d+)$' })) {
+                foreach ($c in 'Cache', 'Code Cache', 'GPUCache', 'Service Worker\CacheStorage') { $browser += (Join-Path $prof.FullName $c) }
+            }
+        }
+        foreach ($prof in @(Get-ChildItem -LiteralPath (Join-Path $l 'Mozilla\Firefox\Profiles') -Directory -ErrorAction SilentlyContinue)) { $browser += (Join-Path $prof.FullName 'cache2') }
+    }
+    @(
+        [pscustomobject]@{ Id = 'usertemp'; Mr = 'Users चे temporary files'; En = 'User temporary files'; Paths = @(& $up 'AppData\Local\Temp'); Filter = $null; Delete = $true }
+        [pscustomobject]@{ Id = 'wintemp'; Mr = 'Windows temporary files'; En = 'Windows temporary files'; Paths = @("$env:WINDIR\Temp"); Filter = $null; Delete = $true }
+        [pscustomobject]@{ Id = 'browser'; Mr = 'Browser cache (Chrome / Edge / Brave / Firefox) - history, passwords, login राहतात'; En = 'Browser cache (Chrome / Edge / Brave / Firefox) - history, passwords and logins stay'; Paths = $browser; Filter = $null; Delete = $true }
+        [pscustomobject]@{ Id = 'wer'; Mr = 'Error reports (crash reports)'; En = 'Error reports'; Paths = @("$env:ProgramData\Microsoft\Windows\WER\ReportArchive", "$env:ProgramData\Microsoft\Windows\WER\ReportQueue") + @(& $up 'AppData\Local\Microsoft\Windows\WER'); Filter = $null; Delete = $true }
+        [pscustomobject]@{ Id = 'thumbs'; Mr = 'Photo thumbnails cache'; En = 'Thumbnail cache'; Paths = @(& $up 'AppData\Local\Microsoft\Windows\Explorer'); Filter = 'thumbcache_*.db'; Delete = $false }
+        [pscustomobject]@{ Id = 'do'; Mr = 'Windows Update sharing cache (Delivery Optimization)'; En = 'Delivery Optimization cache'; Paths = @("$env:WINDIR\ServiceProfiles\NetworkService\AppData\Local\Microsoft\Windows\DeliveryOptimization\Cache", "$env:WINDIR\SoftwareDistribution\DeliveryOptimization"); Filter = $null; Delete = $false }
+        [pscustomobject]@{ Id = 'winold'; Mr = 'जुने Windows (Windows.old)'; En = 'Previous Windows (Windows.old)'; Paths = @("$env:SystemDrive\Windows.old"); Filter = $null; Delete = $false }
+        [pscustomobject]@{ Id = 'dump'; Mr = 'Memory dump (MEMORY.DMP)'; En = 'Memory dump (MEMORY.DMP)'; Paths = @("$env:WINDIR\MEMORY.DMP"); Filter = $null; Delete = $false }
+    )
+}
+
+function Get-PDPathBytes([string[]]$Paths, [string]$Filter) {
+    $t = 0.0
+    foreach ($p in $Paths) {
+        if (-not $p -or -not (Test-Path -LiteralPath $p)) { continue }
+        $it = Get-Item -LiteralPath $p -Force -ErrorAction SilentlyContinue
+        if (-not $it.PSIsContainer) { $t += $it.Length; continue }
+        $files = if ($Filter) { Get-ChildItem -LiteralPath $p -Filter $Filter -File -Force -ErrorAction SilentlyContinue } else { Get-ChildItem -LiteralPath $p -Recurse -File -Force -ErrorAction SilentlyContinue }
+        $t += [double]($files | Measure-Object Length -Sum).Sum
+    }
+    return $t
+}
+
+function Get-PDRecycleBinBytes {
+    return (Get-PDPathBytes @("$env:SystemDrive\`$Recycle.Bin") $null)
+}
+
+# Cleans junk and reports, per category, how much there was and how much was freed.
 function Clear-PDJunk {
     param([switch]$RecycleBin, [switch]$ComponentStore)
     $drive = $env:SystemDrive.TrimEnd(':')
-    $before = (Get-Volume -DriveLetter $drive).SizeRemaining
-    Write-PDLog 'Temp files साफ करत आहे...' 'STEP'
-    Set-PDProgress 10 'Temp files'
-    foreach ($p in @($env:TEMP, "$env:WINDIR\Temp")) {
-        Get-ChildItem -LiteralPath $p -Force -ErrorAction SilentlyContinue | ForEach-Object {
-            try { Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction Stop } catch { }
+    $before = [double](Get-Volume -DriveLetter $drive).SizeRemaining
+    Write-PDLog 'Junk किती आहे ते मोजत आहे...' 'STEP'
+    Set-PDProgress 5 'Measuring junk'
+    $cats = Get-PDJunkCategories
+    foreach ($c in $cats) { $c | Add-Member -NotePropertyName Before -NotePropertyValue (Get-PDPathBytes $c.Paths $c.Filter) -Force }
+    $rbBefore = Get-PDRecycleBinBytes
+    Write-PDLog ("सापडलेले junk: " + (($cats | Where-Object { $_.Before -gt 0 } | ForEach-Object { "$($_.En) $(Format-PDSize $_.Before)" }) -join ', ')) 'INFO'
+
+    Write-PDLog 'Temp files आणि browser cache साफ करत आहे...' 'STEP'
+    Set-PDProgress 15 'Temp files'
+    foreach ($c in ($cats | Where-Object { $_.Delete })) {
+        foreach ($p in $c.Paths) {
+            if (-not $p -or -not (Test-Path -LiteralPath $p)) { continue }
+            Get-ChildItem -LiteralPath $p -Force -ErrorAction SilentlyContinue | ForEach-Object {
+                try { Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction Stop } catch { }   # files in use stay
+            }
         }
     }
     try { Delete-DeliveryOptimizationCache -Force -ErrorAction Stop } catch { }
@@ -45,11 +104,25 @@ function Clear-PDJunk {
         Write-PDLog 'Recycle Bin रिकामा करत आहे...' 'STEP'
         try { Clear-RecycleBin -Force -ErrorAction Stop } catch { }
     }
-    $after = (Get-Volume -DriveLetter $drive).SizeRemaining
-    $freed = [math]::Max([double]0, [double]($after - $before))
+    Set-PDProgress 90 'Measuring'
+    $after = [double](Get-Volume -DriveLetter $drive).SizeRemaining
+    $freed = [math]::Max([double]0, $after - $before)
+    $items = @()
+    $sumCat = 0.0
+    foreach ($c in $cats) {
+        $now = Get-PDPathBytes $c.Paths $c.Filter
+        $gone = [math]::Max([double]0, $c.Before - $now)
+        $sumCat += $gone
+        if ($c.Before -gt 0) { $items += [pscustomobject]@{ Id = $c.Id; Mr = $c.Mr; En = $c.En; Found = $c.Before; Freed = $gone; Left = $now } }
+    }
+    $rbAfter = Get-PDRecycleBinBytes
+    if ($RecycleBin -and $rbBefore -gt 0) { $g = [math]::Max([double]0, $rbBefore - $rbAfter); $sumCat += $g; $items += [pscustomobject]@{ Id = 'recycle'; Mr = 'Recycle Bin'; En = 'Recycle Bin'; Found = $rbBefore; Freed = $g; Left = $rbAfter } }
+    $other = [math]::Max([double]0, $freed - $sumCat)
+    if ($other -ge 1MB) { $items += [pscustomobject]@{ Id = 'other'; Mr = 'Windows Disk Cleanup: जुने updates (WinSxS), setup files व इतर'; En = 'Windows Disk Cleanup: superseded updates (WinSxS), setup files and more'; Found = $other; Freed = $other; Left = 0 } }
     Set-PDProgress -1
     Write-PDLog ("Cleanup पूर्ण - {0} जागा मोकळी झाली. आता {1} free." -f (Format-PDSize $freed), (Format-PDSize $after)) 'OK'
-    return $freed
+    foreach ($i in $items) { Write-PDLog ("   {0}: {1} सापडले, {2} साफ{3}" -f $i.Mr, (Format-PDSize $i.Found), (Format-PDSize $i.Freed), $(if ($i.Left -ge 1MB) { " (वापरात असल्याने $(Format-PDSize $i.Left) राहिले)" } else { '' })) 'INFO' }
+    return [pscustomobject]@{ Freed = $freed; FreeAfter = $after; Items = $items; RecycleBinBytes = $rbAfter }
 }
 
 # ---------------- startup ----------------

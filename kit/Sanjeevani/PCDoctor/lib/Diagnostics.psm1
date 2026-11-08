@@ -433,7 +433,11 @@ function Invoke-PDScan {
     $sec = Get-PDSecurityStatus
     $pending = Test-PDPendingReboot
     Set-PDProgress 72 'Temp files'
-    $tempBytes = Get-PDTempSize
+    $junkCats = @()
+    if (Get-Command Get-PDJunkCategories -ErrorAction SilentlyContinue) {
+        $junkCats = @(Get-PDJunkCategories | Where-Object { $_.Id -ne 'winold' } | ForEach-Object { [pscustomobject]@{ Mr = $_.Mr; Bytes = (Get-PDPathBytes $_.Paths $_.Filter) } } | Where-Object { $_.Bytes -gt 0 } | Sort-Object Bytes -Descending)
+        $tempBytes = [double]($junkCats | Measure-Object Bytes -Sum).Sum
+    } else { $tempBytes = Get-PDTempSize }
     $winOld = Get-PDFolderSize "$env:SystemDrive\Windows.old"
     $power = Get-PDActivePowerPlan
     Set-PDProgress 80 'Windows image'
@@ -458,7 +462,7 @@ function Invoke-PDScan {
         if ($null -eq $pts) { $pts = switch ($sev) { 'Critical' { 15 } 'Warning' { 6 } 'Info' { 2 } default { 0 } } }
         if (-not $kind) {
             $kind = if ($fix -in 'cleanup', 'startup', 'power', 'visual', 'debloat') { 'auto' }
-                    elseif ($fix -in 'repair-os', 'chkdsk', 'wureset', 'defender', 'drivers', 'bsod', 'storage') { 'button' }
+                    elseif ($fix -in 'repair-os', 'chkdsk', 'wureset', 'defender', 'drivers', 'bsod', 'storage', 'registry') { 'button' }
                     else { 'you' }
         }
         if ($kind -eq 'none') { $pts = 0 }
@@ -471,7 +475,10 @@ function Invoke-PDScan {
     } elseif ($info.SysFreePct -lt 20) {
         add 'Warning' 'Storage' "$($info.SystemDrive) drive वर जागा कमी आहे" ("{0} GB ({1}%) शिल्लक. किमान 20% जागा मोकळी ठेवा." -f $info.SysFreeGB, $info.SysFreePct) 'storage'
     }
-    if ($tempBytes -gt 1GB) { add 'Info' 'Storage' 'Temporary files खूप जमा झाल्या आहेत' ("{0} जागा मोकळी करता येईल." -f (Format-PDSize $tempBytes)) 'cleanup' }
+    if ($tempBytes -gt 1GB) {
+        $parts = ($junkCats | Select-Object -First 4 | ForEach-Object { "$($_.Mr -replace ' - .*$', '') $(Format-PDSize $_.Bytes)" }) -join ' · '
+        add 'Info' 'Storage' ("Junk files: {0}" -f (Format-PDSize $tempBytes)) ("One-Click Optimize ने मोकळे करता येतील. {0}" -f $parts) 'cleanup'
+    }
     if ($winOld -gt 1GB) { add 'Info' 'Storage' 'जुन्या Windows (Windows.old) च्या files आहेत' ("{0} जागा मोकळी करता येईल (पुन्हा जुन्या Windows वर जाता येणार नाही)." -f (Format-PDSize $winOld)) 'cleanup' }
 
     # --- disks
@@ -526,6 +533,16 @@ function Invoke-PDScan {
     if ($avs.Count -eq 0 -and $sec.DefenderRealtime -eq $false) { add 'Critical' 'Security' 'Antivirus protection बंद आहे' 'Microsoft Defender real-time protection चालू करा.' 'defender' }
     if ($sec.SignatureAgeDays -gt 7 -and $avs.Count -eq 0) { add 'Warning' 'Security' "Defender definitions $($sec.SignatureAgeDays) दिवस जुने आहेत" 'Update करा.' 'defender' }
 
+    # --- registry (targeted checks only - see Registry.psm1)
+    $regIssues = @()
+    if (Get-Command Get-PDRegistryIssues -ErrorAction SilentlyContinue) {
+        try { $regIssues = @(Get-PDRegistryIssues) } catch { }
+        $mal = @($regIssues | Where-Object { $_.Kind -eq 'malware' -and $_.Severity -eq 'Critical' })
+        $brk = @($regIssues | Where-Object { $_.Kind -eq 'broken' })
+        if ($mal.Count) { add 'Critical' 'Security' "Registry मध्ये virus सारखे बदल: $($mal.Count)" (($mal | Select-Object -First 3 | ForEach-Object { $_.Title }) -join ' · ') 'registry' }
+        if ($brk.Count) { add 'Info' 'Registry' "$($brk.Count) तुटलेल्या registry entries" (($brk | Select-Object -First 3 | ForEach-Object { $_.Title }) -join ' · ') 'registry' }
+    }
+
     # --- OS lifecycle
     if ($info.OSBuild -lt 10240) { add 'Critical' 'OS' "$($info.OSCaption) ला आता security updates मिळत नाहीत" 'सल्ला tab मध्ये या PC साठी योग्य OS पहा.' 'advisor' 'hw' }
     elseif ($info.OSBuild -lt 22000) { add 'Warning' 'OS' 'Windows 10 चा support संपला आहे (14 Oct 2025)' 'फक्त ESU मध्ये enroll केलेल्या PC ना updates मिळतात. सल्ला tab पहा.' 'advisor' 'hw' }
@@ -548,7 +565,7 @@ function Invoke-PDScan {
         Time = Get-Date; Score = $score; Reachable = $reach; Info = $info; Load = $load; Events = $events
         Startup = $startup; Apps = $apps; AppAdvice = $appAdvice; Bloat = $bloat
         Drivers = $drivers; DriverAge = $drvAge; WUDrivers = $wuDrivers; Security = $sec; ImageHealth = $image; Sfc = $sfc
-        TempBytes = $tempBytes; WindowsOldBytes = $winOld; PowerPlan = $power; PendingReboot = $pending
+        TempBytes = $tempBytes; Junk = $junkCats; Registry = $regIssues; WindowsOldBytes = $winOld; PowerPlan = $power; PendingReboot = $pending
         Findings = @($f | Sort-Object { $sevOrder[$_.Severity] })
     }
 }
