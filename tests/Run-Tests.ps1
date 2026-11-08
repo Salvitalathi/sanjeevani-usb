@@ -381,8 +381,8 @@ Test-Case 'Tools guide lists the user''s own apps from MyTools' {
     Assert (($m | Where-Object { $_.Name -eq 'TreeSize' }).Archive) 'zip not listed'
     $d = Expand-TGMyArchive -UsbRoot $u -Archive (Join-Path $u 'MyTools\TreeSize.zip')
     Assert (Test-Path (Join-Path $d 'TreeSize.exe')) "zip with one folder inside not unpacked flat: $d"
-    $t2 = @(Get-TGMyTools $u) | Where-Object { $_.Name -eq 'TreeSize' }
-    Assert ($t2.Count -eq 1 -and -not $t2.Archive -and $t2.Path -like '*\TreeSize\TreeSize.exe') 'unpacked program not listed'
+    $t2 = @(@(Get-TGMyTools $u) | Where-Object { $_.Name -eq 'TreeSize' })
+    Assert ($t2.Count -eq 1 -and -not $t2[0].Archive -and $t2[0].Path -like '*\TreeSize\TreeSize.exe') 'unpacked program not listed'
     Remove-Item $u -Recurse -Force
     $true
 }
