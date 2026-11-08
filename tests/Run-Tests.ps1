@@ -485,7 +485,12 @@ Test-Case 'Quick scan runs on a real Windows' {
     Assert ($s.Info.CPU) 'CPU not detected'
     Assert (@($s.Findings).Count -ge 1) 'no findings'
     Write-Host ("      score {0}, {1} findings, {2} startup items, {3} apps, image {4}, OS {5} {6}" -f $s.Score, @($s.Findings).Count, @($s.Startup).Count, @($s.Apps).Count, $s.ImageHealth, $s.Info.OSCaption, $s.Info.OSBuild)
-    foreach ($f in $s.Findings) { Write-Host ("      [{0}] {1}" -f $f.Severity, $f.Title) }
+    foreach ($f in $s.Findings) { Write-Host ("      [{0}] -{1} {2,-7} {3}" -f $f.Severity, $f.Points, $f.Kind, $f.Title) }
+    # the score must be explainable: 100 minus the points shown next to each finding
+    $sum = (@($s.Findings) | Measure-Object Points -Sum).Sum
+    Assert ($s.Score -eq [math]::Max(5, 100 - $sum)) "score $($s.Score) is not 100 - $sum"
+    Assert (-not (@($s.Findings) | Where-Object { $_.Severity -ne 'OK' -and $_.Kind -notin 'auto', 'button', 'restart', 'you', 'hw', 'none' })) 'finding without a fix kind'
+    Assert ($s.Reachable -ge $s.Score) 'reachable score below the current score'
     $true
 }
 

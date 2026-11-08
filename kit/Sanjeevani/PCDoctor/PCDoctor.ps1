@@ -204,6 +204,10 @@ class InfoRow    { [string]$Title; [string]$Badge; [string]$Color; [string]$Deta
             <Border Style="{StaticResource CardBorder}" Margin="0"><StackPanel><TextBlock Style="{StaticResource Sub}" Text="OS"/><TextBlock Name="OsText" Text="--" TextWrapping="Wrap" FontWeight="SemiBold"/></StackPanel></Border>
           </UniformGrid>
 
+          <Border Name="ScoreWhyCard" Style="{StaticResource CardBorder}" Visibility="Collapsed">
+            <StackPanel Name="ScoreWhy"/>
+          </Border>
+
           <Border Style="{StaticResource CardBorder}" Background="#0F2A2A" BorderBrush="#115E59">
             <DockPanel>
               <Button DockPanel.Dock="Right" Style="{StaticResource Primary}" Tag="optimize" Content="⚡ One-Click Optimize" VerticalAlignment="Center" FontSize="15" Padding="18,10"/>
@@ -529,6 +533,41 @@ $SevMr = @{ Critical = 'गंभीर'; Warning = 'लक्ष द्या';
 $FixText = @{ storage = 'जागा मोकळी करा'; cleanup = 'साफ करा'; startup = 'Startup पहा'; power = 'बदला'; visual = 'हलके करा'; debloat = 'काढा';
     advisor = 'सल्ला पहा'; 'repair-os' = 'दुरुस्त करा'; chkdsk = 'Disk तपासा'; wureset = 'दुरुस्त करा'; defender = 'चालू करा'; drivers = 'Drivers'; bsod = 'कारण शोधा'; backup = 'Backup tools' }
 
+$KindInfo = [ordered]@{
+    auto    = @('⚡', 'One-Click Optimize आपोआप दुरुस्त करेल', '#2DD4BF')
+    button  = @('🔧', 'PC Doctor मधील button ने दुरुस्त करा (समस्येसमोरचे button)', '#60A5FA')
+    restart = @('🔄', 'PC restart करा', '#A78BFA')
+    you     = @('👤', 'तुम्ही करायचे', '#FBBF24')
+    hw      = @('🛠', 'Hardware / Windows upgrade लागेल (software ने सुटणार नाही)', '#F87171')
+}
+function Show-ScoreWhy($s) {
+    $p = $ui.ScoreWhy; $p.Children.Clear()
+    $fs = @($s.Findings | Where-Object { $_.Points -gt 0 })
+    if (-not $fs.Count) { $ui.ScoreWhyCard.Visibility = 'Collapsed'; return }
+    $ui.ScoreWhyCard.Visibility = 'Visible'
+    [void]$p.Children.Add((New-Tb ("Score {0}/100 - गुण का कमी झाले आणि 100 साठी काय करायचे" -f $s.Score) 17 '#E2E8F0' 'SemiBold' '0,0,0,8'))
+    foreach ($k in $KindInfo.Keys) {
+        $g = @($fs | Where-Object { $_.Kind -eq $k })
+        if (-not $g.Count) { continue }
+        $pts = ($g | Measure-Object Points -Sum).Sum
+        $ki = $KindInfo[$k]
+        [void]$p.Children.Add((New-Tb ("{0}  {1}  (+{2} गुण)" -f $ki[0], $ki[1], $pts) 14 $ki[2] 'SemiBold' '0,6,0,2'))
+        foreach ($x in $g) {
+            $how = switch ($k) {
+                'auto'    { 'वरचे "One-Click Optimize" दाबा' }
+                'button'  { '"' + $(if ($FixText[$x.FixId]) { $FixText[$x.FixId] } else { 'उपाय' }) + '" button दाबा' }
+                'restart' { 'Start → Power → Restart' }
+                default   { $x.Detail }
+            }
+            [void]$p.Children.Add((New-Tb ("      −{0}  {1}  →  {2}" -f $x.Points, $x.Title, $how) 13 '#CBD5E1' 'Normal' '0,0,0,2'))
+        }
+    }
+    $reach = if ($s.Reachable) { $s.Reachable } else { $s.Score }
+    $end = if ($reach -ge 100) { "हे सगळे केल्यावर score 100 होईल. नंतर पुन्हा Quick Scan करा." }
+           else { "Software ने जास्तीत जास्त सुमारे $reach पर्यंत score जातो. उरलेले गुण 🛠 hardware / Windows upgrade नेच मिळतात - ते न केल्यास PC चालेल, फक्त त्या मर्यादा राहतील." }
+    [void]$p.Children.Add((New-Tb $end 13 '#94A3B8' 'Normal' '0,8,0,0'))
+}
+
 function Show-Scan($s) {
     $script:Scan = $s
     $i = $s.Info
@@ -543,13 +582,14 @@ function Show-Scan($s) {
     $ui.ModelText.Text = "$mdl · $($i.ComputerName) · scan: $(Get-Date $s.Time -Format 'HH:mm')"
     $rows = foreach ($f in $s.Findings) {
         $r = [FindingRow]::new()
-        $r.Title = $f.Title; $r.Detail = $f.Detail; $r.Color = $SevColor[$f.Severity]; $r.SevText = $SevMr[$f.Severity]
+        $r.Title = $f.Title; $r.Detail = $f.Detail; $r.Color = $SevColor[$f.Severity]; $r.SevText = $SevMr[$f.Severity] + $(if ($f.Points -gt 0) { "  −$($f.Points)" } else { '' })
         if ($f.FixId) { $r.FixTag = "fix:$($f.FixId)"; $r.FixVisible = 'Visible'; $r.FixText = $(if ($FixText[$f.FixId]) { $FixText[$f.FixId] } else { 'उपाय' }) }
         else { $r.FixVisible = 'Collapsed' }
         $r
     }
     $ui.FindingsList.ItemsSource = @($rows)
     $ui.FindingsEmpty.Visibility = 'Collapsed'
+    Show-ScoreWhy $s
     Show-SpeedLists
 }
 
@@ -984,7 +1024,9 @@ One-Click Optimize खालील गोष्टी करेल:
         foreach ($a in $r.Actions) { [void]$script:Actions.Add($a) }
         Show-Scan $r.Scan; Show-Advice $r.Advice
         $ui.ReportInfo.Text = "शेवटचा report: $($r.Report)"
-        Say ("Optimize पूर्ण!`n`nHealth score: {0} → {1}`n`n{2}`n`nसगळे बदल लागू होण्यासाठी PC restart करा." -f $r.Before, $r.Scan.Score, ($r.Actions -join "`n"))
+        $left = @($r.Scan.Findings | Where-Object { $_.Points -gt 0 -and $_.Kind -ne 'auto' } | ForEach-Object { "• −$($_.Points)  $($_.Title)" })
+        $more = if ($left.Count) { "`n`nScore 100 का नाही - उरलेल्या गोष्टी (तपासणी page वर प्रत्येकाचा उपाय दिला आहे):`n" + ($left -join "`n") } else { '' }
+        Say ("Optimize पूर्ण!`n`nHealth score: {0} → {1}`n`n{2}{3}`n`nसगळे बदल लागू होण्यासाठी PC restart करा." -f $r.Before, $r.Scan.Score, ($r.Actions -join "`n"), $more)
         try { Start-Process $r.Report } catch { }
     }
 }

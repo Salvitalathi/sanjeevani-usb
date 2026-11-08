@@ -452,8 +452,17 @@ function Invoke-PDScan {
     if ($DataDir) { $appAdvice = @(Get-PDAppAdvice -Apps $apps -Info $info -DataDir $DataDir) }
 
     $f = New-Object System.Collections.ArrayList
-    function add($sev, $cat, $title, $detail, $fix) {
-        [void]$f.Add([pscustomobject]@{ Severity = $sev; Category = $cat; Title = $title; Detail = $detail; FixId = $fix })
+    # Kind = who can fix it: auto (One-Click Optimize), button (a PC Doctor button), restart, you (the user),
+    #        hw (hardware / OS upgrade needed), none (information only - costs no points)
+    function add($sev, $cat, $title, $detail, $fix, $kind = $null, $pts = $null) {
+        if ($null -eq $pts) { $pts = switch ($sev) { 'Critical' { 15 } 'Warning' { 6 } 'Info' { 2 } default { 0 } } }
+        if (-not $kind) {
+            $kind = if ($fix -in 'cleanup', 'startup', 'power', 'visual', 'debloat') { 'auto' }
+                    elseif ($fix -in 'repair-os', 'chkdsk', 'wureset', 'defender', 'drivers', 'bsod', 'storage') { 'button' }
+                    else { 'you' }
+        }
+        if ($kind -eq 'none') { $pts = 0 }
+        [void]$f.Add([pscustomobject]@{ Severity = $sev; Category = $cat; Title = $title; Detail = $detail; FixId = $fix; Kind = $kind; Points = [int]$pts })
     }
 
     # --- storage
@@ -479,8 +488,8 @@ function Invoke-PDScan {
     }
 
     # --- memory / load
-    if ($info.RAMGB -lt 3.5) { add 'Critical' 'Speed' "RAM फक्त $($info.RAMGB) GB आहे" 'Windows 10/11 साठी किमान 8 GB RAM योग्य. RAM वाढवा किंवा हलकी OS वापरा (सल्ला tab).' 'advisor' }
-    elseif ($info.RAMGB -lt 7) { add 'Warning' 'Speed' "RAM $($info.RAMGB) GB आहे" 'आजच्या browsers/apps साठी 8 GB चांगली. Free slot असल्यास RAM वाढवा.' 'advisor' }
+    if ($info.RAMGB -lt 3.5) { add 'Critical' 'Speed' "RAM फक्त $($info.RAMGB) GB आहे" 'Windows 10/11 साठी किमान 8 GB RAM योग्य. RAM वाढवा किंवा हलकी OS वापरा (सल्ला tab).' 'advisor' 'hw' }
+    elseif ($info.RAMGB -lt 7) { add 'Warning' 'Speed' "RAM $($info.RAMGB) GB आहे" 'आजच्या browsers/apps साठी 8 GB चांगली. Free slot असल्यास RAM वाढवा.' 'advisor' 'hw' }
     if ($load.RAMPct -ge 85) { add 'Warning' 'Speed' "RAM $($load.RAMPct)% वापरली जात आहे" ("सर्वात जास्त RAM वापरणारे: " + (($load.TopRAM | Select-Object -First 3 | ForEach-Object { "$($_.Name) ($($_.RAMMB) MB)" }) -join ', ')) 'startup' }
     if ($load.CPUPct -ge 60) { add 'Warning' 'Speed' "CPU सतत $($load.CPUPct)% busy आहे" ("सर्वात जास्त CPU: " + (($load.TopCPU | Select-Object -First 3 | ForEach-Object { "$($_.Name) ($($_.CPU)%)" }) -join ', ')) $null }
     if ($load.DiskPct -ge 80) { add 'Warning' 'Speed' "Disk $($load.DiskPct)% busy आहे" 'HDD असल्यास हे slowness चे मुख्य कारण. Startup programs कमी करा / SSD लावा.' 'startup' }
@@ -499,16 +508,16 @@ function Invoke-PDScan {
         'NonRepairable' { add 'Critical' 'Repair' 'Windows system image दुरुस्त होण्यापलीकडे खराब आहे' 'Windows 11 ISO वापरून "Repair install" करा (data राहतो) किंवा fresh install.' 'repair-os' }
     }
     if ($sfc -and ($sfc.Corrupt + $sfc.Unrepaired) -gt 0) { add 'Critical' 'Repair' 'खराब (corrupt) system files सापडल्या' ("{0} files. Repair tab मधून दुरुस्त करा." -f ($sfc.Corrupt + $sfc.Unrepaired)) 'repair-os' }
-    if ($events.DiskErrors -gt 0) { add 'Critical' 'Hardware' "Windows disk वर errors: मागील $($events.Days) दिवसांत $($events.DiskErrors) वेळा" 'Disk check (chkdsk) चालवा, Toolbox मधील CrystalDiskInfo ने health पहा, आणि आधी backup घ्या.' 'chkdsk' }
-    if ($events.OtherDiskErrors -gt 0) { add 'Info' 'Hardware' "दुसऱ्या disk / pendrive वर errors: $($events.OtherDiskErrors) वेळा" 'USB pendrive / card reader / external disk चे errors. "Safely remove" न करता काढल्यास असे येतात. Windows disk ला धोका नाही.' $null }
-    if ($events.BlueScreens -gt 0) { add 'Warning' 'Stability' "Blue screen crash: $($events.BlueScreens) वेळा" 'Toolbox मधील BlueScreenView / WhoCrashed ने कारण (driver) शोधा. RAM test (MemTest86) चालवा.' 'bsod' }
-    if ($events.UnexpectedShutdown -gt 2) { add 'Warning' 'Stability' "अचानक बंद पडणे: $($events.UnexpectedShutdown) वेळा" 'Power supply / battery / overheating तपासा.' $null }
-    if ($events.HardwareErrors -gt 0) { add 'Warning' 'Hardware' "Hardware (WHEA) errors: $($events.HardwareErrors)" 'CPU/RAM/PCIe hardware त्रास. Stress test आणि RAM test चालवा.' $null }
+    if ($events.DiskErrors -gt 0) { add 'Critical' 'Hardware' "Windows disk वर errors: मागील $($events.Days) दिवसांत $($events.DiskErrors) वेळा" 'Disk check (chkdsk) चालवा, Tools मार्गदर्शक → CrystalDiskInfo ने health पहा, आणि आधी backup घ्या.' 'chkdsk' }
+    if ($events.OtherDiskErrors -gt 0) { add 'Info' 'Hardware' "दुसऱ्या disk / pendrive वर errors: $($events.OtherDiskErrors) वेळा" 'USB pendrive / card reader / external disk चे errors. "Safely remove" न करता काढल्यास असे येतात. Windows disk ला धोका नाही.' $null 'none' }
+    if ($events.BlueScreens -gt 0) { add 'Warning' 'Stability' "Blue screen crash: $($events.BlueScreens) वेळा" 'Tools मार्गदर्शक → BlueScreenView ने कारण (driver) शोधा. RAM test (MemTest86) चालवा.' 'bsod' }
+    if ($events.UnexpectedShutdown -gt 2) { add 'Warning' 'Stability' "अचानक बंद पडणे: $($events.UnexpectedShutdown) वेळा" 'Power supply / battery / overheating तपासा (Tools मार्गदर्शक → HWiNFO, Prime95).' $null 'hw' }
+    if ($events.HardwareErrors -gt 0) { add 'Warning' 'Hardware' "Hardware (WHEA) errors: $($events.HardwareErrors)" 'CPU/RAM/PCIe hardware त्रास. Stress test आणि RAM test चालवा (Tools मार्गदर्शक).' $null 'hw' }
     if ($drivers.Count -gt 0) { add 'Warning' 'Drivers' "$($drivers.Count) devices चे drivers नीट नाहीत" (($drivers | Select-Object -First 4 | ForEach-Object { "$($_.Name): $($_.Meaning)" }) -join ' · ') 'drivers' }
     $unsigned = @($drvAge | Where-Object { $_.Unsigned })
     if ($unsigned.Count -gt 0) { add 'Warning' 'Drivers' "Signature नसलेले drivers: $($unsigned.Count)" ((($unsigned | Select-Object -First 3 | ForEach-Object { $_.Name }) -join ', ') + ' - कोणी तपासलेले नाहीत; निर्मात्याच्या site वरचा driver लावा.') 'drivers' }
     $old = @($drvAge | Where-Object { $_.Old })
-    if ($old.Count -gt 0) { add 'Info' 'Drivers' "$($old.Count) महत्त्वाचे drivers 3 वर्षांपेक्षा जुने" ((($old | Select-Object -First 4 | ForEach-Object { "$($_.Name) ($(if ($_.Date) { $_.Date.Year }))" }) -join ', ') + '. Device नीट चालत असेल तर बदलायची गरज नाही.') 'drivers' }
+    if ($old.Count -gt 0) { add 'Info' 'Drivers' "$($old.Count) महत्त्वाचे drivers 3 वर्षांपेक्षा जुने" ((($old | Select-Object -First 4 | ForEach-Object { "$($_.Name) ($(if ($_.Date) { $_.Date.Year }))" }) -join ', ') + '. Device नीट चालत असेल तर बदलायची गरज नाही.') 'drivers' 'none' }
     if ($wuDrivers -and $wuDrivers.Count -gt 0) { add 'Info' 'Drivers' "Windows Update मध्ये $($wuDrivers.Count) driver updates उपलब्ध" ((($wuDrivers | Select-Object -First 3 | ForEach-Object { $_.Title }) -join ' · ') + ' - Microsoft ने तपासलेले, सर्वात सुरक्षित.') 'drivers' }
 
     # --- security
@@ -518,24 +527,25 @@ function Invoke-PDScan {
     if ($sec.SignatureAgeDays -gt 7 -and $avs.Count -eq 0) { add 'Warning' 'Security' "Defender definitions $($sec.SignatureAgeDays) दिवस जुने आहेत" 'Update करा.' 'defender' }
 
     # --- OS lifecycle
-    if ($info.OSBuild -lt 10240) { add 'Critical' 'OS' "$($info.OSCaption) ला आता security updates मिळत नाहीत" 'सल्ला tab मध्ये या PC साठी योग्य OS पहा.' 'advisor' }
-    elseif ($info.OSBuild -lt 22000) { add 'Warning' 'OS' 'Windows 10 चा support संपला आहे (14 Oct 2025)' 'फक्त ESU मध्ये enroll केलेल्या PC ना updates मिळतात. सल्ला tab पहा.' 'advisor' }
-    if ($pending) { add 'Info' 'OS' 'Restart बाकी आहे' 'Updates पूर्ण करण्यासाठी PC restart करा.' $null }
-    if ($info.UptimeDays -gt 7) { add 'Info' 'OS' "PC $($info.UptimeDays) दिवसांपासून restart झालेला नाही" 'आठवड्यातून एकदा restart केल्यास memory leaks साफ होतात.' $null }
+    if ($info.OSBuild -lt 10240) { add 'Critical' 'OS' "$($info.OSCaption) ला आता security updates मिळत नाहीत" 'सल्ला tab मध्ये या PC साठी योग्य OS पहा.' 'advisor' 'hw' }
+    elseif ($info.OSBuild -lt 22000) { add 'Warning' 'OS' 'Windows 10 चा support संपला आहे (14 Oct 2025)' 'फक्त ESU मध्ये enroll केलेल्या PC ना updates मिळतात. सल्ला tab पहा.' 'advisor' 'hw' }
+    if ($pending) { add 'Info' 'OS' 'Restart बाकी आहे' 'Updates पूर्ण करण्यासाठी PC restart करा.' $null 'restart' }
+    if ($info.UptimeDays -gt 7) { add 'Info' 'OS' "PC $($info.UptimeDays) दिवसांपासून restart झालेला नाही" 'आठवड्यातून एकदा restart केल्यास memory leaks साफ होतात.' $null 'restart' }
     $wu = Get-Service wuauserv -ErrorAction SilentlyContinue
     if ($wu -and $wu.StartType -eq 'Disabled') { add 'Warning' 'OS' 'Windows Update service बंद (Disabled) आहे' 'Security updates मिळत नाहीत.' 'wureset' }
 
     # --- score
-    $score = 100
-    foreach ($x in $f) { switch ($x.Severity) { 'Critical' { $score -= 15 } 'Warning' { $score -= 6 } 'Info' { $score -= 2 } } }
+    $score = 100 - (($f | Measure-Object Points -Sum).Sum)
     $score = [math]::Max(5, $score)
+    # the best score software alone can reach (hardware / OS-support problems stay)
+    $reach = [math]::Max(5, 100 - (($f | Where-Object { $_.Kind -eq 'hw' } | Measure-Object Points -Sum).Sum))
     if ($f.Count -eq 0) { add 'OK' 'All' 'कोणतीही मोठी समस्या सापडली नाही' 'PC चांगल्या स्थितीत आहे.' $null }
 
     Set-PDProgress -1
     Write-PDLog ("Scan पूर्ण - {0} findings, score {1}/100 ({2:N0} sec)" -f $f.Count, $score, ((Get-Date) - $t0).TotalSeconds) 'OK'
     $sevOrder = @{ Critical = 0; Warning = 1; Info = 2; OK = 3 }
     [pscustomobject]@{
-        Time = Get-Date; Score = $score; Info = $info; Load = $load; Events = $events
+        Time = Get-Date; Score = $score; Reachable = $reach; Info = $info; Load = $load; Events = $events
         Startup = $startup; Apps = $apps; AppAdvice = $appAdvice; Bloat = $bloat
         Drivers = $drivers; DriverAge = $drvAge; WUDrivers = $wuDrivers; Security = $sec; ImageHealth = $image; Sfc = $sfc
         TempBytes = $tempBytes; WindowsOldBytes = $winOld; PowerPlan = $power; PendingReboot = $pending
