@@ -461,8 +461,14 @@ if ((Test-Path -LiteralPath (Join-Path $UsbRoot 'Sanjeevani\integrity.json')) -a
         Import-Module $sjMod -Force -DisableNameChecking
         $chk = Test-SJIntegrity -Root $UsbRoot -Full
         foreach ($l in (Format-SJResult $chk 'en')) { Say "    $l" $(if ($l -match '^✖') { 'Red' } elseif ($l -match '^✔') { 'Green' } else { 'Gray' }) }
-        if (Get-SJIssueCount $chk) {
-            $fix = Repair-SJIntegrity $chk
+        $quarMy = $false
+        if (@($chk.NewMyTools).Count) {
+            # recorded automatically at the end of Setup when the user confirms them
+            $a = Read-Host '    Did YOU put these programs in MyTools? Y = keep them (recorded as trusted), N = quarantine them'
+            $quarMy = $a -notmatch '^[yY]'
+        }
+        if ((Get-SJIssueCount $chk) -or $quarMy) {
+            $fix = Repair-SJIntegrity $chk -IncludeMyTools:$quarMy
             Ok ("Moved {0} suspicious file(s) to _to_delete\quarantine; un-hid {1} folder(s)" -f @($fix.Quarantined).Count, @($fix.Unhidden).Count)
             $sjRedownload = @($fix.Redownload)
         }
@@ -846,6 +852,26 @@ $json = $cfg | ConvertTo-Json -Depth 6
 $json = $json.Replace('\u0026', '&').Replace('\u0027', "'").Replace('\u003c', '<').Replace('\u003e', '>')
 [IO.File]::WriteAllText((Join-Path $UsbRoot 'ventoy\ventoy.json'), $json, (New-Object System.Text.UTF8Encoding($false)))
 Ok "$($isoFiles.Count) boot entries configured"
+
+# ------------------------------------------------------------------ MyTools: the place for your own apps
+$my = Join-Path $UsbRoot 'MyTools'
+if (-not (Test-Path -LiteralPath $my)) {
+    New-Item -ItemType Directory -Path $my -Force | Out-Null
+    $readme = @(
+        'MyTools - तुमचे स्वतःचे tools / apps इथे ठेवा  (your own tools / apps go here)',
+        '',
+        '* Portable program: त्याचा पूर्ण folder इथे copy करा (उदा. MyTools\AnyDesk\AnyDesk.exe), किंवा एकच .exe.',
+        '* Installer (.exe / .msi): थेट इथे ठेवा.',
+        '* वर्णन हवे असल्यास program च्या नावाची .txt file ठेवा (उदा. AnyDesk.txt) - पहिली ओळ PC Doctor मध्ये दिसते.',
+        '* PC Doctor -> Tools मार्गदर्शक -> "माझे tools" मध्ये ते दिसतील.',
+        '* पहिल्यांदा PC Doctor / UPDATE.cmd विचारेल "हे तुम्ही टाकले का?" - हो म्हणा म्हणजे ते virus check मध्ये नोंदले जातील.',
+        '* फक्त official website वरून घेतलेले, virus scan केलेले programs ठेवा.',
+        '',
+        'Put portable program folders, single .exe files or installers (.exe/.msi) here. They appear in',
+        'PC Doctor -> Tools guide -> "My tools". Confirm them once when the USB check asks, so they are trusted.'
+    )
+    Set-Content -LiteralPath (Join-Path $my 'README.txt') -Value $readme -Encoding UTF8
+}
 
 # ------------------------------------------------------------------ hide the raw tool folders
 # Tools are meant to be used through PC Doctor -> "Tools मार्गदर्शक" (explanations, safe settings, warnings),

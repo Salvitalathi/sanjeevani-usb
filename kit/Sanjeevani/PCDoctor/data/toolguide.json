@@ -57,6 +57,11 @@
    "en": "Useful apps"
   },
   {
+   "id": "mytools",
+   "mr": "माझे tools (MyTools folder)",
+   "en": "My tools (MyTools folder)"
+  },
+  {
    "id": "bootmenu",
    "mr": "Pendrive वरून boot करून वापरायचे",
    "en": "Use by booting from the USB"

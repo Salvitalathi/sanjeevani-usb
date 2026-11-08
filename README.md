@@ -10,7 +10,9 @@ PC तपासणी, दुरुस्ती आणि वेग वाढव
 2. 64 GB pendrive लावा (offline driver packs हवे असतील तर 256 GB). **त्यातला सगळा data पुसला जाईल.**
 3. `SETUP.cmd` → Administrator परवानगी → pendrive चा Disk number → `ERASE`.
 4. नंतर update करण्यासाठी pendrive वरील `Sanjeevani\Setup\UPDATE.cmd` चालवा.
-5. Pendrive भरला असेल तर `CLEAN.cmd` चालवा. तो duplicate driver packs, जुनी versions आणि अर्धवट downloads शोधतो. आधी यादी दाखवतो आणि Y दिल्यावरच त्या फाईली `_to_delete` मध्ये हलवतो. `Reports` आणि `Rescue` (ग्राहकांचा data) ला तो कधीच हात लावत नाही.
+5. **स्वतःचे apps जोडायचे असल्यास** ते pendrive वरच्या `MyTools` folder मध्ये copy करा. Portable app चा पूर्ण folder चालतो, तसंच एकटी .exe किंवा installer पण. ते PC Doctor → Tools मार्गदर्शक → "माझे tools" मध्ये दिसतील. पहिल्यांदा virus तपासणी "हे तुम्ही टाकले का?" असं विचारेल, तेव्हा हो म्हणा.
+6. **दुसरे OS / boot tools जोडायचे असल्यास** `.iso` (किंवा `.wim`, `.img`, `.vhd`) फाईल pendrive च्या `ISO` folder मध्ये copy करा. ती boot menu मध्ये आपोआप दिसते. उदा. Windows 10, Ubuntu, Tails. 4 GB पेक्षा मोठी ISO पण चालते.
+7. Pendrive भरला असेल तर `CLEAN.cmd` चालवा. तो duplicate driver packs, जुनी versions आणि अर्धवट downloads शोधतो. आधी यादी दाखवतो आणि Y दिल्यावरच त्या फाईली `_to_delete` मध्ये हलवतो. `Reports` आणि `Rescue` (ग्राहकांचा data) ला तो कधीच हात लावत नाही.
 
 पूर्ण मार्गदर्शक: [`kit/Sanjeevani/Docs/guide-mr.html`](kit/Sanjeevani/Docs/guide-mr.html)
 

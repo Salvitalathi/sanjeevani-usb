@@ -55,7 +55,7 @@ try {
     foreach ($p in $inst.PSObject.Properties) { if ($p.Value.path) { [void]$refs.Add((Join-Path $Root $p.Value.path).ToLower()) } }
 } catch { Say '  (could not read installed.json - continuing carefully)' DarkYellow }
 
-$protected = '^' + [regex]::Escape($Root) + '(ventoy|sanjeevani|reports|rescue|_to_delete|system volume information|\$recycle\.bin)(\\|$)'
+$protected = '^' + [regex]::Escape($Root) + '(ventoy|sanjeevani|reports|rescue|mytools|_to_delete|system volume information|\$recycle\.bin)(\\|$)'
 function Test-Protected([string]$p) { return ($p -imatch $protected) -or $refs.Contains($p.ToLower()) }
 
 $plan = New-Object System.Collections.ArrayList   # @{ Op; Path; Dest; Bytes; Why }
@@ -88,10 +88,15 @@ if (Test-Path -LiteralPath $sjMod) {
         Say "`n  Checking for changes made by viruses (checksums) ..." White
         $chk = Test-SJIntegrity -Root $Root -Full
         foreach ($l in (Format-SJResult $chk 'en')) { Say "   $l" $(if ($l -match '^✖') { 'Red' } elseif ($l -match '^✔') { 'Green' } else { 'DarkGray' }) }
-        if ((Get-SJIssueCount $chk) -and -not $ReportOnly) {
+        $quarMy = $false
+        if (@($chk.NewMyTools).Count -and -not $ReportOnly) {
+            $a = if ($Yes) { 'Y' } else { Read-Host '  Did YOU put the new MyTools programs there? Y = record them as trusted, N = quarantine them' }
+            if ($a -match '^[yY]') { [void](Add-SJTrusted -Root $Root -Rel @($chk.NewMyTools)); Say '  Recorded.' Green } else { $quarMy = $true }
+        }
+        if (((Get-SJIssueCount $chk) -or $quarMy) -and -not $ReportOnly) {
             $go = $Yes -or ((Read-Host '  Quarantine these files and un-hide the folders now? Y/N') -match '^[yY]')
             if ($go) {
-                $fix = Repair-SJIntegrity $chk
+                $fix = Repair-SJIntegrity $chk -IncludeMyTools:$quarMy
                 Say ("  Quarantined {0} file(s) in _to_delete\quarantine, un-hid {1} folder(s)." -f @($fix.Quarantined).Count, @($fix.Unhidden).Count) Green
                 if (@($fix.Redownload).Count) { Say '  Changed tools were quarantined - run UPDATE.cmd to download clean copies.' Yellow }
             }

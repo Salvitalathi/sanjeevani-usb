@@ -67,7 +67,7 @@ function Test-SJIntegrity {
     $Root = Get-SJRoot $Root
     $res = [pscustomobject]@{
         Root = $Root; Locked = -not (Test-SJWritable $Root); HasManifest = $false; ManifestDate = $null
-        Changed = @(); Missing = @(); NewExec = @(); Autorun = $false; HiddenFolders = @(); RootLinks = @(); Checked = 0
+        Changed = @(); Missing = @(); NewExec = @(); NewMyTools = @(); Autorun = $false; HiddenFolders = @(); RootLinks = @(); Checked = 0
     }
     $mf = Join-Path $Root 'Sanjeevani\integrity.json'
     $known = @{}
@@ -95,6 +95,8 @@ function Test-SJIntegrity {
             }
             # Snappy Driver Installer may update itself (SDIO_x64_R890.exe next to R889)
             if ($f.Rel -imatch '\\Snappy Driver Installer Origin\\SDIO[^\\]*_R\d+\.exe$') { continue }
+            # MyTools is where the user adds own apps: ask, do not quarantine silently
+            if ($f.Rel -imatch '^MyTools\\') { $res.NewMyTools += $f.Rel; continue }
             $res.NewExec += $f.Rel
         }
     }
@@ -114,6 +116,26 @@ function Get-SJIssueCount($R) {
     return (@($R.Changed).Count + @($R.NewExec).Count + @($R.HiddenFolders).Count + @($R.RootLinks).Count + [int][bool]$R.Autorun)
 }
 
+# Records programs the user added to MyTools (after they confirmed them) so they are not reported again.
+function Add-SJTrusted {
+    param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string[]]$Rel)
+    $Root = Get-SJRoot $Root
+    $mf = Join-Path $Root 'Sanjeevani\integrity.json'
+    if (-not (Test-Path -LiteralPath $mf)) { return 0 }
+    $m = Get-Content -LiteralPath $mf -Raw -Encoding UTF8 | ConvertFrom-Json
+    $files = [ordered]@{}
+    foreach ($p in $m.files.PSObject.Properties) { $files[$p.Name] = $p.Value }
+    $n = 0
+    foreach ($r in $Rel) {
+        $full = Join-Path $Root $r
+        if (-not (Test-Path -LiteralPath $full -PathType Leaf)) { continue }
+        $files[$r] = @{ s = (Get-Item -LiteralPath $full -Force).Length; h = (Get-SJHash $full) }; $n++
+    }
+    $doc = [ordered]@{ created = $m.created; computer = $m.computer; files = $files }
+    ($doc | ConvertTo-Json -Depth 4 -Compress) | Set-Content -LiteralPath $mf -Encoding UTF8
+    return $n
+}
+
 # Plain-language summary lines (Marathi / English)
 function Format-SJResult($R, [string]$Lang = 'mr') {
     $mr = $Lang -ne 'en'
@@ -125,14 +147,15 @@ function Format-SJResult($R, [string]$Lang = 'mr') {
     foreach ($x in $R.NewExec) { $out += $(if ($mr) { "✖ अनोळखी नवीन program / script: $x" } else { "✖ Unknown new program / script: $x" }) }
     if ($R.Autorun) { $out += $(if ($mr) { '✖ autorun.inf - USB virus पसरवण्याची फाईल' } else { '✖ autorun.inf - a file USB worms use to spread' }) }
     foreach ($x in $R.HiddenFolders) { $out += $(if ($mr) { "✖ Virus ने लपवलेला folder: $x" } else { "✖ Folder hidden by a virus: $x" }) }
+    foreach ($x in $R.NewMyTools) { $out += $(if ($mr) { "• MyTools मध्ये नवीन program: $x - तुम्ही स्वतः टाकला असल्यास नोंदवा, ओळखत नसाल तर quarantine करा." } else { "• New program in MyTools: $x - record it if you added it yourself, quarantine it if you do not know it." }) }
     foreach ($x in $R.RootLinks) { $out += $(if ($mr) { "✖ संशयास्पद shortcut (shortcut virus): $x" } else { "✖ Suspicious shortcut (shortcut virus): $x" }) }
     if (@($R.Missing).Count) { $out += $(if ($mr) { "• $(@($R.Missing).Count) फाईली नाहीत (delete / CLEAN केल्या असतील) - UPDATE.cmd ने परत येतील." } else { "• $(@($R.Missing).Count) files are missing (deleted / cleaned?) - UPDATE.cmd brings them back." }) }
-    if (-not (Get-SJIssueCount $R)) { $out += $(if ($mr) { "✔ Pendrive स्वच्छ आहे ($($R.Checked) फाईली तपासल्या)." } else { "✔ The USB is clean ($($R.Checked) files checked)." }) }
+    if (-not (Get-SJIssueCount $R) -and -not @($R.NewMyTools).Count) { $out += $(if ($mr) { "✔ Pendrive स्वच्छ आहे ($($R.Checked) फाईली तपासल्या)." } else { "✔ The USB is clean ($($R.Checked) files checked)." }) }
     return $out
 }
 
 function Repair-SJIntegrity {
-    param([Parameter(Mandatory)]$R)
+    param([Parameter(Mandatory)]$R, [switch]$IncludeMyTools)
     $Root = $R.Root
     $done = [pscustomobject]@{ Quarantined = @(); Unhidden = @(); AutorunBlocked = $false; Redownload = @(); Error = $null }
     if ($R.Locked) { $done.Error = 'locked'; return $done }
@@ -148,7 +171,9 @@ function Repair-SJIntegrity {
         Move-Item -LiteralPath $src -Destination $dst -Force
         $done.Quarantined += $rel
     }
-    foreach ($x in @($R.Changed) + @($R.NewExec) + @($R.RootLinks)) { try { & $move $x } catch { } }
+    $list = @($R.Changed) + @($R.NewExec) + @($R.RootLinks)
+    if ($IncludeMyTools) { $list += @($R.NewMyTools) }
+    foreach ($x in $list) { try { & $move $x } catch { } }
     $done.Redownload = @($R.Changed)
     # autorun.inf: quarantine the file, then a protected folder of that name so no file can be created again
     $ar = Join-Path $Root 'autorun.inf'
@@ -183,4 +208,4 @@ function Update-SJManifest {
     return $dropped
 }
 
-Export-ModuleMember -Function Test-SJWritable, New-SJManifest, Update-SJManifest, Test-SJIntegrity, Repair-SJIntegrity, Format-SJResult, Get-SJIssueCount
+Export-ModuleMember -Function Test-SJWritable, New-SJManifest, Update-SJManifest, Add-SJTrusted, Test-SJIntegrity, Repair-SJIntegrity, Format-SJResult, Get-SJIssueCount

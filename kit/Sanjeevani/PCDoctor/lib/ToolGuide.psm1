@@ -59,6 +59,31 @@ function Find-TGTool {
     return $null
 }
 
+# ------------------------------------------------------------------ MyTools (the user's own apps)
+# Each file (.exe / .msi / .bat / .cmd) or folder directly in <USB>\MyTools becomes one entry.
+# For a folder the program is the .exe named like the folder, else the one with the shortest name.
+# A .txt with the same name (AnyDesk.txt) gives the description (first line) and notes (the rest).
+function Get-TGMyTools([string]$UsbRoot) {
+    $dir = Join-Path $UsbRoot 'MyTools'
+    if (-not (Test-Path -LiteralPath $dir)) { return @() }
+    $out = @()
+    foreach ($it in @(Get-ChildItem -LiteralPath $dir -Force -ErrorAction SilentlyContinue | Sort-Object Name)) {
+        $exe = $null; $name = $it.Name
+        if ($it.PSIsContainer) {
+            $cands = @(Get-ChildItem -LiteralPath $it.FullName -Recurse -File -Include *.exe, *.msi -ErrorAction SilentlyContinue | Where-Object { $_.Name -notmatch '^(unins|uninst|vc_?redist|dotnet)' })
+            $exe = $cands | Where-Object { $_.BaseName -ieq $it.Name -or $_.BaseName -ieq ($it.Name -replace '\s+', '') } | Select-Object -First 1
+            if (-not $exe) { $exe = $cands | Sort-Object { $_.FullName.Split('\').Count }, { $_.Name.Length } | Select-Object -First 1 }
+        } elseif ($it.Extension -imatch '^\.(exe|msi|bat|cmd)$') { $exe = $it; $name = $it.BaseName }
+        if (-not $exe) { continue }
+        $txt = @((Join-Path $dir "$name.txt"), (Join-Path $exe.DirectoryName "$name.txt")) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+        $lines = if ($txt) { @(Get-Content -LiteralPath $txt -Encoding UTF8 -ErrorAction SilentlyContinue | Where-Object { $_.Trim() }) } else { @() }
+        $installer = ($exe.Extension -ieq '.msi') -or ($exe.Name -imatch 'setup|install')
+        $out += [pscustomobject]@{ Id = 'my:' + $name; Name = $name; Path = $exe.FullName; Installer = $installer
+            Info = $(if ($lines.Count) { $lines[0] } else { $null }); Notes = $(if ($lines.Count -gt 1) { @($lines[1..($lines.Count - 1)]) } else { @() }) }
+    }
+    return $out
+}
+
 # ------------------------------------------------------------------ write-protected (locked) USB
 $script:TGWritable = @{}
 function Test-TGDirWritable([string]$Dir) {
@@ -612,5 +637,5 @@ function Invoke-TGAuto {
     }
 }
 
-Export-ModuleMember -Function New-TGResult, Add-TGLine, Get-TGCatalog, Get-TGGuide, Find-TGTool, Get-TGRunPath, Test-TGDirWritable, Initialize-TGToolConfig, Set-TGIniValue,
+Export-ModuleMember -Function New-TGResult, Add-TGLine, Get-TGMyTools, Get-TGCatalog, Get-TGGuide, Find-TGTool, Get-TGRunPath, Test-TGDirWritable, Initialize-TGToolConfig, Set-TGIniValue,
     ConvertFrom-TGDiskInfo, ConvertFrom-TGWizTreeCsv, Get-TGDriverHint, Invoke-TGAuto

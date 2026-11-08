@@ -320,6 +320,8 @@ Test-Case 'USB virus check: finds and quarantines what malware typically does' {
     Set-Content (Join-Path $u 'Photos.lnk') 'lnk'
     Set-Content (Join-Path $u 'Tools\Hardware\CPU-Z\cpuz.ini') 'a=2'                                  # normal settings change
     Set-Content (Join-Path $u 'Reports\PC1\evil-from-customer.exe') 'x'                              # customer data: not judged
+    New-Item -ItemType Directory (Join-Path $u 'MyTools\AnyDesk') -Force | Out-Null
+    Set-Content (Join-Path $u 'MyTools\AnyDesk\AnyDesk.exe') 'MZ mine'                                # the user's own app
     $c = Test-SJIntegrity -Root $u
     Assert ($c.Changed -contains 'Tools\Hardware\CPU-Z\cpuz_x64.exe') 'size change not found'
     Assert ($c.Changed -notcontains 'Tools\Hardware\CPU-Z\cpuz.dll') 'quick check must not hash'
@@ -328,9 +330,12 @@ Test-Case 'USB virus check: finds and quarantines what malware typically does' {
     Assert ($c.HiddenFolders -contains 'Photos' -and $c.HiddenFolders -notcontains 'Tools') "hidden folders: $($c.HiddenFolders -join ',')"
     Assert ($c.RootLinks -contains 'Photos.lnk') 'root shortcut not found'
     Assert (-not ($c.NewExec -match 'Reports')) 'customer data must not be judged'
+    Assert ($c.NewMyTools -contains 'MyTools\AnyDesk\AnyDesk.exe' -and -not ($c.NewExec -match 'MyTools')) 'own app in MyTools must be asked about, not treated as a virus'
     $c = Test-SJIntegrity -Root $u -Full
     Assert ($c.Changed -contains 'Tools\Hardware\CPU-Z\cpuz.dll') 'full check missed a same-size change'
     $fix = Repair-SJIntegrity $c
+    Assert (Test-Path (Join-Path $u 'MyTools\AnyDesk\AnyDesk.exe')) 'own app quarantined without asking'
+    Assert ((Add-SJTrusted -Root $u -Rel @($c.NewMyTools)) -eq 1) 'own app not recorded'
     Assert (Test-Path (Join-Path $u '_to_delete\quarantine\Tools\Hardware\CPU-Z\svchost.exe.quarantine')) 'not quarantined'
     Assert (-not (Test-Path (Join-Path $u 'Tools\Hardware\CPU-Z\cpuz_x64.exe'))) 'infected program still in place'
     Assert ((Get-Item (Join-Path $u 'autorun.inf') -Force).PSIsContainer) 'autorun.inf not blocked by a folder'
@@ -348,6 +353,24 @@ Test-Case 'USB virus check: finds and quarantines what malware typically does' {
         Assert ($c.Locked) 'lock not detected'
         Assert ((Repair-SJIntegrity $c).Error -eq 'locked') 'repair must not try on a locked USB'
     } finally { & icacls.exe $u /remove:d $env:USERNAME /T | Out-Null }
+    Remove-Item $u -Recurse -Force
+    $true
+}
+
+Test-Case 'Tools guide lists the user''s own apps from MyTools' {
+    $u = Join-Path $env:TEMP ('sjv-my-' + [guid]::NewGuid().ToString('N').Substring(0, 6))
+    foreach ($d in 'MyTools\AnyDesk', 'MyTools\Empty Folder') { New-Item -ItemType Directory (Join-Path $u $d) -Force | Out-Null }
+    Set-Content (Join-Path $u 'MyTools\AnyDesk\AnyDesk.exe') 'MZ'
+    Set-Content (Join-Path $u 'MyTools\AnyDesk\uninstall.exe') 'MZ'
+    Set-Content (Join-Path $u 'MyTools\ChromeSetup.exe') 'MZ'
+    Set-Content (Join-Path $u 'MyTools\README.txt') 'readme'
+    Set-Content (Join-Path $u 'MyTools\AnyDesk.txt') "Remote support app`r`nGive the 9-digit ID only to people you know." -Encoding UTF8
+    $m = @(Get-TGMyTools $u)
+    Assert ($m.Count -eq 2) "entries: $(($m | ForEach-Object { $_.Name }) -join ', ')"
+    $a = $m | Where-Object { $_.Name -eq 'AnyDesk' }
+    Assert ($a.Path -like '*\AnyDesk\AnyDesk.exe' -and -not $a.Installer) 'folder app: wrong program picked'
+    Assert ($a.Info -eq 'Remote support app' -and $a.Notes.Count -eq 1) 'description .txt not used'
+    Assert (($m | Where-Object { $_.Name -eq 'ChromeSetup' }).Installer) 'installer not recognised'
     Remove-Item $u -Recurse -Force
     $true
 }

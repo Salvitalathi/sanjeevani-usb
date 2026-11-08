@@ -29,6 +29,7 @@ GROUPS = [
     ('windows',  'Windows tools (keys, password, boot)', 'Windows tools (keys, password, boot)'),
     ('network',  'Internet / network / remote मदत',  'Internet / network / remote help'),
     ('apps',     'उपयोगी apps',                      'Useful apps'),
+    ('mytools',  'माझे tools (MyTools folder)',        'My tools (MyTools folder)'),
     ('bootmenu', 'Pendrive वरून boot करून वापरायचे',  'Use by booting from the USB'),
 ]
 

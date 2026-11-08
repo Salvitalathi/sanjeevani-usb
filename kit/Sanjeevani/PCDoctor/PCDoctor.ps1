@@ -786,7 +786,18 @@ function Get-TgState {
         if (-not $entries[$p.Name]) { $entries[$p.Name] = [pscustomobject]@{ Id = $p.Name; Name = $p.Value.name; Cat = $null; Iso = $false } }
         $entries[$p.Name] | Add-Member -NotePropertyName G -NotePropertyValue $p.Value -Force
     }
-    $script:Tg = [pscustomobject]@{ Guide = $guide; Info = $info; Entries = $entries; Paths = @{} }
+    $paths = @{}
+    foreach ($m in (Get-TGMyTools $UsbRoot)) {
+        $how = if ($m.Installer) { 'Install करा' } else { 'उघडा' }; $howEn = if ($m.Installer) { 'Install' } else { 'Open' }
+        $g = [pscustomobject]@{ group = 'mytools'; risk = 'caution'
+            mr = [pscustomobject]@{ what = $(if ($m.Info) { $m.Info } else { 'तुम्ही MyTools मध्ये जोडलेला program.' }); when = ''; steps = @("`"$how`" दाबा.") + @($m.Notes); good = ''
+                warn = @('हा program Sanjeevani ने तपासलेला नाही - फक्त official website वरून घेतलेला, virus scan केलेला program वापरा.') }
+            en = [pscustomobject]@{ what = $(if ($m.Info) { $m.Info } else { 'A program you added to MyTools.' }); when = ''; steps = @("Press `"$howEn`".") + @($m.Notes); good = ''
+                warn = @('Sanjeevani has not checked this program - use only programs from the official website, virus-scanned.') } }
+        $entries[$m.Id] = [pscustomobject]@{ Id = $m.Id; Name = $m.Name; Cat = [pscustomobject]@{ installer = $m.Installer }; Iso = $false; G = $g }
+        $paths[$m.Id] = $m.Path
+    }
+    $script:Tg = [pscustomobject]@{ Guide = $guide; Info = $info; Entries = $entries; Paths = $paths }
     return $script:Tg
 }
 
@@ -840,6 +851,11 @@ function Build-TgList {
             [void]$ui.TgList.Items.Add($it)
             if ($script:TgSel -eq $e.Id) { $ui.TgList.SelectedItem = $it }
         }
+    }
+    if (-not $q -and -not @($st.Entries.Values | Where-Object { $_.G.group -eq 'mytools' }).Count) {
+        $h = New-Object Windows.Controls.ListBoxItem; $h.IsEnabled = $false; $h.Margin = '0,8,0,2'
+        $txt = if ($script:TgLang -eq 'en') { "My tools: copy your own apps into the USB's MyTools folder - they appear here." } else { 'माझे tools: स्वतःचे apps pendrive च्या MyTools folder मध्ये copy करा - ते इथे दिसतील.' }
+        $h.Content = (New-Tb $txt 12 '#94A3B8' 'Normal' '0'); [void]$ui.TgList.Items.Add($h)
     }
     # extra pages (screen test, keyboard test, BIOS keys, guide)
     if (-not $q -and $st.Info.Catalog.docs) {
@@ -1145,13 +1161,27 @@ function Show-UsbCheck($r, [bool]$quiet) {
     $lock = if ($r.Locked) { '🔒 Pendrive locked (सुरक्षित)' } else { '🔓 Pendrive unlocked' }
     $ui.AdminText.Text = "Administrator ✓ · $lock`nReports: $($global:PDCtx.ReportDir)"
     $lines = Format-SJResult $r 'mr'
-    if (-not (Get-SJIssueCount $r)) { if (-not $quiet) { Say ($lines -join "`n") }; return }
+    $quarMy = $false
+    $myNew = @($r.NewMyTools)
+    if ($myNew.Count) {
+        if ($r.Locked) { Say ("MyTools मध्ये नवीन programs आहेत:`n" + (($myNew | ForEach-Object { "• $_" }) -join "`n") + "`n`nतुम्ही टाकले असल्यास pendrive unlock करून PC Doctor पुन्हा उघडा आणि नोंदवा.") }
+        elseif (Ask ("MyTools मध्ये हे नवीन programs आहेत:`n`n" + (($myNew | ForEach-Object { "• $_" }) -join "`n") + "`n`nहे तुम्ही स्वतः टाकले आहेत का?`n`nहो = नोंदवा (पुढे विचारणार नाही)`nनाही = virus चा संशय, quarantine करा")) {
+            $n = Add-SJTrusted -Root $UsbRoot -Rel $myNew
+            Write-PDLog "MyTools: $n programs नोंदवले" 'OK'
+            $script:Tg = $null; $script:ToolboxBuilt = $false
+        } else { $quarMy = $true }
+    }
+    if (-not (Get-SJIssueCount $r) -and -not $quarMy) { if (-not $quiet -and -not $myNew.Count) { Say ($lines -join "`n") }; return }
+    if ($quarMy -and -not (Get-SJIssueCount $r)) {
+        $fix = Repair-SJIntegrity $r -IncludeMyTools
+        Say "Quarantine: $(@($fix.Quarantined).Count) files (_to_delete\quarantine)"; return
+    }
     if ($r.Locked) {
         Say ("या pendrive वर संशयास्पद बदल आहेत:`n`n" + ($lines -join "`n") + "`n`nPendrive locked असल्यामुळे इथे साफ करता येत नाही. तुमच्या स्वच्छ PC वर unlock करून CLEAN.cmd / UPDATE.cmd चालवा.`nतोपर्यंत ✖ खूण असलेले programs चालवू नका.") 'Warning'
         return
     }
     if (Ask ("या pendrive वर virus ने बदल केल्याची शक्यता:`n`n" + ($lines -join "`n") + "`n`nसंशयास्पद files quarantine (_to_delete\quarantine) करून लपवलेले folders परत दाखवायचे?")) {
-        $fix = Repair-SJIntegrity $r
+        $fix = Repair-SJIntegrity $r -IncludeMyTools:$quarMy
         $msg = "Quarantine: $(@($fix.Quarantined).Count) files · परत दाखवलेले folders: $(@($fix.Unhidden).Count)"
         if (@($fix.Redownload).Count) { $msg += "`n`nबदललेले tools quarantine केले. तुमच्या स्वच्छ PC वर UPDATE.cmd चालवा म्हणजे ते पुन्हा download होतील." }
         Write-PDLog $msg 'OK'; Say $msg
