@@ -74,14 +74,36 @@ function Get-TGMyTools([string]$UsbRoot) {
             $exe = $cands | Where-Object { $_.BaseName -ieq $it.Name -or $_.BaseName -ieq ($it.Name -replace '\s+', '') } | Select-Object -First 1
             if (-not $exe) { $exe = $cands | Sort-Object { $_.FullName.Split('\').Count }, { $_.Name.Length } | Select-Object -First 1 }
         } elseif ($it.Extension -imatch '^\.(exe|msi|bat|cmd)$') { $exe = $it; $name = $it.BaseName }
+        elseif ($it.Extension -imatch '^\.(zip|7z|rar)$') {
+            # an archive is shown until it is unpacked into a folder of the same name
+            if (Test-Path -LiteralPath (Join-Path $dir $it.BaseName)) { continue }
+            $out += [pscustomobject]@{ Id = 'my:' + $it.BaseName; Name = $it.BaseName; Path = $it.FullName; Installer = $false; Archive = $true; Info = $null; Notes = @() }
+            continue
+        }
         if (-not $exe) { continue }
         $txt = @((Join-Path $dir "$name.txt"), (Join-Path $exe.DirectoryName "$name.txt")) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
         $lines = if ($txt) { @(Get-Content -LiteralPath $txt -Encoding UTF8 -ErrorAction SilentlyContinue | Where-Object { $_.Trim() }) } else { @() }
         $installer = ($exe.Extension -ieq '.msi') -or ($exe.Name -imatch 'setup|install')
-        $out += [pscustomobject]@{ Id = 'my:' + $name; Name = $name; Path = $exe.FullName; Installer = $installer
+        $out += [pscustomobject]@{ Id = 'my:' + $name; Name = $name; Path = $exe.FullName; Installer = $installer; Archive = $false
             Info = $(if ($lines.Count) { $lines[0] } else { $null }); Notes = $(if ($lines.Count -gt 1) { @($lines[1..($lines.Count - 1)]) } else { @() }) }
     }
     return $out
+}
+
+# Unpacks MyTools\<name>.zip|7z|rar into MyTools\<name>\ (zip with Windows itself, 7z/rar with the USB's 7-Zip).
+function Expand-TGMyArchive([string]$UsbRoot, [string]$Archive) {
+    $dest = Join-Path (Split-Path $Archive) ([IO.Path]::GetFileNameWithoutExtension($Archive))
+    $tmp = "$dest.__unpacking"
+    Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+    $sz = Get-ChildItem (Join-Path $UsbRoot 'Sanjeevani') -Recurse -Filter '7z.exe' -File -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+    if ($sz) { & $sz x $Archive ("-o" + $tmp) -y -bso0 -bsp0 | Out-Null; if ($LASTEXITCODE -ne 0) { throw "7-Zip could not unpack $(Split-Path $Archive -Leaf)" } }
+    elseif ($Archive -imatch '\.zip$') { Expand-Archive -LiteralPath $Archive -DestinationPath $tmp -Force }
+    else { throw '7-Zip is not on the USB - run UPDATE.cmd, or unpack it on your PC' }
+    # a zip that holds one folder: use that folder's content
+    $items = @(Get-ChildItem -LiteralPath $tmp -Force)
+    $src = if ($items.Count -eq 1 -and $items[0].PSIsContainer) { $items[0].FullName } else { $tmp }
+    if ($src -ne $tmp) { Move-Item -LiteralPath $src -Destination $dest; Remove-Item -LiteralPath $tmp -Recurse -Force } else { Move-Item -LiteralPath $tmp -Destination $dest }
+    return $dest
 }
 
 # ------------------------------------------------------------------ write-protected (locked) USB
@@ -637,5 +659,5 @@ function Invoke-TGAuto {
     }
 }
 
-Export-ModuleMember -Function New-TGResult, Add-TGLine, Get-TGMyTools, Get-TGCatalog, Get-TGGuide, Find-TGTool, Get-TGRunPath, Test-TGDirWritable, Initialize-TGToolConfig, Set-TGIniValue,
+Export-ModuleMember -Function New-TGResult, Add-TGLine, Get-TGMyTools, Expand-TGMyArchive, Get-TGCatalog, Get-TGGuide, Find-TGTool, Get-TGRunPath, Test-TGDirWritable, Initialize-TGToolConfig, Set-TGIniValue,
     ConvertFrom-TGDiskInfo, ConvertFrom-TGWizTreeCsv, Get-TGDriverHint, Invoke-TGAuto

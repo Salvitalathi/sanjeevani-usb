@@ -788,13 +788,13 @@ function Get-TgState {
     }
     $paths = @{}
     foreach ($m in (Get-TGMyTools $UsbRoot)) {
-        $how = if ($m.Installer) { 'Install करा' } else { 'उघडा' }; $howEn = if ($m.Installer) { 'Install' } else { 'Open' }
+        $how = if ($m.Archive) { 'Extract करा' } elseif ($m.Installer) { 'Install करा' } else { 'उघडा' }; $howEn = if ($m.Archive) { 'Extract' } elseif ($m.Installer) { 'Install' } else { 'Open' }
         $g = [pscustomobject]@{ group = 'mytools'; risk = 'caution'
-            mr = [pscustomobject]@{ what = $(if ($m.Info) { $m.Info } else { 'तुम्ही MyTools मध्ये जोडलेला program.' }); when = ''; steps = @("`"$how`" दाबा.") + @($m.Notes); good = ''
+            mr = [pscustomobject]@{ what = $(if ($m.Archive) { 'Zip / 7z / rar file - आधी "Extract करा" दाबा, मग आतला program इथेच दिसेल.' } elseif ($m.Info) { $m.Info } else { 'तुम्ही MyTools मध्ये जोडलेला program.' }); when = ''; steps = @("`"$how`" दाबा.") + @($m.Notes); good = ''
                 warn = @('हा program Sanjeevani ने तपासलेला नाही - फक्त official website वरून घेतलेला, virus scan केलेला program वापरा.') }
-            en = [pscustomobject]@{ what = $(if ($m.Info) { $m.Info } else { 'A program you added to MyTools.' }); when = ''; steps = @("Press `"$howEn`".") + @($m.Notes); good = ''
+            en = [pscustomobject]@{ what = $(if ($m.Archive) { 'Zip / 7z / rar file - press "Extract" first, then the program inside appears here.' } elseif ($m.Info) { $m.Info } else { 'A program you added to MyTools.' }); when = ''; steps = @("Press `"$howEn`".") + @($m.Notes); good = ''
                 warn = @('Sanjeevani has not checked this program - use only programs from the official website, virus-scanned.') } }
-        $entries[$m.Id] = [pscustomobject]@{ Id = $m.Id; Name = $m.Name; Cat = [pscustomobject]@{ installer = $m.Installer }; Iso = $false; G = $g }
+        $entries[$m.Id] = [pscustomobject]@{ Id = $m.Id; Name = $(if ($m.Archive) { "$($m.Name) (zip)" } else { $m.Name }); Cat = [pscustomobject]@{ installer = $m.Installer; archive = $m.Archive }; Iso = $false; G = $g }
         $paths[$m.Id] = $m.Path
     }
     $script:Tg = [pscustomobject]@{ Guide = $guide; Info = $info; Entries = $entries; Paths = $paths }
@@ -908,8 +908,11 @@ function Show-TgDetail([string]$id) {
     elseif ($auto) { [void]$bp.Children.Add((& $mk $L.auto "tg:auto:$id" $true)) }
     if (-not $e.G.boot) {
         if ($path) {
-            $label = if ($e.Cat -and $e.Cat.installer) { $L.install } else { $L.open }
-            [void]$bp.Children.Add((& $mk $label "tg:open:$id" (-not $auto)))
+            if ($e.Cat -and $e.Cat.archive) { [void]$bp.Children.Add((& $mk $(if ($script:TgLang -eq 'en') { 'Extract' } else { 'Extract करा' }) "tg:extract:$id" $true)) }
+            else {
+                $label = if ($e.Cat -and $e.Cat.installer) { $L.install } else { $L.open }
+                [void]$bp.Children.Add((& $mk $label "tg:open:$id" (-not $auto)))
+            }
         } elseif ($e.Cat -and $e.Cat.page) { [void]$bp.Children.Add((& $mk $L.web "tg:web:$id" $false)) }
     }
     if ($script:TgResults[$id] -and $script:TgResults[$id].File) { [void]$bp.Children.Add((& $mk $L.file "tg:file:$id" $false)) }
@@ -984,6 +987,22 @@ function Invoke-ToolGuide([string]$arg) {
             return
         }
         'web'  { if ($e.Cat.page) { Start-Process $e.Cat.page } ; return }
+        'extract' {
+            $arc = Get-TgPath $e
+            try {
+                $dest = Expand-TGMyArchive -UsbRoot $UsbRoot -Archive $arc
+                # the user unpacked it on purpose: record its programs so the USB check does not ask again
+                $rel = @(Get-ChildItem -LiteralPath $dest -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '\.(exe|dll|msi|bat|cmd|ps1|vbs|js|sys|ocx|cpl|scr|com)$' } | ForEach-Object { $_.FullName.Substring($UsbRoot.TrimEnd('\').Length + 1) })
+                if ($rel.Count) { try { [void](Add-SJTrusted -Root $UsbRoot -Rel $rel) } catch { } }
+                Write-PDLog "MyTools: $(Split-Path $arc -Leaf) extract केले → $dest" 'OK'
+                $script:Tg = $null; $script:TgSel = 'my:' + [IO.Path]::GetFileNameWithoutExtension($arc)
+                Build-TgList; Show-TgDetail $script:TgSel
+            } catch {
+                $why = if (-not (Test-TGDirWritable (Split-Path $arc))) { 'Pendrive locked आहे - unlock करून पुन्हा प्रयत्न करा.' } else { $_.Exception.Message }
+                Say "Extract होऊ शकले नाही: $why" 'Warning'
+            }
+            return
+        }
         'file' { $f = $script:TgResults[$id].File; if ($f -and (Test-Path -LiteralPath $f)) { Start-Process -FilePath $f } ; return }
         'open' {
             if (-not (Confirm-TgWarnings $e)) { return }

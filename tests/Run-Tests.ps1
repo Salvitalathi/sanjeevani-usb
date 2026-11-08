@@ -371,6 +371,18 @@ Test-Case 'Tools guide lists the user''s own apps from MyTools' {
     Assert ($a.Path -like '*\AnyDesk\AnyDesk.exe' -and -not $a.Installer) 'folder app: wrong program picked'
     Assert ($a.Info -eq 'Remote support app' -and $a.Notes.Count -eq 1) 'description .txt not used'
     Assert (($m | Where-Object { $_.Name -eq 'ChromeSetup' }).Installer) 'installer not recognised'
+    # a zip: listed until it is unpacked, then its program is listed instead
+    $z = Join-Path $env:TEMP ('sjv-zipsrc-' + [guid]::NewGuid().ToString('N').Substring(0, 6))
+    New-Item -ItemType Directory (Join-Path $z 'TreeSize') -Force | Out-Null
+    Set-Content (Join-Path $z 'TreeSize\TreeSize.exe') 'MZ'
+    Compress-Archive -Path (Join-Path $z 'TreeSize') -DestinationPath (Join-Path $u 'MyTools\TreeSize.zip')
+    Remove-Item $z -Recurse -Force
+    $m = @(Get-TGMyTools $u)
+    Assert (($m | Where-Object { $_.Name -eq 'TreeSize' }).Archive) 'zip not listed'
+    $d = Expand-TGMyArchive -UsbRoot $u -Archive (Join-Path $u 'MyTools\TreeSize.zip')
+    Assert (Test-Path (Join-Path $d 'TreeSize.exe')) "zip with one folder inside not unpacked flat: $d"
+    $t2 = @(Get-TGMyTools $u) | Where-Object { $_.Name -eq 'TreeSize' }
+    Assert ($t2.Count -eq 1 -and -not $t2.Archive -and $t2.Path -like '*\TreeSize\TreeSize.exe') 'unpacked program not listed'
     Remove-Item $u -Recurse -Force
     $true
 }

@@ -873,6 +873,15 @@ if (-not (Test-Path -LiteralPath $my)) {
     Set-Content -LiteralPath (Join-Path $my 'README.txt') -Value $readme -Encoding UTF8
 }
 
+foreach ($arc in @(Get-ChildItem -LiteralPath $my -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -imatch '^\.(zip|7z|rar)$' })) {
+    if (Test-Path -LiteralPath (Join-Path $my $arc.BaseName)) { continue }
+    try {
+        Import-Module (Join-Path $UsbRoot 'Sanjeevani\PCDoctor\lib\ToolGuide.psm1') -Force -DisableNameChecking
+        $d = Expand-TGMyArchive -UsbRoot $UsbRoot -Archive $arc.FullName
+        Ok "MyTools: unpacked $($arc.Name) -> $(Split-Path $d -Leaf)"
+    } catch { Warn "MyTools: could not unpack $($arc.Name): $($_.Exception.Message)" }
+}
+
 # ------------------------------------------------------------------ hide the raw tool folders
 # Tools are meant to be used through PC Doctor -> "Tools मार्गदर्शक" (explanations, safe settings, warnings),
 # so the raw Tools / Installers folders are hidden. They still work normally ("Show hidden items" shows them).
