@@ -412,6 +412,7 @@ Test-Case 'Registry check finds virus-style and broken entries, fixes them and U
         Assert ($mine.Name -contains 'DisableRegistryTools') 'blocked Registry Editor not found'
         Assert (@($mine | Where-Object { $_.Action -eq 'removekey' }).Count -eq 1) 'orphan uninstall entry not found'
         $r = Repair-PDRegistryIssues -Issues $mine -NoRestorePoint
+        if ($r.Failed) { Get-Content $global:PDCtx.LogFile -Tail 12 | ForEach-Object { Write-Host "      log| $_" -ForegroundColor DarkGray } }
         Assert ($r.Fixed -eq 3 -and $r.Failed -eq 0) "fixed $($r.Fixed), failed $($r.Failed)"
         Assert ($null -eq (Get-ItemProperty $run -Name 'SanjeevaniTestMissing' -ErrorAction SilentlyContinue)) 'startup entry not removed'
         Assert (-not (Test-Path $un)) 'orphan entry not removed'
