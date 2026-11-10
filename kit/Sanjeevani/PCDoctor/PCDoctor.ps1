@@ -102,6 +102,7 @@ $UiText = @{
     'brand'          = @('Sanjeevani', 'संजीवनी', 'संजीवनी')
     'tagline'        = @('PC Doctor', 'PC Doctor', 'PC Doctor')
     'splash.sub'     = @('Diagnose · Repair · Speed up', 'तपासणी · दुरुस्ती · वेग', 'जाँच · मरम्मत · स्पीड')
+    'credit'         = @('Created by Mangesh Salvi', 'निर्मिती : Mangesh Salvi', 'निर्माता : Mangesh Salvi')
     'nav.ask'        = @('Assistant', 'Assistant', 'Assistant')
     'nav.dashboard'  = @('Health Check', 'PC तपासणी', 'PC जाँच')
     'nav.repair'     = @('Repair', 'दुरुस्ती', 'मरम्मत')
@@ -588,7 +589,8 @@ $xamlText = @'
             <TextBlock Text="PC DOCTOR" FontSize="10.5" FontWeight="SemiBold" Foreground="#2DD4BF" Margin="1,0,0,0"/>
           </StackPanel>
         </StackPanel>
-        <Border DockPanel.Dock="Bottom" Margin="16,8,16,16" Padding="14,12" CornerRadius="12" Background="#0E1729" BorderBrush="#18233A" BorderThickness="1">
+        <TextBlock DockPanel.Dock="Bottom" Text="{{credit}}" Margin="18,0,16,14" FontSize="11" Foreground="#4B5B76"/>
+        <Border DockPanel.Dock="Bottom" Margin="16,8,16,8" Padding="14,12" CornerRadius="12" Background="#0E1729" BorderBrush="#18233A" BorderThickness="1">
           <StackPanel>
             <StackPanel Orientation="Horizontal">
               <TextBlock Name="LockIcon" Style="{StaticResource Icon}" Text="&#xE72E;" FontSize="13" Foreground="#2DD4BF" Margin="0,0,8,0"/>
@@ -1104,6 +1106,7 @@ $xamlText = @'
           <TextBlock Text="{{brand}}" FontSize="40" FontWeight="Bold" Foreground="#F1F5F9" HorizontalAlignment="Center"/>
           <TextBlock Text="P C   D O C T O R" FontSize="13" FontWeight="SemiBold" Foreground="#2DD4BF" HorizontalAlignment="Center" Margin="0,2,0,14"/>
           <TextBlock Text="{{splash.sub}}" FontSize="13" Foreground="#64748B" HorizontalAlignment="Center"/>
+          <TextBlock Text="{{credit}}" FontSize="12" Foreground="#2DD4BF" Opacity="0.85" HorizontalAlignment="Center" Margin="0,22,0,0"/>
         </StackPanel>
       </StackPanel>
     </Grid>
@@ -2451,6 +2454,7 @@ function Complete-VRecord([string]$r, $c) {
 # the user said (or typed) something
 function Invoke-VHeard([string]$text, [bool]$spoken) {
     $text = ($text -replace '\s+', ' ').Trim()
+    if (([regex]::Matches($text, '\p{L}')).Count -lt 2) { $text = '' }      # "????" / "..." is not something the user said
     if ($text.Length -lt 2) {
         $script:V.Tries++
         if ($spoken -and $script:V.Tries -le 1) { Say-V (VL 'nohear') -Then { Start-VListen } }

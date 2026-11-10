@@ -1,5 +1,6 @@
 SANJEEVANI RESCUE USB
 =====================
+Created by Mangesh Salvi
 A free, legal toolkit on one pendrive: boot menu of rescue tools + PC Doctor
 (health check, automatic repair, speed-up, Assistant). English / मराठी / हिन्दी.
 Marathi: README-Marathi.txt    Hindi: README-Hindi.txt

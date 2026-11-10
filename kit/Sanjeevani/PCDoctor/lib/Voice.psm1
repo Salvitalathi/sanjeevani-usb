@@ -360,7 +360,7 @@ function New-PDSpeechGemini([string]$Text, [string]$Out, $Cfg) {
             [AppDomain]::CurrentDomain.SetData('SJTtsModel', $model)
         }
         $body = ConvertTo-Json -Depth 10 -Compress -InputObject @{
-            contents = @(@{ parts = @(@{ text = "Read aloud in a warm, friendly, natural Indian female voice, like a helpful assistant: $Text" }) })
+            contents = @(@{ parts = @(@{ text = $Text }) })
             generationConfig = @{ responseModalities = @('AUDIO'); speechConfig = @{ voiceConfig = @{ prebuiltVoiceConfig = @{ voiceName = 'Kore' } } } }
         }
         $txt = & $tr "https://generativelanguage.googleapis.com/v1beta/models/$($model):generateContent" @{ 'x-goog-api-key' = $Cfg.key } $body 'POST'
@@ -389,7 +389,7 @@ function New-PDSpeech {
     if (-not $Text) { return $null }
     $cacheDir = Join-Path $env:LOCALAPPDATA 'Sanjeevani\voice-cache'
     $sha = [Security.Cryptography.SHA1]::Create()
-    $key = -join ($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes("v2|$Lang|$Text")) | ForEach-Object { $_.ToString('x2') })
+    $key = -join ($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes("v3|$Lang|$Text")) | ForEach-Object { $_.ToString('x2') })
     $cached = Join-Path $cacheDir "$key.wav"
     if (Test-Path -LiteralPath $cached) { try { Copy-Item -LiteralPath $cached -Destination $Out -Force; return 'cache' } catch { } }
     $keep = { try { New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null; Copy-Item -LiteralPath $Out -Destination $cached -Force } catch { } }
@@ -475,12 +475,18 @@ function ConvertFrom-PDSpeech {
                       'The language is Marathi, Hindi or English, often mixed with English computer words (PC, laptop, internet, WiFi, printer, screen, battery, virus). ' +
                       'The speaker may have a strong rural accent or unclear pronunciation: write what they most likely meant, in correct spelling. ' +
                       'Write Marathi and Hindi in Devanagari, English words in English letters. Reply with only the words that were spoken; reply with nothing if nobody speaks.'
-            $body = ConvertTo-Json -Depth 8 -Compress -InputObject @{ contents = @(@{ parts = @(@{ text = $prompt }, @{ inline_data = @{ mime_type = 'audio/wav'; data = $b64 } }) }); generationConfig = @{ temperature = 0 } }
+            $prompt += ' Answer as JSON: {"text": "<the words>", "language": "mr|hi|en", "clear": true|false} - "clear" is false when the speech could not be made out.'
+            $body = ConvertTo-Json -Depth 8 -Compress -InputObject @{ contents = @(@{ parts = @(@{ text = $prompt }, @{ inline_data = @{ mime_type = 'audio/wav'; data = $b64 } }) }); generationConfig = @{ temperature = 0; responseMimeType = 'application/json' } }
             $txt = & $Transport "https://generativelanguage.googleapis.com/v1beta/models/$($model):generateContent" @{ 'x-goog-api-key' = $cfg.key } $body 'POST'
             $j = ConvertFrom-Json $txt
-            $out = (@($j.candidates)[0].content.parts | ForEach-Object { $_.text }) -join ' '
-            $res.Text = ($out -replace '\s+', ' ').Trim(); $res.Source = 'online'
-            return $res
+            $out = (@(@($j.candidates)[0].content.parts | Where-Object { -not $_.thought }) | ForEach-Object { $_.text }) -join ' '
+            $said = $out
+            try { $a2 = $out.Trim() -replace '^```(?:json)?\s*', '' -replace '\s*```$', ''; $jj = ConvertFrom-Json $a2; $said = [string]$jj.text; if ($jj.clear -eq $false -and $said.Length -lt 4) { $said = '' } } catch { }
+            $said = ($said -replace '\s+', ' ').Trim()
+            # a usable transcript has letters; "????" / "..." means the words could not be made out (or were broken on the way)
+            if (([regex]::Matches($said, '[\p{L}]')).Count -ge 2) { $res.Text = $said; $res.Source = 'online'; return $res }
+            Write-PDLog ("voice: online speech recognition gave no words: '" + $(if ($out.Length -gt 120) { $out.Substring(0, 120) } else { $out }) + "' (codes " + ((@($out.ToCharArray()) | Select-Object -First 12 | ForEach-Object { [int]$_ }) -join ' ') + ')') 'WARN'
+            $res.Error = 'online speech recognition gave no words'
         } catch { $res.Error = $_.Exception.Message; Write-PDLog "voice: online speech recognition failed: $($res.Error)" 'WARN' }
     }
     $a = Get-PDVoiceAssets $UsbRoot

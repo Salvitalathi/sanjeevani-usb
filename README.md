@@ -1,5 +1,7 @@
 # Sanjeevani Rescue USB
 
+*Created by **Mangesh Salvi***
+
 **English** · [मराठी](README.mr.md) · [हिन्दी](README.hi.md)
 
 A bootable technician pendrive to check, repair and speed up Windows PCs - built only from free and legal tools, on top of [Ventoy](https://www.ventoy.net). Everything a user sees is available in **English, Marathi and Hindi**.

@@ -1,5 +1,7 @@
 # संजीवनी Rescue USB
 
+*निर्माता : **Mangesh Salvi***
+
 [English](README.md) · [मराठी](README.mr.md) · **हिन्दी**
 
 PC जाँच, मरम्मत और स्पीड बढ़ाने के लिए bootable pendrive. इसमें सिर्फ़ free और legal tools हैं। Pendrive [Ventoy](https://www.ventoy.net) पर आधारित है। User को दिखने वाला सब कुछ **English, मराठी और हिन्दी** में है।

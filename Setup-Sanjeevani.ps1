@@ -125,6 +125,7 @@ Clear-Host
 Say '  ================================================================' Cyan
 Say '     SANJEEVANI RESCUE USB  -  Setup / Update' Cyan
 Say '     Free & legal PC repair toolkit  (Ventoy based)' DarkCyan
+Say '     Created by Mangesh Salvi' DarkCyan
 Say '  ================================================================' Cyan
 
 # ------------------------------------------------------------------ where is the kit?

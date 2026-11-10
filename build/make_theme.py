@@ -251,6 +251,15 @@ terminal-border: "0"
 }}
 + label {{
     left = 4%
+    top = 35%
+    width = 26%
+    height = 22
+    text = "Created by Mangesh Salvi"
+    font = {F("Regular", 16)}
+    color = "#2dd4bf"
+}}
++ label {{
+    left = 4%
     top = 46%
     width = 26%
     height = 24
@@ -437,6 +446,7 @@ def preview(W, H, out):
     cv.alpha_composite(Image.open(f"{OUT}/logo.png"), (P(4, W), P(10, H)))
     for top, txt, st, sz, col in [(27, "PC Rescue & Repair Toolkit", "Bold", 20, "#e2e8f0"),
                                   (31, "Free & legal tools  •  Self-updating", "Regular", 16, "#64748b"),
+                                  (35, "Created by Mangesh Salvi", "Regular", 16, "#2dd4bf"),
                                   (46, "INSIDE WINDOWS", "Bold", 20, "#2dd4bf"),
                                   (50, "Open the USB drive and run", "Regular", 16, "#94a3b8"),
                                   (53, "START-Sanjeevani.cmd for PC Doctor", "Regular", 16, "#94a3b8"),

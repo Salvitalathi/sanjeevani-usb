@@ -1,5 +1,6 @@
 संजीवनी RESCUE USB
 ==================
+निर्मिती : Mangesh Salvi
 एका pendrive वर free आणि legal toolkit: rescue tools चा boot menu + PC Doctor
 (PC तपासणी, आपोआप दुरुस्ती, वेग वाढवणे, Assistant). English / मराठी / हिन्दी.
 

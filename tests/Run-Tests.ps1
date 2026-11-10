@@ -706,6 +706,13 @@ Test-Case 'Voice: speech is written with a Windows voice; speech-to-text request
         $r = ConvertFrom-PDSpeech -Wav $wav -Lang 'mr' -UsbRoot $root -Transport $mock
         Assert ($r.Text -eq 'माझ्या laptop चा आवाज येत नाही' -and $r.Source -eq 'online') "transcript: $($r.Text) / $($r.Source) / $($r.Error)"
         Assert ($script:sent.Url -match 'gemini-test-flash:generateContent' -and $script:sent.Key -eq 'test-key') 'wrong request'
+        # JSON answer (as asked) and a "????" answer: the second must not be taken as words
+        $mockJ = { param($u, $h, $b, $m) '{"candidates":[{"content":{"parts":[{"text":"{\"text\":\"माझा PC बंद पडतो\",\"language\":\"mr\",\"clear\":true}"}]}}]}' }
+        $r2 = ConvertFrom-PDSpeech -Wav $wav -Lang 'mr' -UsbRoot $root -Transport $mockJ
+        Assert ($r2.Text -eq 'माझा PC बंद पडतो') "JSON transcript: $($r2.Text)"
+        $mockQ = { param($u, $h, $b, $m) '{"candidates":[{"content":{"parts":[{"text":"??????"}]}}]}' }
+        $r3 = ConvertFrom-PDSpeech -Wav $wav -Lang 'mr' -UsbRoot $root -Transport $mockQ
+        Assert (-not $r3.Text) "'??????' was taken as speech: $($r3.Text)"
         $j = $script:sent.Body | ConvertFrom-Json
         Assert ($j.contents[0].parts[1].inline_data.mime_type -eq 'audio/wav' -and $j.contents[0].parts[1].inline_data.data.Length -gt 40) 'audio not attached'
         Assert ($script:sent.Body -notmatch '@') 'the request must not contain an e-mail address'

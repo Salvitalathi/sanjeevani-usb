@@ -1,5 +1,7 @@
 # संजीवनी Rescue USB
 
+*निर्मिती : **Mangesh Salvi***
+
 [English](README.md) · **मराठी** · [हिन्दी](README.hi.md)
 
 PC तपासणी, दुरुस्ती आणि वेग वाढवण्यासाठी bootable pendrive. यात फक्त free आणि legal tools वापरले आहेत. Pendrive [Ventoy](https://www.ventoy.net) वर आधारित आहे.

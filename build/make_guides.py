@@ -110,7 +110,7 @@ L['en'] = dict(
         'ShredOS and disk-wipe tools erase a disk for good. Check the disk number twice.',
         'Never use cracked software or activators - they often carry malware.'],
     note='<b>Note:</b> every tool is downloaded from its maker\'s official website and is free. Check each licence before commercial use (e.g. on customers\' PCs in a shop).',
-    footer='Sanjeevani Rescue USB · open source · github.com/Salvitalathi/sanjeevani-usb')
+    footer='Sanjeevani Rescue USB · Created by Mangesh Salvi · open source · github.com/Salvitalathi/sanjeevani-usb')
 
 L['mr'] = dict(
     lang='mr', title='संजीवनी Rescue USB - मार्गदर्शक', brand='संजीवनी Rescue USB',
@@ -182,7 +182,7 @@ L['mr'] = dict(
         'ShredOS आणि disk wipe tools disk कायमची पुसतात. Disk number दोनदा तपासा.',
         'Cracked software किंवा activators कधीही वापरू नका - त्यांच्यासोबत बऱ्याचदा virus येतो.'],
     note='<b>टीप:</b> सर्व tools त्यांच्या निर्मात्यांच्या official websites वरून download होतात आणि free आहेत. Commercial वापराआधी (उदा. दुकानात customer PC साठी) प्रत्येकाचे license तपासा.',
-    footer='संजीवनी Rescue USB · open source · github.com/Salvitalathi/sanjeevani-usb')
+    footer='संजीवनी Rescue USB · Mangesh Salvi · open source · github.com/Salvitalathi/sanjeevani-usb')
 
 L['hi'] = dict(
     lang='hi', title='संजीवनी Rescue USB - गाइड', brand='संजीवनी Rescue USB',
@@ -254,7 +254,7 @@ L['hi'] = dict(
         'ShredOS और disk wipe tools disk हमेशा के लिए मिटाते हैं। Disk number दो बार जाँचें।',
         'Cracked software या activators कभी इस्तेमाल न करें - उनके साथ अक्सर virus आता है।'],
     note='<b>नोट:</b> सभी tools अपने निर्माताओं की official websites से download होते हैं और free हैं। Commercial इस्तेमाल से पहले (जैसे दुकान में customer PC के लिए) हर एक का license जाँचें।',
-    footer='संजीवनी Rescue USB · open source · github.com/Salvitalathi/sanjeevani-usb')
+    footer='संजीवनी Rescue USB · Mangesh Salvi · open source · github.com/Salvitalathi/sanjeevani-usb')
 
 
 def page(t):

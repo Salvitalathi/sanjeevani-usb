@@ -73,7 +73,7 @@ th{background:#f8fafc;font-weight:600}
         foreach ($a in $Actions) { [void]$sb.Append("<li>$(& $e $a)</li>") }
         [void]$sb.Append('</ul></div>')
     }
-    [void]$sb.Append("<p class='muted'>Sanjeevani Rescue USB · PC Doctor. Undo: $(& $e $global:PDCtx.UndoFile)</p></div></body></html>")
+    [void]$sb.Append("<p class='muted'>Sanjeevani Rescue USB · PC Doctor · $(L 'Created by Mangesh Salvi' 'निर्मिती : Mangesh Salvi' 'निर्माता : Mangesh Salvi'). Undo: $(& $e $global:PDCtx.UndoFile)</p></div></body></html>")
     $file = Join-Path $global:PDCtx.ReportDir ("Report-{0:yyyyMMdd-HHmm}.html" -f (Get-Date))
     [IO.File]::WriteAllText($file, $sb.ToString(), (New-Object System.Text.UTF8Encoding($true)))
     Write-PDLog "Report ready: $file" 'OK'
