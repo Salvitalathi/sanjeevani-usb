@@ -1,0 +1,34 @@
+name: Offline AI check
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 3 * * 0'
+  push:
+    paths:
+      - 'kit/Sanjeevani/PCDoctor/lib/LocalAI.psm1'
+      - 'kit/Sanjeevani/PCDoctor/data/problems.json'
+      - 'tests/AI-Tests.ps1'
+      - '.github/workflows/ai.yml'
+jobs:
+  ai:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download llama.cpp (CPU) and Gemma 4 E2B
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $rel = gh api repos/ggml-org/llama.cpp/releases/latest | ConvertFrom-Json
+          $asset = $rel.assets | Where-Object { $_.name -match '^llama-b\d+-bin-win-cpu-x64\.zip$' } | Select-Object -First 1
+          Write-Host "llama.cpp $($rel.tag_name): $($asset.name)"
+          Invoke-WebRequest $asset.browser_download_url -OutFile llama.zip
+          Expand-Archive llama.zip -DestinationPath ai\llama
+          curl.exe -L --fail --retry 5 -o ai\gemma-4-E2B-it-Q4_K_M.gguf https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf
+          Get-ChildItem ai -Recurse -Include llama-server.exe, *.gguf | Select-Object FullName, Length
+      - name: Ask the offline AI
+        shell: powershell
+        run: |
+          $srv = (Get-ChildItem ai\llama -Recurse -Filter llama-server.exe | Select-Object -First 1).FullName
+          .\tests\AI-Tests.ps1 -Server $srv -Model (Resolve-Path ai\gemma-4-E2B-it-Q4_K_M.gguf).Path

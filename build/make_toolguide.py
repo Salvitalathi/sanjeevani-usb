@@ -425,6 +425,12 @@ for tid, (risk, mr, en) in APPS.items():
             'warn': ['या PC वर install होतो.'] if inst else []},
         en={'what': en, 'when': '', 'steps': ['"Install" - installs on this PC.' if inst else '"Open" - runs without installing.'], 'good': '',
             'warn': ['Installs on this PC.'] if inst else []})
+T['llamacpp'] = E('apps', 'safe', auto='pd:ask',
+    mr={'what': 'PC Doctor च्या Assistant चे offline AI इंजिन - internet शिवाय समस्या समजते.', 'when': 'थेट उघडायची गरज नाही.', 'steps': ['PC Doctor -> Assistant मध्ये समस्या लिहा.'], 'good': '', 'warn': []},
+    en={'what': 'The offline AI engine behind PC Doctor\'s Assistant - understands problems without internet.', 'when': 'No need to open it directly.', 'steps': ['Describe the problem in PC Doctor -> Assistant.'], 'good': '', 'warn': []})
+T['ai-model'] = E('apps', 'safe', auto='pd:ask',
+    mr={'what': 'Google Gemma 4 E2B (Apache-2.0) - Assistant साठी मराठी / हिंदी / English समजणारे AI model.', 'when': 'थेट उघडायची गरज नाही.', 'steps': ['PC Doctor -> Assistant मध्ये समस्या लिहा.'], 'good': '', 'warn': []},
+    en={'what': 'Google Gemma 4 E2B (Apache-2.0) - the AI model that understands Marathi / Hindi / English for the Assistant.', 'when': 'No need to open it directly.', 'steps': ['Describe the problem in PC Doctor -> Assistant.'], 'good': '', 'warn': []})
 T['rufus'] = E('apps', 'danger',
     mr={'what': 'Windows / Linux ची bootable pendrive बनवतो.', 'when': 'एखाद्या PC साठी साधी Windows install pendrive हवी.',
         'steps': ['"उघडा" → Device मध्ये **दुसरा** (रिकामा) pendrive निवडा → SELECT → ISO → START.'],

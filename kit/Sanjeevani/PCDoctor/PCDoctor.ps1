@@ -24,7 +24,7 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, Sys
 $Here    = $PSScriptRoot
 $UsbRoot = (Resolve-Path (Join-Path $Here '..\..')).Path
 $DataDir = Join-Path $Here 'data'
-$Modules = @('Common', 'Diagnostics', 'Repair', 'Speed', 'Storage', 'Advisor', 'Report', 'ToolGuide', 'Integrity', 'Registry', 'Ask') | ForEach-Object { Join-Path $Here "lib\$_.psm1" }
+$Modules = @('Common', 'Diagnostics', 'Repair', 'Speed', 'Storage', 'Advisor', 'Report', 'ToolGuide', 'Integrity', 'Registry', 'Ask', 'LocalAI', 'Troubleshoot') | ForEach-Object { Join-Path $Here "lib\$_.psm1" }
 
 try {
     foreach ($m in $Modules) { Import-Module $m -Force -DisableNameChecking -ErrorAction Stop }
@@ -168,7 +168,7 @@ class InfoRow    { [string]$Title; [string]$Badge; [string]$Color; [string]$Deta
         </StackPanel>
         <TextBlock DockPanel.Dock="Bottom" Name="AdminText" Margin="22,10,10,18" FontSize="12" Foreground="#64748B" TextWrapping="Wrap"/>
         <StackPanel Name="NavPanel">
-          <Button Style="{StaticResource Nav}" Tag="nav:ask"       Content="🗣  समस्या सांगा"/>
+          <Button Style="{StaticResource Nav}" Tag="nav:ask"       Content="🩺  Assistant"/>
           <Button Style="{StaticResource Nav}" Tag="nav:dashboard" Content="🔍  तपासणी (Scan)"/>
           <Button Style="{StaticResource Nav}" Tag="nav:repair"    Content="🔧  दुरुस्ती (Repair)"/>
           <Button Style="{StaticResource Nav}" Tag="nav:speed"     Content="⚡  वेग वाढवा (Speed)"/>
@@ -388,48 +388,65 @@ class InfoRow    { [string]$Title; [string]$Badge; [string]$Color; [string]$Deta
         </StackPanel>
       </ScrollViewer>
 
-      <!-- ASK -->
-      <ScrollViewer Name="Page_ask" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
-        <StackPanel>
-          <TextBlock Style="{StaticResource H1}" Text="🗣  तुमची समस्या सांगा"/>
-          <TextBlock Style="{StaticResource Sub}" Text="PC / laptop मध्ये काय होते ते मराठी, English किंवा Roman मराठीत लिहा. उदा. 'net chalat nahi', 'laptop खूप गरम होतो', 'printer print देत नाही'. PC Doctor समस्या ओळखून योग्य तपासणी आणि दुरुस्ती सुचवेल."/>
-          <TextBox Name="AskBox" Margin="0,14,0,8" Height="90" AcceptsReturn="True" TextWrapping="Wrap" FontSize="15" Padding="10,8" VerticalScrollBarVisibility="Auto"
-                   Background="#0B1220" Foreground="#E2E8F0" BorderBrush="#334155" CaretBrush="#E2E8F0"/>
-          <WrapPanel>
-            <Button Style="{StaticResource Primary}" Tag="ask:find" Content="🔍  शोधा (internet शिवाय)"/>
-            <Button Name="AskAiBtn" Style="{StaticResource Btn}" Tag="ask:ai" Content="🤖  AI ला विचारा"/>
-            <Button Style="{StaticResource Btn}" Tag="ask:settings" Content="⚙  AI सेटिंग्ज"/>
-          </WrapPanel>
-          <Border Name="AiSettings" Style="{StaticResource CardBorder}" Visibility="Collapsed" Margin="0,8,0,8">
-            <StackPanel>
-              <TextBlock Style="{StaticResource H2}" Text="AI सेटिंग्ज (ऐच्छिक)"/>
-              <TextBlock Style="{StaticResource Sub}" Text="Internet असताना AI समस्या अधिक नीट समजून घेतो. तुमची स्वतःची API key लागते. Google Gemini ची key मोफत मिळते (free tier). AI काहीही स्वतः चालवत नाही - फक्त PC Doctor च्या दुरुस्त्या सुचवतो."/>
-              <DockPanel Margin="0,10,0,0">
-                <TextBlock Text="Service:" Width="90" Foreground="#CBD5E1" VerticalAlignment="Center"/>
-                <ComboBox Name="AiProvider" Width="330" HorizontalAlignment="Left">
-                  <ComboBoxItem Content="Google Gemini (मोफत key - Google AI Studio)" Tag="gemini" IsSelected="True"/>
-                  <ComboBoxItem Content="Anthropic Claude (paid API key)" Tag="anthropic"/>
-                </ComboBox>
-              </DockPanel>
-              <DockPanel Margin="0,8,0,0">
-                <TextBlock Text="API key:" Width="90" Foreground="#CBD5E1" VerticalAlignment="Center"/>
-                <PasswordBox Name="AiKey" Width="330" HorizontalAlignment="Left" Padding="6,4"/>
-              </DockPanel>
-              <DockPanel Margin="0,8,0,0">
-                <TextBlock Text="Model:" Width="90" Foreground="#CBD5E1" VerticalAlignment="Center"/>
-                <TextBox Name="AiModel" Width="330" HorizontalAlignment="Left" Padding="6,4" ToolTip="रिकामे ठेवा - सगळ्यात नवीन model आपोआप निवडले जाते"/>
-              </DockPanel>
-              <CheckBox Name="AiPcInfo" Margin="0,10,0,0" Foreground="#CBD5E1" IsChecked="True" Content="PC ची माहिती पाठवा (model, Windows, RAM, disk प्रकार, scan चे निष्कर्ष - नाव / files नाही)"/>
-              <WrapPanel Margin="0,10,0,0">
-                <Button Style="{StaticResource Primary}" Tag="ask:save" Content="Save"/>
-                <Button Style="{StaticResource Btn}" Tag="ask:getkey" Content="मोफत Gemini key कशी मिळवायची"/>
-              </WrapPanel>
-              <TextBlock Style="{StaticResource Sub}" Foreground="#FBBF24" Margin="0,8,0,0" Text="⚠ Key या pendrive वर (Sanjeevani\ai.json) साठवली जाते - pendrive दुसऱ्याला देऊ नका. Free tier मध्ये Google तुमचा प्रश्न त्यांची सेवा सुधारण्यासाठी वापरू शकते - customer चे नाव, फोन, password लिहू नका."/>
-            </StackPanel>
-          </Border>
-          <StackPanel Name="AskResults" Margin="0,10,0,0"/>
-        </StackPanel>
-      </ScrollViewer>
+      <!-- ASK (assistant) -->
+      <Grid Name="Page_ask" Visibility="Collapsed">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+            <ComboBox Name="AiMode" Width="170" Margin="0,0,8,0" VerticalContentAlignment="Center">
+              <ComboBoxItem Content="AI: Auto" Tag="auto" IsSelected="True"/>
+              <ComboBoxItem Content="AI: Online" Tag="online"/>
+              <ComboBoxItem Content="AI: Offline" Tag="offline"/>
+              <ComboBoxItem Content="Basic (no AI)" Tag="basic"/>
+            </ComboBox>
+            <Button Style="{StaticResource Btn}" Tag="ask:settings" Content="⚙  AI settings" Margin="0"/>
+          </StackPanel>
+          <StackPanel>
+            <TextBlock Style="{StaticResource H1}" Text="🩺  Sanjeevani Assistant"/>
+            <TextBlock Name="AskSub" Style="{StaticResource Sub}" Text="तुमच्या PC / laptop ची समस्या मराठी, हिंदी किंवा English मध्ये लिहा. Assistant ती समजून घेईल, या PC वर तपासेल आणि आपोआप दुरुस्त करेल."/>
+            <TextBlock Name="AiStatus" FontSize="12" Foreground="#64748B" Margin="0,4,0,0"/>
+          </StackPanel>
+        </DockPanel>
+        <ScrollViewer Name="ChatScroll" Grid.Row="1" Margin="0,12,0,10" VerticalScrollBarVisibility="Auto">
+          <StackPanel>
+            <Border Name="AiSettings" Style="{StaticResource CardBorder}" Visibility="Collapsed" Margin="0,0,0,10">
+              <StackPanel>
+                <TextBlock Style="{StaticResource H2}" Text="AI settings"/>
+                <TextBlock Style="{StaticResource Sub}" Text="Offline AI (Gemma, on the USB) works without internet. Online AI is optional and uses your own API key - Google Gemini keys are free. The AI only understands the problem; every check and repair is done by PC Doctor's own tested actions."/>
+                <DockPanel Margin="0,10,0,0">
+                  <TextBlock Text="Online AI:" Width="90" Foreground="#CBD5E1" VerticalAlignment="Center"/>
+                  <ComboBox Name="AiProvider" Width="330" HorizontalAlignment="Left">
+                    <ComboBoxItem Content="Google Gemini (free key - Google AI Studio)" Tag="gemini" IsSelected="True"/>
+                    <ComboBoxItem Content="Anthropic Claude (paid API key)" Tag="anthropic"/>
+                  </ComboBox>
+                </DockPanel>
+                <DockPanel Margin="0,8,0,0">
+                  <TextBlock Text="API key:" Width="90" Foreground="#CBD5E1" VerticalAlignment="Center"/>
+                  <PasswordBox Name="AiKey" Width="330" HorizontalAlignment="Left" Padding="6,4"/>
+                </DockPanel>
+                <DockPanel Margin="0,8,0,0">
+                  <TextBlock Text="Model:" Width="90" Foreground="#CBD5E1" VerticalAlignment="Center"/>
+                  <TextBox Name="AiModel" Width="330" HorizontalAlignment="Left" Padding="6,4" ToolTip="Leave empty - the newest model is picked automatically"/>
+                </DockPanel>
+                <CheckBox Name="AiPcInfo" Margin="0,10,0,0" Foreground="#CBD5E1" IsChecked="True" Content="Send PC details to online AI (model, Windows, RAM, disk type, scan findings - no names or files)"/>
+                <WrapPanel Margin="0,10,0,0">
+                  <Button Style="{StaticResource Primary}" Tag="ask:save" Content="Save"/>
+                  <Button Style="{StaticResource Btn}" Tag="ask:getkey" Content="Get a free Gemini key"/>
+                </WrapPanel>
+                <TextBlock Style="{StaticResource Sub}" Foreground="#FBBF24" Margin="0,8,0,0" Text="⚠ The key is stored on this USB (Sanjeevani\ai.json) - do not hand the USB to others. On the free tier Google may use questions to improve its service: never type names, phone numbers or passwords."/>
+              </StackPanel>
+            </Border>
+            <StackPanel Name="ChatPanel"/>
+          </StackPanel>
+        </ScrollViewer>
+        <Border Grid.Row="2" Background="#0B1220" BorderBrush="#334155" BorderThickness="1" CornerRadius="12" Padding="6">
+          <DockPanel>
+            <Button Name="AskGoBtn" DockPanel.Dock="Right" Style="{StaticResource Primary}" Tag="ask:go" Content="Fix it  ▶" Margin="6,0,0,0" Padding="22,10"/>
+            <TextBox Name="AskBox" BorderThickness="0" Background="Transparent" Foreground="#E2E8F0" CaretBrush="#E2E8F0" FontSize="15" Padding="8,8"
+                     TextWrapping="Wrap" VerticalContentAlignment="Center" ToolTip="उदा. 'net chalat nahi', 'laptop खूप गरम होतो', 'printer print नहीं कर रहा'"/>
+          </DockPanel>
+        </Border>
+      </Grid>
 
       <!-- TOOLS GUIDE -->
       <Grid Name="Page_toolbox" Visibility="Collapsed">
@@ -589,6 +606,7 @@ function Show-Page([string]$name) {
     foreach ($p in $script:Pages) { $ui["Page_$p"].Visibility = if ($p -eq $name) { 'Visible' } else { 'Collapsed' } }
     foreach ($b in $ui.NavPanel.Children) { $b.Background = if ($b.Tag -eq "nav:$name") { Brush '#13233F' } else { [Windows.Media.Brushes]::Transparent } }
     if ($name -eq 'toolbox') { Build-Toolbox }
+    if ($name -eq 'ask') { Show-AskWelcome }
 }
 
 # ---------------------------------------------------------------- rendering
@@ -1186,88 +1204,43 @@ function Show-DriverAdvice($r) {
     elseif ($ans -eq 'No') { Invoke-Repair 'sdio-safe' }
 }
 
-# ---------------------------------------------------------------- "समस्या सांगा"
+# ---------------------------------------------------------------- Assistant (understand -> check -> fix)
 $script:Problems = $null
-$script:AskActs = @{}
-$QuickLabel = @{ printer = 'Printer दुरुस्ती'; audio = 'आवाज दुरुस्ती'; time = 'वेळ दुरुस्ती'; explorer = 'Explorer restart'; search = 'Search दुरुस्ती'
-    bluetooth = 'Bluetooth दुरुस्ती'; wifi = 'WiFi दुरुस्ती'; usb = 'USB दुरुस्ती'; store = 'Store दुरुस्ती'; dns = 'DNS साफ करा' }
-$PageLabel = @{ speed = 'वेग वाढवा page'; storage = 'C: drive जागा'; advisor = 'OS / Apps सल्ला'; repair = 'दुरुस्ती page'; toolbox = 'Tools मार्गदर्शक' }
-
+$script:UiLang = 'mr'
 function Get-AskProblems { if (-not $script:Problems) { $script:Problems = Get-PDProblems $DataDir }; return $script:Problems }
 
-function Get-AskActionLabel($a) {
-    switch ($a.t) {
-        'scan'     { 'Quick Scan' }
-        'optimize' { '⚡ One-Click Optimize' }
-        'repair'   { $c = $repairCards | Where-Object { $_[3] -eq "repair:$($a.id)" } | Select-Object -First 1; if ($c) { $c[0] } else { $a.id } }
-        'quick'    { '🛠 ' + $QuickLabel[$a.id] }
-        'tg'       { $n = $a.id; try { $e = (Get-TgState).Entries[$a.id]; if ($e) { $n = $e.Name } } catch { }; "▶ $n - आपोआप तपासा" }
-        'tool'     { $n = $a.id; try { $e = (Get-TgState).Entries[$a.id]; if ($e) { $n = $e.Name } } catch { }; "🧰 $n" }
-        'page'     { $PageLabel[$a.id] }
-        'fix'      { switch ($a.id) { 'registry' { 'Registry तपासणी' } 'storage' { 'C: drive जागा' } 'advisor' { 'OS / Apps सल्ला' } default { $FixText[$a.id] } } }
-        'settings' { '⚙ Windows Settings उघडा' }
-        default    { $a.t }
+function New-Bubble([bool]$mine) {
+    $b = New-Object Windows.Controls.Border
+    $b.CornerRadius = 14; $b.Padding = '14,10'; $b.Margin = $(if ($mine) { '120,6,0,6' } else { '0,6,120,6' })
+    $b.HorizontalAlignment = $(if ($mine) { 'Right' } else { 'Left' })
+    $b.Background = Brush $(if ($mine) { '#1D4ED8' } else { '#111C33' })
+    if (-not $mine) { $b.BorderBrush = Brush '#14B8A6'; $b.BorderThickness = '1' }
+    $sp = New-Object Windows.Controls.StackPanel; $b.Child = $sp
+    [void]$ui.ChatPanel.Children.Add($b)
+    $ui.ChatScroll.ScrollToEnd()
+    return $sp
+}
+function Add-BubbleText($sp, [string]$text, [int]$size = 14, [string]$color = '#E2E8F0', [string]$weight = 'Normal') { [void]$sp.Children.Add((New-Tb $text $size $color $weight '0,0,0,4')) }
+
+function Show-AskWelcome {
+    if ($ui.ChatPanel.Children.Count) { return }
+    $sp = New-Bubble $false
+    Add-BubbleText $sp 'नमस्कार! PC मध्ये काय समस्या आहे ते लिहा - मी ती समजून घेऊन या PC वर तपासतो आणि दुरुस्त करतो.' 15 '#E2E8F0' 'SemiBold'
+    Add-BubbleText $sp 'उदाहरणे:' 12 '#94A3B8'
+    $wp = New-Object Windows.Controls.WrapPanel
+    foreach ($t in 'Internet चालत नाही', 'PC खूप हळू चालतो', 'Printer print देत नाही', 'आवाज येत नाही', 'C drive full', 'Laptop बहुत गर्म होता है', 'WiFi not showing') {
+        $btn = New-Object Windows.Controls.Button; $btn.Content = $t; $btn.Tag = "ask:sample:$t"; $btn.Style = $win.FindResource('Btn'); $btn.Margin = '0,4,6,0'; [void]$wp.Children.Add($btn)
     }
+    [void]$sp.Children.Add($wp)
+    Update-AiStatus
 }
 
-function Invoke-AskAction($a) {
-    switch ($a.t) {
-        'scan'     { Show-Page 'dashboard'; Invoke-Scan $false }
-        'optimize' { Invoke-Optimize }
-        'repair'   { Show-Page 'repair'; Invoke-Repair $a.id }
-        'tg'       { Show-Page 'toolbox'; Show-TgDetail $a.id; Invoke-ToolGuide "auto:$($a.id)" }
-        'tool'     { Show-Page 'toolbox'; Show-TgDetail $a.id }
-        'page'     { Show-Page $a.id }
-        'fix'      { Invoke-Fix $a.id }
-        'settings' { try { Start-Process $a.id } catch { Say 'Settings उघडता आले नाही.' 'Warning' } }
-        'quick'    {
-            if ($a.id -eq 'printer' -and -not (Ask 'Print queue मधले अडकलेले सगळे documents काढले जातील आणि print service restart होईल. चालेल?')) { return }
-            Start-PDJob -Title $QuickLabel[$a.id] -Work { param($P) Invoke-PDQuickFix -Id $P.Id } -Params @{ Id = $a.id } -OnDone {
-                param($r) if ($r) { [void]$script:Actions.Add($r.Mr); Say $r.Mr $(if ($r.Ok) { 'Information' } else { 'Warning' }) } }
-        }
-    }
-}
-
-function Add-AskCard($title, $why, $steps, $acts, [string]$border = '#2DD4BF', [string]$badge = '') {
-    $b = New-Object Windows.Controls.Border; $b.Style = $win.FindResource('CardBorder'); $b.BorderBrush = Brush $border; $b.Margin = '0,0,12,12'
-    $sp = New-Object Windows.Controls.StackPanel
-    $h = New-Object Windows.Controls.WrapPanel
-    [void]$h.Children.Add((New-Tb $title 17 '#E2E8F0' 'SemiBold' '0,0,8,4'))
-    if ($badge) { [void]$h.Children.Add((New-Badge $badge '#475569')) }
-    [void]$sp.Children.Add($h)
-    if ($why) { [void]$sp.Children.Add((New-Tb ("कारणे: " + $why) 13 '#94A3B8' 'Normal' '0,0,0,6')) }
-    $n = 1
-    foreach ($st in @($steps | Where-Object { $_ })) { [void]$sp.Children.Add((New-Tb ("$n. $st") 14 '#CBD5E1' 'Normal' '0,0,0,3')); $n++ }
-    if (@($acts).Count) {
-        $wp = New-Object Windows.Controls.WrapPanel; $wp.Margin = '0,8,0,0'
-        $first = $true
-        foreach ($a in $acts) {
-            $key = 'a' + $script:AskActs.Count; $script:AskActs[$key] = $a
-            $btn = New-Object Windows.Controls.Button; $btn.Content = (Get-AskActionLabel $a); $btn.Tag = "askact:$key"; $btn.Margin = '0,0,8,8'
-            $btn.Style = $win.FindResource($(if ($first) { 'Primary' } else { 'Btn' })); $first = $false
-            [void]$wp.Children.Add($btn)
-        }
-        [void]$sp.Children.Add($wp)
-    }
-    $b.Child = $sp
-    [void]$ui.AskResults.Children.Add($b)
-}
-
-function Show-AskMatches($matches, [string]$heading) {
-    if ($heading) { [void]$ui.AskResults.Children.Add((New-Tb $heading 15 '#5EEAD4' 'SemiBold' '0,6,0,8')) }
-    foreach ($m in $matches) { $p = $m.Problem; Add-AskCard $p.mr.title $p.mr.why $p.mr.steps $p.actions }
-}
-
-function Invoke-AskFind {
-    $text = $ui.AskBox.Text.Trim()
-    $ui.AskResults.Children.Clear(); $script:AskActs = @{}
-    if ($text.Length -lt 2) { Say 'आधी समस्या लिहा.'; return }
-    $m = @(Find-PDProblem -Text $text -Problems (Get-AskProblems))
-    Write-PDLog "समस्या: '$text' → $(($m | ForEach-Object { $_.Problem.id }) -join ', ')" 'INFO'
-    if ($m.Count) { Show-AskMatches $m 'तुमच्या वर्णनानुसार ही समस्या असू शकते (पहिली सगळ्यात जास्त शक्यता):' }
-    else {
-        Add-AskCard 'समस्या ओळखता आली नाही' '' @('थोडे वेगळ्या शब्दांत लिहा - उदा. कोणता भाग (internet, printer, आवाज, screen, battery) आणि काय होते.', 'किंवा Quick Scan करा - PC Doctor सगळे तपासून समस्या शोधतो.', 'Internet असल्यास "AI ला विचारा" वापरा.') @(@{ t = 'scan' }) '#D97706'
-    }
+function Update-AiStatus {
+    $cfg = Get-PDAiConfig $UsbRoot
+    $ai = Find-PDLocalAI $UsbRoot
+    $off = if ($ai) { $f = Test-PDLocalAIFit $ai; if ($f.Ok) { "Offline AI: ready ($([IO.Path]::GetFileNameWithoutExtension($ai.Model)))" } else { "Offline AI: not on this PC - $($f.Why)" } } else { 'Offline AI: not on the USB (UPDATE.cmd -> Y for offline AI)' }
+    $on = if ($cfg.key) { "Online AI: $($cfg.provider)" } else { 'Online AI: no key' }
+    $ui.AiStatus.Text = "$off   ·   $on   ·   Basic matching: always"
 }
 
 function Get-AskPcInfo {
@@ -1282,31 +1255,55 @@ function Get-AskPcInfo {
     return ("{0} {1}; {2} {3} (build {4}); CPU {5}; RAM {6} GB {7}; system disk {8}; laptop={9}; health score {10}; scan findings: {11}" -f $i.Manufacturer, $i.Model, $i.OSCaption, $i.DisplayVer, $i.OSBuild, $i.CPU, $i.RAMGB, $i.RAMType, $disk, $i.IsLaptop, $s.Score, $f)
 }
 
-function Invoke-AskAi {
-    $text = $ui.AskBox.Text.Trim()
-    if ($text.Length -lt 2) { Say 'आधी समस्या लिहा.'; return }
+function Invoke-AskGo([string]$text) {
+    if (-not $text) { $text = $ui.AskBox.Text.Trim() }
+    if ($text.Length -lt 2) { return }
+    if ($script:Job) { Say 'एक काम आधीच चालू आहे - ते संपू द्या.'; return }
+    $mode = [string]$ui.AiMode.SelectedItem.Tag; if (-not $mode) { $mode = 'auto' }
     $cfg = Get-PDAiConfig $UsbRoot
-    if (-not $cfg.key) { $ui.AiSettings.Visibility = 'Visible'; Say 'AI वापरण्यासाठी आधी API key टाका (AI सेटिंग्ज). Google Gemini ची key मोफत मिळते.'; return }
-    $pc = if ($cfg.sendPcInfo) { Get-AskPcInfo } else { '' }
-    $preview = "AI ला हे पाठवले जाईल:`n`nसमस्या: $text" + $(if ($pc) { "`n`nPC माहिती: $pc" } else { '' }) + "`n`n(नाव, files, passwords पाठवले जात नाहीत.) पाठवायचे?"
-    if (-not (Ask $preview)) { return }
-    $ui.AskResults.Children.Clear(); $script:AskActs = @{}
-    Start-PDJob -Title 'AI ला विचारत आहे' -Work { param($P) Invoke-PDAiAsk -Text $P.Text -Config $P.Cfg -Problems $P.Problems -PcInfo $P.Pc } `
-        -Params @{ Text = $text; Cfg = $cfg; Problems = (Get-AskProblems); Pc = $pc } -OnDone {
-            param($r)
-            if (-not $r -or -not $r.PSObject.Properties['UnderstoodMr']) {
-                Add-AskCard 'AI कडून उत्तर मिळाले नाही' '' @('Log मध्ये कारण पहा (internet / API key / मोफत मर्यादा).', 'तोपर्यंत internet शिवायचे उत्तर खाली दिले आहे.') @() '#D97706'
-                $m = @(Find-PDProblem -Text $ui.AskBox.Text -Problems (Get-AskProblems)); if ($m.Count) { Show-AskMatches $m '' }
-                return
-            }
-            $badge = 'AI · ' + $r.Model
-            $steps = @($r.StepsMr) + $(if ($r.Hardware) { @('⚠ हा hardware दोष असण्याची शक्यता आहे - technician कडे दाखवा.') } else { @() }) + $(if ($r.NoteMr) { @($r.NoteMr) } else { @() })
-            Add-AskCard ('AI ने समजलेली समस्या: ' + $r.UnderstoodMr) '' $steps @() '#8B5CF6' $badge
-            $all = Get-AskProblems
-            $m = @($r.ProblemIds | ForEach-Object { $id = $_; [pscustomobject]@{ Score = 0; Problem = ($all | Where-Object { $_.id -eq $id } | Select-Object -First 1) } } | Where-Object { $_.Problem })
-            if ($m.Count) { Show-AskMatches $m 'PC Doctor मधील संबंधित तपासण्या आणि दुरुस्त्या:' }
-            Write-PDLog "AI ($($r.Model)): $($r.UnderstoodEn) → $($r.ProblemIds -join ', ')" 'INFO'
+    $online = ($mode -in 'auto', 'online') -and $cfg.key
+    $msg = "Assistant आता:`n`n1. समस्या समजून घेईल$(if ($online) { ' (online AI ला समस्येचे वर्णन' + $(if ($cfg.sendPcInfo) { ' आणि PC ची hardware माहिती' } else { '' }) + ' पाठवले जाईल - नाव / files नाही)' } else { ' (internet शिवाय)' })`n2. ती समस्या या PC वर खरंच आहे का ते तपासेल`n3. असल्यास आपोआप दुरुस्त करेल - आधी restore point; मोठ्या दुरुस्त्यांना (उदा. system files) 15-40 मिनिटे लागू शकतात`n`nसगळे बदल Undo करता येतात. सुरू करायचे?"
+    if (-not (Ask $msg)) { return }
+    $ui.AskBox.Text = ''
+    $me = New-Bubble $true; Add-BubbleText $me $text 15 '#FFFFFF'
+    $script:AskWork = New-Bubble $false
+    Add-BubbleText $script:AskWork '⏳ समजून घेत आहे आणि या PC वर तपासत आहे... (प्रगती खाली status bar मध्ये)' 14 '#94A3B8'
+    $pc = if ($online -and $cfg.sendPcInfo) { Get-AskPcInfo } else { '' }
+    Start-PDJob -Title 'Assistant' -Work {
+        param($P)
+        $probs = Get-PDProblems $P.DataDir
+        $u = Resolve-PDProblemIds -Text $P.Text -Problems $probs -UsbRoot $P.UsbRoot -Mode $P.Mode -PcInfo $P.Pc
+        $r = if ($u.Ids.Count) { Invoke-PDTroubleshoot -Ids $u.Ids -Problems $probs } else { $null }
+        [pscustomobject]@{ U = $u; R = $r; mr = $(if ($r) { Format-PDTroubleshoot $r 'mr' }); en = $(if ($r) { Format-PDTroubleshoot $r 'en' }); hi = $(if ($r) { Format-PDTroubleshoot $r 'hi' }) }
+    } -Params @{ Text = $text; Mode = $mode; Pc = $pc; DataDir = $DataDir; UsbRoot = $UsbRoot } -OnDone { param($o) Show-AskResult $o }
+}
+
+function Show-AskResult($o) {
+    $sp = $script:AskWork; if (-not $sp) { $sp = New-Bubble $false }
+    $sp.Children.Clear()
+    if (-not $o -or -not $o.PSObject.Properties['U']) { Add-BubbleText $sp 'माफ करा, काहीतरी अडचण आली - Log पहा.' 14 '#FBBF24'; return }
+    $src = switch ($o.U.Source) { 'online' { "Online AI · $($o.U.Model)" } 'offline' { "Offline AI · $($o.U.Model)" } default { 'Basic matching' } }
+    $head = New-Object Windows.Controls.WrapPanel
+    [void]$head.Children.Add((New-Badge $src '#475569'))
+    if ($o.R -and $o.R.Issue) {
+        $ok = $o.R.Resolved
+        [void]$head.Children.Add((New-Badge $(if ($ok -and -not $o.R.Restart) { '✔ Solved' } elseif ($o.R.Restart) { '↻ Restart needed' } else { '⚠ Needs you' }) $(if ($ok) { '#16A34A' } else { '#D97706' })))
+    }
+    [void]$sp.Children.Add($head)
+    if (-not $o.R) {
+        Add-BubbleText $sp 'ही समस्या मला नीट समजली नाही. थोडे वेगळ्या शब्दांत लिहा (कोणता भाग: internet, printer, आवाज, screen, battery... आणि काय होते), किंवा पूर्ण तपासणीसाठी Quick Scan करा.' 14
+        $b = New-Object Windows.Controls.Button; $b.Content = 'Quick Scan'; $b.Tag = 'action:scan'; $b.Style = $win.FindResource('Btn'); $b.HorizontalAlignment = 'Left'; [void]$sp.Children.Add($b)
+    } else {
+        $first = $true
+        foreach ($l in $o.$($script:UiLang)) { Add-BubbleText $sp $l $(if ($first) { 15 } else { 14 }) $(if ($first) { '#E2E8F0' } else { '#CBD5E1' }) $(if ($first) { 'SemiBold' } else { 'Normal' }); $first = $false }
+        if ($o.R.Restart) {
+            $b = New-Object Windows.Controls.Button; $b.Content = '↻  Restart now'; $b.Tag = 'ask:restart'; $b.Style = $win.FindResource('Primary'); $b.HorizontalAlignment = 'Left'; $b.Margin = '0,6,0,0'; [void]$sp.Children.Add($b)
         }
+        if ($o.R.Issue) { [void]$script:Actions.Add("Assistant: $($o.R.Issue.en.title) - $($o.R.Fix.Text.en)") }
+    }
+    foreach ($n in $o.U.Notes) { Add-BubbleText $sp ("ℹ " + $n) 11 '#64748B' }
+    $ui.ChatScroll.ScrollToEnd()
+    Update-AiStatus
 }
 
 function Show-AiSettings {
@@ -1318,8 +1315,8 @@ function Show-AiSettings {
 function Save-AiSettings {
     $prov = [string]$ui.AiProvider.SelectedItem.Tag
     $cfg = [pscustomobject]@{ provider = $(if ($prov) { $prov } else { 'gemini' }); key = $ui.AiKey.Password.Trim(); model = $ui.AiModel.Text.Trim(); sendPcInfo = [bool]$ui.AiPcInfo.IsChecked }
-    try { Save-PDAiConfig $UsbRoot $cfg; Say 'AI सेटिंग्ज save झाल्या. आता "AI ला विचारा" वापरा.' }
-    catch { Say ('Save होऊ शकले नाही (pendrive locked?): ' + $_.Exception.Message) 'Warning' }
+    try { Save-PDAiConfig $UsbRoot $cfg; $ui.AiSettings.Visibility = 'Collapsed'; Update-AiStatus; Say 'AI settings saved.' }
+    catch { Say ('Could not save (USB locked?): ' + $_.Exception.Message) 'Warning' }
 }
 
 # ---------------------------------------------------------------- registry check
@@ -1613,8 +1610,7 @@ $win.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, [Windows.R
             'tool'    { Open-UsbTool $arg $null }
             'tg'      { Invoke-ToolGuide $arg }
             'reg'     { if ($arg -eq 'fix') { Invoke-RegFix } else { Invoke-RegScan } }
-            'ask'     { switch ($arg) { 'find' { Invoke-AskFind } 'ai' { Invoke-AskAi } 'settings' { Show-AiSettings } 'save' { Save-AiSettings } 'getkey' { Say "मोफत Gemini API key:`n`n1. aistudio.google.com/apikey उघडा (Google account ने login).`n2. 'Create API key' दाबा.`n3. Key copy करून इथे API key मध्ये टाका आणि Save.`n`nCard लागत नाही. मोफत मर्यादा: दिवसाला काही शेकडो प्रश्न."; try { Start-Process 'https://aistudio.google.com/apikey' } catch { } } } }
-            'askact'  { $a = $script:AskActs[$arg]; if ($a) { Invoke-AskAction $a } }
+            'ask'     { switch -Regex ($arg) { '^go$' { Invoke-AskGo } '^sample:' { Invoke-AskGo $arg.Substring(7) } '^restart$' { if (Ask 'PC आत्ता restart करायचा? उघडी कामे save करा.') { Restart-Computer -Force } } '^settings$' { Show-AiSettings } '^save$' { Save-AiSettings } '^getkey$' { Say "मोफत Gemini API key:`n`n1. aistudio.google.com/apikey उघडा (Google account ने login).`n2. 'Create API key' दाबा.`n3. Key copy करून इथे API key मध्ये टाका आणि Save.`n`nCard लागत नाही. मोफत मर्यादा: दिवसाला काही शेकडो प्रश्न."; try { Start-Process 'https://aistudio.google.com/apikey' } catch { } } } }
             'job'     { $global:PDState.Cancel = $true; $ui.StatusText.Text = 'थांबवत आहे... / Stopping...' }
             'web'     { if ($arg) { Start-Process $arg } }
             'report'  { Invoke-Report }
@@ -1630,7 +1626,9 @@ $win.Add_Closing({
         try { $script:Job.PS.Stop() } catch { }
     }
     $timer.Stop()
+    try { Stop-PDLocalAI } catch { }      # the offline AI server must not keep running after PC Doctor closes
 })
+$ui.AskBox.Add_KeyDown({ param($s, $e) if ($e.Key -eq 'Return') { $e.Handled = $true; Invoke-AskGo } })
 
 $ui.AdminText.Text = "Administrator ✓`nReports: $($global:PDCtx.ReportDir)"
 if (-not (Test-PDSameUserAsDesktop)) {

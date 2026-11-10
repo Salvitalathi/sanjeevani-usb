@@ -659,5 +659,5 @@ function Invoke-TGAuto {
     }
 }
 
-Export-ModuleMember -Function New-TGResult, Add-TGLine, Get-TGMyTools, Expand-TGMyArchive, Get-TGCatalog, Get-TGGuide, Find-TGTool, Get-TGRunPath, Test-TGDirWritable, Initialize-TGToolConfig, Set-TGIniValue,
+Export-ModuleMember -Function Get-TGThermalC, New-TGResult, Add-TGLine, Get-TGMyTools, Expand-TGMyArchive, Get-TGCatalog, Get-TGGuide, Find-TGTool, Get-TGRunPath, Test-TGDirWritable, Initialize-TGToolConfig, Set-TGIniValue,
     ConvertFrom-TGDiskInfo, ConvertFrom-TGWizTreeCsv, Get-TGDriverHint, Invoke-TGAuto

@@ -149,7 +149,7 @@ Test-Case 'PC Doctor window (XAML) loads' {
     Assert $m.Success 'XAML block not found'
     [xml]$x = $m.Groups[1].Value
     $win = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $x))
-    foreach ($n in 'FindingsList', 'StartupList', 'BloatList', 'FolderList', 'LogBox', 'Progress', 'TargetCombo', 'Win11List', 'AppList', 'TgList', 'TgDetail', 'TgSearch', 'StopBtn', 'LangMr', 'LangEn', 'RegList', 'RegInfo', 'OptCard', 'OptPanel', 'AskBox', 'AskResults', 'AiSettings', 'AiKey', 'AiProvider') {
+    foreach ($n in 'FindingsList', 'StartupList', 'BloatList', 'FolderList', 'LogBox', 'Progress', 'TargetCombo', 'Win11List', 'AppList', 'TgList', 'TgDetail', 'TgSearch', 'StopBtn', 'LangMr', 'LangEn', 'RegList', 'RegInfo', 'OptCard', 'OptPanel', 'AskBox', 'ChatPanel', 'ChatScroll', 'AskGoBtn', 'AiMode', 'AiStatus', 'AiSettings', 'AiKey', 'AiProvider') {
         Assert ($null -ne $win.FindName($n)) "element $n missing"
     }
     $win.Close()
@@ -163,7 +163,7 @@ Copy-Item (Join-Path $Kit '*') $fakeUsb -Recurse -Force
 $DataDir = Join-Path $fakeUsb 'Sanjeevani\PCDoctor\data'
 
 Test-Case 'Modules import' {
-    foreach ($m in 'Common', 'Diagnostics', 'Repair', 'Speed', 'Storage', 'Advisor', 'Report', 'ToolGuide', 'Integrity', 'Registry', 'Ask') {
+    foreach ($m in 'Common', 'Diagnostics', 'Repair', 'Speed', 'Storage', 'Advisor', 'Report', 'ToolGuide', 'Integrity', 'Registry', 'Ask', 'LocalAI', 'Troubleshoot') {
         Import-Module (Join-Path $fakeUsb "Sanjeevani\PCDoctor\lib\$m.psm1") -Force -DisableNameChecking
     }
     $ctx = Initialize-PDContext -UsbRoot $fakeUsb
@@ -186,7 +186,7 @@ Test-Case 'Tools guide: every tool has Marathi + English help and a valid check'
         foreach ($l in 'mr', 'en') { if (-not $v.$l.what) { $bad += "$($p.Name): $l.what" }; if (-not @($v.$l.steps).Count) { $bad += "$($p.Name): $l.steps" } }
         if ($v.risk -eq 'danger' -and -not @($v.mr.warn).Count) { $bad += "$($p.Name): dangerous tool without warnings" }
         if ($v.auto -and $v.auto -notlike 'pd:*' -and $v.auto -notin $handlers) { $bad += "$($p.Name): unknown check $($v.auto)" }
-        if ($v.auto -like 'pd:*' -and $v.auto.Substring(3) -notin 'speed', 'advisor', 'drivers', 'repair', 'storage') { $bad += "$($p.Name): unknown PC Doctor page" }
+        if ($v.auto -like 'pd:*' -and $v.auto.Substring(3) -notin 'speed', 'advisor', 'drivers', 'repair', 'storage', 'ask') { $bad += "$($p.Name): unknown PC Doctor page" }
     }
     Assert (-not $bad.Count) ($bad -join '; ')
 }
@@ -562,6 +562,78 @@ Test-Case 'Quick fixes run (DNS, printer queue, USB rescan, time, search)' {
         Write-Host ("      {0,-8} ok={1} {2}" -f $id, $r.Ok, $r.En) -ForegroundColor DarkGray
     }
     Assert ((Get-Service Spooler).Status -eq 'Running') 'print service not running after the printer fix'
+}
+
+Test-Case 'Assistant: every problem can be checked automatically (or is advice-only on purpose)' {
+    $guideOnly = 'password', 'data-recovery', 'reinstall', 'old-pc', 'remote', 'no-boot'
+    $have = Get-PDTroubleshootable
+    $miss = @((Get-PDProblems $DataDir) | Where-Object { $_.id -notin $have -and $_.id -notin $guideOnly } | ForEach-Object { $_.id })
+    Assert (-not $miss.Count) ('no automatic check for: ' + ($miss -join ', '))
+}
+
+Test-Case 'Assistant: each check runs on a real Windows and reports in English / Marathi / Hindi' {
+    $null = Initialize-PDContext -UsbRoot $fakeUsb
+    $global:PDState = [hashtable]::Synchronized(@{ Progress = -1; Status = ''; Cancel = $false })
+    $probs = Get-PDProblems $DataDir
+    $skip = 'corrupt-windows', 'apps-install', 'slow-pc', 'slow-boot', 'disk-100'     # long (SFC / full scan) - exercised elsewhere
+    $bad = @()
+    foreach ($id in (Get-PDTroubleshootable | Sort-Object)) {
+        if ($id -in $skip) { continue }
+        $t0 = Get-Date
+        try {
+            $r = Invoke-PDTroubleshoot -Ids @('__none__') -Problems $probs     # warm-up: unknown id is advice-only
+            $d = & (Get-Module Troubleshoot) { param($i) $script:D[$i] } $id
+            $c = & $d.Check
+            if ($c.Found -notin $true, $false, $null) { $bad += "${id}: Found=$($c.Found)" }
+            foreach ($l in 'en', 'mr', 'hi') { if (-not $c.Text.$l) { $bad += "${id}: no $l text" } }
+            Write-Host ("      {0,-16} found={1,-5} {2}s  {3}" -f $id, $c.Found, [math]::Round(((Get-Date) - $t0).TotalSeconds, 1), $c.Text.en) -ForegroundColor DarkGray
+        } catch { $bad += "${id}: $($_.Exception.Message)" }
+    }
+    Assert (-not $bad.Count) ($bad -join '; ')
+}
+
+Test-Case 'Assistant: finds a real fault, fixes it, confirms it, and skips candidates that are fine' {
+    $null = Initialize-PDContext -UsbRoot $fakeUsb
+    $probs = Get-PDProblems $DataDir
+    # 1. Windows Search stopped -> 'search' is fixed; 'disk-full' (fine on CI) is checked first and skipped
+    Set-Service WSearch -StartupType Manual -ErrorAction SilentlyContinue
+    Stop-Service WSearch -Force -ErrorAction SilentlyContinue
+    $r = Invoke-PDTroubleshoot -Ids @('disk-full', 'search') -Problems $probs
+    (Format-PDTroubleshoot $r 'en') | ForEach-Object { Write-Host "      $_" -ForegroundColor DarkGray }
+    Assert ($r.Issue.id -eq 'search' -and $r.Resolved) "search not fixed: $(Format-PDTroubleshoot $r 'en')"
+    Assert ((Get-Service WSearch).Status -eq 'Running') 'Search service not running after the fix'
+    Assert (@($r.Checked | Where-Object { $_.Id -eq 'disk-full' -and $_.Check.Found -eq $false }).Count -eq 1) 'fine candidate was not checked and skipped'
+    # 2. print service stopped
+    Stop-Service Spooler -Force
+    $r = Invoke-PDTroubleshoot -Ids @('printer') -Problems $probs
+    Assert ($r.Resolved -and (Get-Service Spooler).Status -eq 'Running') "printer not fixed: $(Format-PDTroubleshoot $r 'en')"
+    # 3. malware-style block of Task Manager
+    $pol = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\System'
+    if (-not (Test-Path $pol)) { New-Item $pol -Force | Out-Null }
+    New-ItemProperty -Path $pol -Name DisableTaskMgr -Value 1 -PropertyType DWord -Force | Out-Null
+    try {
+        $r = Invoke-PDTroubleshoot -Ids @('task-manager') -Problems $probs
+        Assert ($r.Resolved -and $null -eq (Get-ItemProperty $pol -Name DisableTaskMgr -ErrorAction SilentlyContinue)) "Task Manager block not removed: $(Format-PDTroubleshoot $r 'en')"
+        foreach ($l in 'en', 'mr', 'hi') { Assert (@(Format-PDTroubleshoot $r $l).Count -ge 3) "summary missing in $l" }
+    } finally { Remove-ItemProperty -Path $pol -Name DisableTaskMgr -ErrorAction SilentlyContinue }
+    # 4. nothing wrong -> clear answer, no changes
+    $r = Invoke-PDTroubleshoot -Ids @('disk-full') -Problems $probs
+    Assert (-not $r.Issue) 'a healthy PC was "fixed"'
+    Assert ((Format-PDTroubleshoot $r 'mr')[0] -match 'सापडली नाही') 'no-problem message missing'
+}
+
+Test-Case 'Assistant: understanding falls back to keywords; offline AI request is well formed (mocked)' {
+    $probs = Get-PDProblems $DataDir
+    $u = Resolve-PDProblemIds -Text 'printer print देत नाही' -Problems $probs -UsbRoot $fakeUsb -Mode 'basic' -Config ([pscustomobject]@{ key = '' })
+    Assert ($u.Source -eq 'basic' -and $u.Ids[0] -eq 'printer') "keyword fallback: $($u.Ids -join ',')"
+    $u = Resolve-PDProblemIds -Text 'net chalat nahi' -Problems $probs -UsbRoot $fakeUsb -Mode 'offline' -Config ([pscustomobject]@{ key = '' })
+    Assert ($u.Ids[0] -eq 'no-internet' -and ($u.Notes -join ' ') -match 'offline AI') 'missing offline AI must fall back with a note'
+    $script:lb = $null
+    $mock = { param($body) $script:lb = $body; '{"choices":[{"message":{"content":"{\"problem_ids\":[\"wifi\",\"bogus\"],\"understood_en\":\"wifi missing\"}"}}]}' }
+    $r = Invoke-PDLocalAIAsk -Text 'वायफाय दिसत नाही' -Problems $probs -Transport $mock
+    Assert (($r.ProblemIds -join ',') -eq 'wifi') "local answer: $($r.ProblemIds -join ',')"
+    $b = $script:lb | ConvertFrom-Json
+    Assert ($b.response_format.type -eq 'json_object' -and $b.messages[1].content -eq 'वायफाय दिसत नाही' -and $b.messages[0].content -match 'no-internet: ') 'local request malformed'
 }
 
 Test-Case 'Undo journal keeps every entry' {

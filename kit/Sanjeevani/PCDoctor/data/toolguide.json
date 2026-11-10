@@ -1461,6 +1461,52 @@
     ]
    }
   },
+  "llamacpp": {
+   "group": "apps",
+   "risk": "safe",
+   "mr": {
+    "what": "PC Doctor च्या Assistant चे offline AI इंजिन - internet शिवाय समस्या समजते.",
+    "when": "थेट उघडायची गरज नाही.",
+    "steps": [
+     "PC Doctor -> Assistant मध्ये समस्या लिहा."
+    ],
+    "good": "",
+    "warn": []
+   },
+   "en": {
+    "what": "The offline AI engine behind PC Doctor's Assistant - understands problems without internet.",
+    "when": "No need to open it directly.",
+    "steps": [
+     "Describe the problem in PC Doctor -> Assistant."
+    ],
+    "good": "",
+    "warn": []
+   },
+   "auto": "pd:ask"
+  },
+  "ai-model": {
+   "group": "apps",
+   "risk": "safe",
+   "mr": {
+    "what": "Google Gemma 4 E2B (Apache-2.0) - Assistant साठी मराठी / हिंदी / English समजणारे AI model.",
+    "when": "थेट उघडायची गरज नाही.",
+    "steps": [
+     "PC Doctor -> Assistant मध्ये समस्या लिहा."
+    ],
+    "good": "",
+    "warn": []
+   },
+   "en": {
+    "what": "Google Gemma 4 E2B (Apache-2.0) - the AI model that understands Marathi / Hindi / English for the Assistant.",
+    "when": "No need to open it directly.",
+    "steps": [
+     "Describe the problem in PC Doctor -> Assistant."
+    ],
+    "good": "",
+    "warn": []
+   },
+   "auto": "pd:ask"
+  },
   "rufus": {
    "group": "apps",
    "risk": "danger",

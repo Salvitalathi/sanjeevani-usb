@@ -918,6 +918,34 @@
         "url": "https://www.nirsoft.net/utils/produkey-x64.zip"
       },
       "page": "https://www.nirsoft.net/utils/product_cd_key_viewer.html"
+    },
+    {
+      "id": "llamacpp",
+      "name": "llama.cpp (offline AI engine)",
+      "category": "AI",
+      "desc": "PC Doctor Assistant चे offline AI इंजिन (MIT license)",
+      "exe": "^llama-server\\.exe$",
+      "source": {
+        "kind": "github",
+        "repo": "ggml-org/llama.cpp",
+        "asset": "llama-b\\d+-bin-win-cpu-x64\\.zip$"
+      },
+      "page": "https://github.com/ggml-org/llama.cpp",
+      "refreshDays": 60
+    },
+    {
+      "id": "ai-model",
+      "name": "Gemma 4 E2B (offline AI model)",
+      "category": "AI",
+      "desc": "Google Gemma 4 E2B, Apache-2.0 - मराठी / हिंदी / English समजणारे offline AI model",
+      "file": "gemma-4-E2B-it-Q4_K_M.gguf",
+      "exe": "\\.gguf$",
+      "sizeMB": 3200,
+      "source": {
+        "kind": "url",
+        "url": "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf"
+      },
+      "page": "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF"
     }
   ],
   "docs": [

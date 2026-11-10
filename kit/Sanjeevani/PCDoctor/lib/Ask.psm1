@@ -230,5 +230,42 @@ function Invoke-PDAiAsk {
     return $r
 }
 
-Export-ModuleMember -Function Get-PDProblems, Test-PDKeyword, Find-PDProblem, Invoke-PDQuickFix, Get-PDAiConfig, Save-PDAiConfig,
+# ------------------------------------------------------------------ understanding the problem (AI or keywords)
+# Mode: auto | online | offline | basic.  Auto = online AI if a key is set, else offline AI if it is on the USB
+# and this PC has the RAM, and always the keyword matcher as the final fallback. Returns ranked problem ids.
+function Resolve-PDProblemIds {
+    param([Parameter(Mandatory)][string]$Text, [Parameter(Mandatory)][object[]]$Problems, [Parameter(Mandatory)][string]$UsbRoot,
+        [string]$Mode = 'auto', [string]$PcInfo, $Config)
+    $notes = @(); $ids = @(); $source = 'basic'; $model = $null; $und = $null
+    if (-not $Config) { $Config = Get-PDAiConfig $UsbRoot }
+    if ($Mode -in 'auto', 'online' -and $Config.key) {
+        try {
+            Write-PDLog 'Online AI ला समस्या समजावत आहे...' 'STEP'
+            $r = Invoke-PDAiAsk -Text $Text -Config $Config -Problems $Problems -PcInfo $PcInfo
+            $ids = @($r.ProblemIds); $source = 'online'; $model = $r.Model; $und = $r.UnderstoodEn
+        } catch { $notes += "online AI: $($_.Exception.Message)" }
+    }
+    if (-not $ids.Count -and $Mode -in 'auto', 'offline' -and (Get-Command Find-PDLocalAI -ErrorAction SilentlyContinue)) {
+        $ai = Find-PDLocalAI $UsbRoot
+        if ($ai) {
+            $fit = Test-PDLocalAIFit $ai
+            if ($fit.Ok) {
+                try {
+                    Write-PDLog 'Offline AI सुरू करत आहे (पहिल्यांदा 30-90 सेकंद)...' 'STEP'
+                    Set-PDProgress -1 'Offline AI'
+                    $r = Invoke-PDLocalAIAsk -Text $Text -Problems $Problems -Ai $ai
+                    $ids = @($r.ProblemIds); $source = 'offline'; $model = $r.Model; $und = $r.UnderstoodEn
+                } catch { $notes += "offline AI: $($_.Exception.Message)" }
+            } else { $notes += "offline AI: $($fit.Why)" }
+        } elseif ($Mode -eq 'offline') { $notes += 'offline AI is not on this USB (run UPDATE.cmd and answer Y to "offline AI")' }
+    }
+    # keyword matches always join in as further candidates
+    $kw = @(Find-PDProblem -Text $Text -Problems $Problems -Max 3 | ForEach-Object { $_.Problem.id })
+    if (-not $ids.Count -and $kw.Count) { $source = 'basic' }
+    $all = @($ids + $kw | Select-Object -Unique | Select-Object -First 4)
+    foreach ($n in $notes) { Write-PDLog $n 'WARN' }
+    return [pscustomobject]@{ Ids = $all; Source = $source; Model = $model; UnderstoodEn = $und; Notes = $notes }
+}
+
+Export-ModuleMember -Function Resolve-PDProblemIds, Get-PDProblems, Test-PDKeyword, Find-PDProblem, Invoke-PDQuickFix, Get-PDAiConfig, Save-PDAiConfig,
     New-PDAiPrompt, ConvertFrom-PDAiAnswer, Invoke-PDAiAsk, Invoke-PDHttpJson

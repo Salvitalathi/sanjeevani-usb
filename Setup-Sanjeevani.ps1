@@ -19,6 +19,7 @@ param(
     [switch]$WithWindows,         # also download the Windows 11 ISO (~7.5 GB)
     [switch]$WithMint,            # also download Linux Mint XFCE (~3 GB)
     [switch]$WithDrivers,         # also download ALL Snappy Driver Installer driver packs (~70 GB, offline drivers)
+    [switch]$WithAI,              # also download the offline AI for PC Doctor's Assistant (llama.cpp + Gemma 4 E2B, ~3.2 GB)
     [switch]$SkipDownloads,
     [string[]]$Only,              # only these ids, e.g. -Only hbcd,cpuz
     [switch]$ResolveOnly,         # CI / check: only find the latest download link of every item, download nothing
@@ -533,6 +534,10 @@ if (-not $SkipDownloads -and -not $Only) {
         $c = Read-Host '    Also download Linux Mint XFCE for old PCs (~3 GB)? Y/N'
         $WithMint = $c -match '^[Yy]'
     }
+    if (-not $WithAI -and -not ($installed['ai-model'])) {
+        $c = Read-Host '    Also download the offline AI for PC Doctor''s Assistant - understands problems in Marathi / Hindi / English without internet (~3.2 GB, needs a PC with 6 GB+ RAM)? Y/N'
+        $WithAI = $c -match '^[Yy]'
+    }
     $sdioDrv = Join-Path $UsbRoot 'Tools\Drivers\Snappy Driver Installer Origin\drivers'
     if (-not $WithDrivers -and -not (Test-Path $sdioDrv)) {
         $c = Read-Host '    Also download ALL offline driver packs for any PC (~70 GB; needs ~145 GB free while downloading, so a 256 GB pendrive; takes hours)? Y/N'
@@ -544,6 +549,7 @@ function Test-Wanted($e) {
     if ($Only) { return ($Only -contains $e.id) }
     if ($e.id -eq 'win11') { return ($WithWindows -or [bool]$installed['win11']) }
     if ($e.id -eq 'mint-xfce') { return ($WithMint -or [bool]$installed['mint-xfce']) }
+    if ($e.id -in 'llamacpp', 'ai-model') { return ($WithAI -or [bool]$installed[$e.id]) }
     return $true
 }
 
