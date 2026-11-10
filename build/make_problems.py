@@ -1,4 +1,4 @@
-"""Writes kit/Sanjeevani/PCDoctor/data/problems.json - the common PC problems PC Doctor's
+﻿"""Writes kit/Sanjeevani/PCDoctor/data/problems.json - the common PC problems PC Doctor's
 "समस्या सांगा" (describe your problem) page understands, in Marathi, English and Roman Marathi.
 
 Per problem:
@@ -316,6 +316,13 @@ p('browser',
   T('Browser acting strange (homepage changed, redirects, ads)', 'Adware / unwanted extensions, a proxy setting.',
     ['Remove adware with AdwCleaner.', 'Check the browser extensions, remove unwanted ones; reset settings.', 'If the registry check finds a proxy, switch it off.']),
   [{'t': 'tool', 'id': 'adwcleaner'}, {'t': 'fix', 'id': 'registry'}, {'t': 'tg', 'id': 'msert'}])
+p('auto-open',
+  ['आपोआप उघड', 'apoap ughad', 'aapoaap', 'आपोआप सुरू', 'auto open', 'opens by itself', 'open by themselves', 'opening automatically', 'आपोआप चालू', 'स्वतःहून उघड', 'files open', 'website open hote', 'आपोआप website', 'pop up window', 'cmd window'],
+  T('Programs / files / websites आपोआप उघडतात', 'Startup मध्ये लपलेले script, scheduled task किंवा adware; कधी कधी एखादा normal app पण.',
+    ['Assistant आपोआप startup, scheduled tasks आणि virus scan तपासतो.', 'Speed page → Startup मध्ये अनोळखी programs बंद करा.', 'AdwCleaner ने adware काढा.']),
+  T('Programs / files / websites open by themselves', 'A hidden script in startup, a scheduled task or adware; sometimes an ordinary app.',
+    ['The Assistant checks startup, scheduled tasks and runs a virus scan automatically.', 'Speed page → Startup: turn off unknown programs.', 'Remove adware with AdwCleaner.']),
+  [{'t': 'tool', 'id': 'adwcleaner'}, {'t': 'fix', 'id': 'registry'}, {'t': 'tg', 'id': 'msert'}])
 p('task-manager',
   ['task manager', 'टास्क मॅनेजर', 'regedit', 'registry editor', 'cmd band', 'command prompt disabled', 'disabled by administrator', 'administrator ne band'],
   T('Task Manager / Regedit / CMD "administrator ने बंद केले"', 'बहुतेक virus ने केलेले policy बदल.',
@@ -500,6 +507,9 @@ HI = {
      ['"Virus scan" (Microsoft Safety Scanner) - सिर्फ़ पहचान, मिले हुए को हटाने का तरीका बताता है।',
       '"Registry जाँच" - virus द्वारा बदले Task Manager, Defender और settings वापस लाता है।',
       'Antivirus (Defender) चालू करें।', 'Virus Windows में scan रोके तो USB से boot → Kaspersky Rescue Disk.'])),
+ 'auto-open': (['अपने आप खुल', 'apne aap khul', 'खुद खुल', 'khud khul', 'अपने आप चालू', 'अपने आप website'],
+   T('Programs / files / websites अपने आप खुलते हैं', 'Startup में छुपा script, scheduled task या adware; कभी-कभी कोई सामान्य app भी।',
+     ['Assistant अपने आप startup, scheduled tasks जाँचता है और virus scan करता है।', 'Speed page → Startup में अनजान programs बंद करें।', 'AdwCleaner से adware हटाएँ।'])),
  'browser': (['ब्राउज़र', 'homepage बदल', 'browser में ads'],
    T('Browser अजीब चल रहा है (homepage बदला, redirect, ads)', 'Adware / अनचाहे extensions, proxy setting.',
      ['AdwCleaner से adware हटाएँ।', 'Browser के extensions देखें, अनचाहे हटाएँ; settings reset करें।', 'Registry जाँच में proxy दिखे तो बंद करें।'])),

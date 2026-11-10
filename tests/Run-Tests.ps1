@@ -641,7 +641,22 @@ Test-Case 'Assistant: finds a real fault, fixes it, confirms it, and skips candi
     # 4. nothing wrong -> clear answer, no changes
     $r = Invoke-PDTroubleshoot -Ids @('disk-full') -Problems $probs
     Assert (-not $r.Issue) 'a healthy PC was "fixed"'
-    Assert ((Format-PDTroubleshoot $r 'mr')[0] -match 'सापडली नाही') 'no-problem message missing'
+    Assert ($r.Outcome -eq 'notfound') "outcome should be notfound, got $($r.Outcome)"
+    Assert ((Format-PDTroubleshoot $r 'mr')[0] -match 'आढळला नाही') 'no-problem message missing (mr)'
+    Assert ((Format-PDTroubleshoot $r 'en')[0] -match 'no such problem') 'no-problem message missing (en)'
+    foreach ($l in 'en', 'mr', 'hi') {
+        $txt = (Format-PDTroubleshoot $r $l) -join ' '
+        Assert ($txt -match [regex]::Escape(($probs | Where-Object id -eq 'disk-full').$l.title)) "checked list missing in $l"
+        Assert ((Get-PDTroubleshootSpeech $r $l).Length -gt 10) "no spoken summary in $l"
+    }
+    # 5. a problem that is not on this PC is never reported as solved
+    foreach ($id in 'time', 'display', 'activation', 'auto-open') {
+        $r = Invoke-PDTroubleshoot -Ids @($id) -Problems $probs
+        Write-Host ("      {0,-12} outcome={1}" -f $id, $r.Outcome) -ForegroundColor DarkGray
+        if (-not $r.Issue) { Assert ($r.Outcome -eq 'notfound' -and -not $r.Resolved) "$id claims success without a problem" }
+    }
+    # 6. Marathi / Hindi summaries carry no English sentences from the checks
+    foreach ($c in $r.Checked) { Assert ($c.Check.Text.mr -ne $c.Check.Text.en -or $c.Check.Text.en -notmatch '\b(the|is|was|and)\b') "English text inside Marathi: $($c.Check.Text.mr)" }
 }
 
 Test-Case 'Assistant: understanding falls back to keywords; offline AI request is well formed (mocked)' {

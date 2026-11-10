@@ -1995,6 +1995,73 @@
    }
   },
   {
+   "id": "auto-open",
+   "kw": [
+    "आपोआप उघड",
+    "apoap ughad",
+    "aapoaap",
+    "आपोआप सुरू",
+    "auto open",
+    "opens by itself",
+    "open by themselves",
+    "opening automatically",
+    "आपोआप चालू",
+    "स्वतःहून उघड",
+    "files open",
+    "website open hote",
+    "आपोआप website",
+    "pop up window",
+    "cmd window",
+    "अपने आप खुल",
+    "apne aap khul",
+    "खुद खुल",
+    "khud khul",
+    "अपने आप चालू",
+    "अपने आप website"
+   ],
+   "mr": {
+    "title": "Programs / files / websites आपोआप उघडतात",
+    "why": "Startup मध्ये लपलेले script, scheduled task किंवा adware; कधी कधी एखादा normal app पण.",
+    "steps": [
+     "Assistant आपोआप startup, scheduled tasks आणि virus scan तपासतो.",
+     "Speed page → Startup मध्ये अनोळखी programs बंद करा.",
+     "AdwCleaner ने adware काढा."
+    ]
+   },
+   "en": {
+    "title": "Programs / files / websites open by themselves",
+    "why": "A hidden script in startup, a scheduled task or adware; sometimes an ordinary app.",
+    "steps": [
+     "The Assistant checks startup, scheduled tasks and runs a virus scan automatically.",
+     "Speed page → Startup: turn off unknown programs.",
+     "Remove adware with AdwCleaner."
+    ]
+   },
+   "actions": [
+    {
+     "t": "tool",
+     "id": "adwcleaner"
+    },
+    {
+     "t": "fix",
+     "id": "registry"
+    },
+    {
+     "t": "tg",
+     "id": "msert"
+    }
+   ],
+   "hi": {
+    "title": "Programs / files / websites अपने आप खुलते हैं",
+    "why": "Startup में छुपा script, scheduled task या adware; कभी-कभी कोई सामान्य app भी।",
+    "steps": [
+     "Assistant अपने आप startup, scheduled tasks जाँचता है और virus scan करता है।",
+     "Speed page → Startup में अनजान programs बंद करें।",
+     "AdwCleaner से adware हटाएँ।"
+    ]
+   }
+  },
+  {
    "id": "task-manager",
    "kw": [
     "task manager",

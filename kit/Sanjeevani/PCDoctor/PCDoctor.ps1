@@ -2021,9 +2021,15 @@ function Show-AskResult($o) {
     $src = switch ($o.U.Source) { 'online' { "Online AI · $($o.U.Model)" } 'offline' { "Offline AI · $($o.U.Model)" } default { 'Basic matching' } }
     $head = New-Object Windows.Controls.WrapPanel; $head.Margin = '0,0,0,8'
     [void]$head.Children.Add((New-Badge $src '#334155'))
-    if ($o.R -and $o.R.Issue) {
-        $ok = $o.R.Resolved
-        [void]$head.Children.Add((New-Badge $(if ($ok -and -not $o.R.Restart) { '✔ ' + (L 'Solved' 'दुरुस्त झाले' 'ठीक हो गया') } elseif ($o.R.Restart) { '↻ ' + (L 'Restart needed' 'Restart लागेल' 'Restart चाहिए') } else { '⚠ ' + (L 'Needs you' 'तुमची मदत लागेल' 'आपकी मदद चाहिए') }) $(if ($ok) { '#16A34A' } else { '#D97706' })))
+    if ($o.R) {
+        $oc = if ($o.R.PSObject.Properties['Outcome']) { $o.R.Outcome } elseif ($o.R.Issue) { if ($o.R.Restart) { 'restart' } elseif ($o.R.Resolved) { 'fixed' } else { 'manual' } } else { 'notfound' }
+        $bd = switch ($oc) {
+            'fixed' { @(('✔ ' + (L 'Solved' 'दुरुस्त झाले' 'ठीक हो गया')), '#16A34A') }
+            'restart' { @(('↻ ' + (L 'Restart needed' 'Restart लागेल' 'Restart चाहिए')), '#0EA5E9') }
+            'notfound' { @(('✓ ' + (L 'No such problem found' 'असा issue आढळला नाही' 'ऐसी कोई समस्या नहीं मिली')), '#475569') }
+            default { @(('⚠ ' + (L 'Needs you' 'तुमची मदत लागेल' 'आपकी मदद चाहिए')), '#D97706') }
+        }
+        [void]$head.Children.Add((New-Badge $bd[0] $bd[1]))
     }
     [void]$sp.Children.Add($head)
     if (-not $o.R) {
@@ -2477,7 +2483,7 @@ if ($Headless) {
             $me = New-Bubble $true; Add-BubbleText $me (@{ en = 'printer is not printing'; mr = 'printer print देत नाही'; hi = 'printer print नहीं कर रहा' }[$Lang]) 15 '#FFFFFF'
             $sp = New-Bubble $false
             $demo = [pscustomobject]@{ U = [pscustomobject]@{ Source = 'offline'; Model = 'gemma-4-E2B-it'; Notes = @(); Ids = @('printer') }
-                R = [pscustomobject]@{ Issue = $null; Resolved = $true; Restart = $false }
+                R = [pscustomobject]@{ Issue = $null; Resolved = $true; Restart = $false; Outcome = 'fixed' }
                 en = @('Issue: Printer not printing - the print service had stopped.', 'What was done: removed 2 stuck print jobs and restarted the print service.', 'Result: ✔ fixed - the print service is running and the queue is clear.')
                 mr = @('समस्या: Printer print देत नाही - print service बंद होती.', 'काय केले: अडकलेले 2 print jobs काढले आणि print service पुन्हा सुरू केली.', 'निकाल: ✔ दुरुस्त - print service चालू आहे आणि queue रिकामी आहे.')
                 hi = @('समस्या: Printer print नहीं कर रहा - print service बंद थी।', 'क्या किया: अटके 2 print jobs हटाए और print service फिर शुरू की।', 'नतीजा: ✔ ठीक - print service चल रही है और queue खाली है।') }
