@@ -145,8 +145,11 @@ Test-Case 'Boot menu config: no \u0026 escapes, per-tool icons win' {
 Test-Case 'PC Doctor window builds and shows every page in English, Marathi and Hindi' {
     $ps1 = Join-Path $Kit 'Sanjeevani\PCDoctor\PCDoctor.ps1'
     foreach ($l in 'en', 'mr', 'hi') {
-        $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File $ps1 -SelfTest -Lang $l 2>&1 | Out-String
-        Assert ($LASTEXITCODE -eq 0 -and $out -match "SELFTEST OK \($l\)") "PC Doctor ($l): $out"
+        $log = Join-Path $env:TEMP "pcd-selftest-$l.txt"
+        $p = Start-Process powershell.exe -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-File', "`"$ps1`"", '-SelfTest', '-Lang', $l) -RedirectStandardOutput $log -PassThru -WindowStyle Hidden
+        if (-not $p.WaitForExit(180000)) { $p.Kill(); throw "PC Doctor ($l) self-test hung" }
+        $out = Get-Content $log -Raw
+        Assert ($p.ExitCode -eq 0 -and $out -match "SELFTEST OK \($l\)") "PC Doctor ($l): $out"
     }
     $true
 }

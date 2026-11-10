@@ -9,6 +9,9 @@ on:
       - 'kit/Sanjeevani/PCDoctor/**'
       - '.github/workflows/ui.yml'
 
+permissions:
+  contents: write
+
 jobs:
   screenshots:
     runs-on: windows-latest
@@ -26,6 +29,16 @@ jobs:
           }
           Get-ChildItem shots | Select-Object Name, Length | Format-Table | Out-String | Write-Host
           if ($bad) { exit 1 }
+      - name: Publish to the ui-shots branch (viewable without downloading artifacts)
+        if: always()
+        shell: bash
+        run: |
+          [ -d shots ] || exit 0
+          cd shots
+          git init -q -b ui-shots
+          git config user.name "github-actions"; git config user.email "github-actions@users.noreply.github.com"
+          git add -A && git commit -qm "PC Doctor screenshots for ${GITHUB_SHA::7}"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" ui-shots
       - uses: actions/upload-artifact@v4
         if: always()
         with:

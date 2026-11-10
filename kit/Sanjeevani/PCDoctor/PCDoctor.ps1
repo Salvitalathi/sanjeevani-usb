@@ -37,6 +37,7 @@ try {
     foreach ($m in $Modules) { Import-Module $m -Force -DisableNameChecking -ErrorAction Stop }
     $null = Initialize-PDContext -UsbRoot $UsbRoot
 } catch {
+    if ($Headless) { Write-Host "SELFTEST FAILED: $($_.Exception.Message)"; exit 1 }
     [System.Windows.MessageBox]::Show("PC Doctor could not start / सुरू होऊ शकला नाही:`n$($_.Exception.Message)", 'Sanjeevani PC Doctor', 'OK', 'Error') | Out-Null
     exit 1
 }

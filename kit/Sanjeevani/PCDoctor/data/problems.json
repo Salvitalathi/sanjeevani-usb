@@ -20,7 +20,12 @@
     "website open hot nahi",
     "website उघडत नाही",
     "वेबसाईट",
-    "browsing"
+    "browsing",
+    "इंटरनेट नहीं",
+    "नेट नहीं चल रहा",
+    "net nahi chal raha",
+    "internet nahi chal raha",
+    "वेबसाइट नहीं खुल रही"
    ],
    "mr": {
     "title": "Internet चालत नाही",
@@ -59,7 +64,17 @@
      "t": "fix",
      "id": "registry"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Internet नहीं चल रहा",
+    "why": "Router / ISP बंद, गलत network settings, खराब DNS, virus का लगाया proxy, या network driver.",
+    "steps": [
+     "पहले देखें: उसी WiFi पर mobile में internet है? नहीं है तो router / ISP की समस्या है - router 30 सेकंड बंद करके चालू करें।",
+     "\"Internet जाँचें\" दबाएँ - router, internet और DNS में से कहाँ अटकता है पता चलेगा।",
+     "सिर्फ़ यही PC अटके तो \"Network reset\" करें और PC restart करें।",
+     "Registry जाँच में proxy दिखे तो उसे बंद करें।"
+    ]
+   }
   },
   {
    "id": "wifi",
@@ -78,7 +93,12 @@
     "wifi option",
     "airplane",
     "विमान mode",
-    "wifi connect"
+    "wifi connect",
+    "वाईफाई",
+    "वाई-फाई",
+    "wifi nahi dikh raha",
+    "wifi नहीं दिख रहा",
+    "wifi connect नहीं"
    ],
    "mr": {
     "title": "WiFi दिसत नाही / connect होत नाही",
@@ -113,7 +133,17 @@
      "t": "settings",
      "id": "ms-settings:network-wifi"
     }
-   ]
+   ],
+   "hi": {
+    "title": "WiFi नहीं दिख रहा / connect नहीं हो रहा",
+    "why": "WiFi switch / airplane mode, WLAN service बंद, WiFi driver नहीं या खराब, गलत password.",
+    "steps": [
+     "Keyboard की WiFi key (Fn + F2/F12) और Airplane mode बंद है या नहीं देखें।",
+     "\"WiFi मरम्मत\" दबाएँ - WLAN service और बंद network adapters चालू करता है।",
+     "WiFi का विकल्प ही न दिखे तो driver नहीं है - \"Drivers जाँचें\" (pendrive के driver packs से बिना internet install होता है)।",
+     "Connect न हो तो network \"Forget\" करके फिर password डालें।"
+    ]
+   }
   },
   {
    "id": "slow-internet",
@@ -140,7 +170,14 @@
     "wifi+slow",
     "internet+halu",
     "इंटरनेट+हळू",
-    "internet+drop"
+    "internet+drop",
+    "नेट धीमा",
+    "इंटरनेट धीमा",
+    "net dheema",
+    "internet dheema",
+    "net+धीमा",
+    "internet+धीमा",
+    "net baar baar kat"
    ],
    "mr": {
     "title": "Internet हळू / मध्येच तुटते",
@@ -175,7 +212,17 @@
      "t": "tg",
      "id": "msert"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Internet धीमा / बीच में कटता है",
+    "why": "कमज़ोर WiFi signal, router दूर, ISP, background में updates / downloads, adware.",
+    "steps": [
+     "\"Internet जाँचें\" से packet loss और speed देखें।",
+     "Router के पास जाकर जाँचें; हो सके तो LAN cable लगाएँ।",
+     "Background के downloads (Windows Update, torrent) रोकें।",
+     "Ads / popups आते हों तो virus जाँच करें।"
+    ]
+   }
   },
   {
    "id": "lan",
@@ -188,7 +235,9 @@
     "lan cable",
     "network cable",
     "unidentified network",
-    "limited"
+    "limited",
+    "लैन",
+    "केबल internet"
    ],
    "mr": {
     "title": "LAN / cable internet चालत नाही",
@@ -223,7 +272,17 @@
      "t": "repair",
      "id": "drivers"
     }
-   ]
+   ],
+   "hi": {
+    "title": "LAN / cable internet नहीं चल रहा",
+    "why": "Cable / router port, LAN driver, IP नहीं मिलता (unidentified network).",
+    "steps": [
+     "Cable दोनों तरफ़ ठीक से लगाएँ; router के दूसरे port में लगाकर देखें।",
+     "\"Internet जाँचें\" दबाएँ।",
+     "\"Unidentified network\" हो तो \"Network reset\" करें।",
+     "LAN adapter न दिखे तो \"Drivers जाँचें\"।"
+    ]
+   }
   },
   {
    "id": "slow-pc",
@@ -252,7 +311,16 @@
     "फ्रीज",
     "speed vadhva",
     "वेग",
-    "fast kara"
+    "fast kara",
+    "धीमा",
+    "धीरे",
+    "dheema",
+    "dheere",
+    "pc+धीमा",
+    "laptop+धीमा",
+    "computer+धीमा",
+    "अटकता",
+    "हैंग"
    ],
    "mr": {
     "title": "PC / Laptop हळू चालतो, hang होतो",
@@ -290,7 +358,17 @@
      "t": "tg",
      "id": "msert"
     }
-   ]
+   ],
+   "hi": {
+    "title": "PC / laptop धीमा है या hang होता है",
+    "why": "बहुत सारे startup programs, junk, कम RAM, पुरानी HDD, भरी हुई disk, virus या खराब होती disk.",
+    "steps": [
+     "\"One-Click Optimize\" दबाएँ - junk साफ़, startup कम, bloatware हटाना, सही settings (पहले restore point)।",
+     "Scan page पर देखें score 100 क्यों नहीं - RAM / SSD की सलाह वहीं है।",
+     "Disk की सेहत जाँचें - खराब होती disk से PC बहुत धीमा होता है।",
+     "Virus scan करें।"
+    ]
+   }
   },
   {
    "id": "slow-boot",
@@ -304,7 +382,10 @@
     "on vhayla",
     "login slow",
     "start व्हायला",
-    "सुरु होण्यास"
+    "सुरु होण्यास",
+    "देर से शुरू",
+    "शुरू होने में देर",
+    "start hone me time"
    ],
    "mr": {
     "title": "PC सुरू व्हायला खूप वेळ लागतो",
@@ -337,7 +418,16 @@
      "t": "repair",
      "id": "wu"
     }
-   ]
+   ],
+   "hi": {
+    "title": "PC शुरू होने में बहुत समय लगता है",
+    "why": "बहुत सारे startup programs, HDD, अटके updates.",
+    "steps": [
+     "\"स्पीड बढ़ाएँ\" page पर startup programs बंद करें (सुझाए गए पहले से चुने हैं)।",
+     "HDD हो तो SSD के बारे में सोचें।",
+     "Updates अटके हों तो \"Windows Update मरम्मत\"।"
+    ]
+   }
   },
   {
    "id": "disk-full",
@@ -356,7 +446,11 @@
     "c ड्राइव्ह",
     "red bar",
     "जागा कमी",
-    "space"
+    "space",
+    "जगह नहीं",
+    "भर गया",
+    "c drive भर",
+    "jagah nahi"
    ],
    "mr": {
     "title": "C: drive भरला / जागा नाही",
@@ -388,7 +482,16 @@
      "t": "tg",
      "id": "wiztree"
     }
-   ]
+   ],
+   "hi": {
+    "title": "C: drive भर गया",
+    "why": "Downloads, videos, पुराने updates, Windows.old, temp files, browser cache.",
+    "steps": [
+     "\"One-Click Optimize\" junk साफ़ करता है और बताता है कितनी जगह खाली हुई।",
+     "\"C: drive जगह\" page - बड़े folders सुरक्षित रूप से D: पर ले जाएँ (Undo के साथ)।",
+     "सबसे बड़े folders देखें (WizTree)।"
+    ]
+   }
   },
   {
    "id": "disk-100",
@@ -431,7 +534,16 @@
      "t": "tg",
      "id": "cpuz"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Disk 100% पर",
+    "why": "Windows HDD पर, updates / antivirus scan, खराब होती disk, कम RAM.",
+    "steps": [
+     "Disk की सेहत जाँचें।",
+     "One-Click Optimize (services और startup कम करता है)।",
+     "HDD हो तो SSD ही स्थायी उपाय है।"
+    ]
+   }
   },
   {
    "id": "bsod",
@@ -449,7 +561,12 @@
     "restart hoto",
     "आपोआप restart",
     "apoaap restart",
-    "automatic restart"
+    "automatic restart",
+    "नीली स्क्रीन",
+    "नीला स्क्रीन",
+    "neeli screen",
+    "blue screen आती",
+    "अपने आप restart"
    ],
    "mr": {
     "title": "Blue screen येऊन restart होतो",
@@ -488,7 +605,17 @@
      "t": "repair",
      "id": "offline-info"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Blue screen आकर restart होता है",
+    "why": "खराब / पुराना driver (display, WiFi), खराब RAM, खराब होती disk, ज़्यादा गर्मी.",
+    "steps": [
+     "\"Blue screen का कारण\" दबाएँ - driver का नाम और क्या करना है बताता है।",
+     "RAM test करें।",
+     "Disk की सेहत जाँचें।",
+     "Windows शुरू न हो तो USB से boot करके PC Doctor Rescue इस्तेमाल करें।"
+    ]
+   }
   },
   {
    "id": "overheat",
@@ -508,7 +635,10 @@
     "fan awaj",
     "fan noise",
     "fan जोरात",
-    "thermal"
+    "thermal",
+    "गर्म",
+    "बहुत गर्म",
+    "fan आवाज़"
    ],
    "mr": {
     "title": "Laptop / PC खूप गरम होतो, fan जोरात",
@@ -543,7 +673,17 @@
      "t": "tool",
      "id": "procexp"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Laptop / PC बहुत गर्म होता है, fan तेज़ चलता है",
+    "why": "Fan / heatsink में धूल, पुराना thermal paste, बंद vents, भारी background program या virus.",
+    "steps": [
+     "\"तापमान जाँचें\" - HWiNFO सीधे sensors में खुलता है और यह page बताता है क्या देखना है।",
+     "Laptop सख्त सतह पर रखें (बिस्तर / तकिए पर नहीं)।",
+     "80-90°C+ हो तो fan / heatsink साफ़ करें और thermal paste बदलें।",
+     "मरम्मत के बाद 10 मिनट के stress test से पक्का करें।"
+    ]
+   }
   },
   {
    "id": "shutdown",
@@ -558,7 +698,8 @@
     "अचानक बंद",
     "achanak band",
     "power off",
-    "बंद होतो"
+    "बंद होतो",
+    "अपने आप बंद"
    ],
    "mr": {
     "title": "PC अचानक बंद पडतो (blue screen शिवाय)",
@@ -595,7 +736,16 @@
      "t": "tg",
      "id": "prime95"
     }
-   ]
+   ],
+   "hi": {
+    "title": "PC अचानक बंद हो जाता है (blue screen नहीं)",
+    "why": "ज़्यादा गर्मी, power supply / charger / battery, RAM.",
+    "steps": [
+     "Crash इतिहास देखें - blue screen या सीधे बिजली जाना।",
+     "तापमान जाँचें; stress test चलाएँ।",
+     "Laptop: battery और charger; desktop: power supply."
+    ]
+   }
   },
   {
    "id": "battery",
@@ -611,7 +761,11 @@
     "बॅकअप कमी",
     "battery lavkar sampte",
     "battery drain",
-    "plugged in not charging"
+    "plugged in not charging",
+    "बैटरी",
+    "चार्ज नहीं",
+    "battery jaldi",
+    "battery जल्दी खत्म"
    ],
    "mr": {
     "title": "Battery लवकर संपते / charge होत नाही",
@@ -640,7 +794,16 @@
      "t": "settings",
      "id": "ms-settings:batterysaver"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Battery जल्दी खत्म होती है / charge नहीं होती",
+    "why": "पुरानी battery (घिसाव), charger, battery driver, ज़्यादा brightness / background programs.",
+    "steps": [
+     "\"Battery जाँचें\" - घिसाव दिखाता है (40%+ = बदलें)।",
+     "\"Plugged in, not charging\" हो तो: बंद करें, charger निकालें, power button 1 मिनट दबाए रखें, फिर चालू करें।",
+     "Battery saver इस्तेमाल करें और brightness कम करें।"
+    ]
+   }
   },
   {
    "id": "windows-update",
@@ -654,7 +817,9 @@
     "update fail",
     "updates install hot nahi",
     "0x80",
-    "pending"
+    "pending",
+    "update अटका",
+    "update atak"
    ],
    "mr": {
     "title": "Windows Update अडकले / error येतो",
@@ -686,7 +851,16 @@
      "t": "repair",
      "id": "os"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Windows Update अटका / fail हो रहा है",
+    "why": "खराब update cache, disk में कम जगह, खराब system files.",
+    "steps": [
+     "C: पर कम से कम 20 GB खाली रखें (One-Click Optimize)।",
+     "\"Windows Update मरम्मत\" - update components reset करता है।",
+     "फिर भी fail हो तो \"Windows system files मरम्मत\" (DISM + SFC)।"
+    ]
+   }
   },
   {
    "id": "corrupt-windows",
@@ -704,7 +878,10 @@
     "application error",
     "programs band padtat",
     "apps crash",
-    "program crash"
+    "program crash",
+    "dll नहीं",
+    "error आता",
+    "program बंद हो जाता"
    ],
    "mr": {
     "title": "Windows / programs मध्ये errors, DLL missing, apps बंद पडतात",
@@ -737,7 +914,16 @@
      "t": "tg",
      "id": "msert"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Windows / program errors, DLL नहीं मिलती, apps बंद हो जाते हैं",
+    "why": "खराब system files, अधूरा update, virus, disk errors.",
+    "steps": [
+     "\"Windows system files मरम्मत\" (DISM + SFC) - 15-40 मिनट।",
+     "Disk के errors जाँचें।",
+     "Virus scan."
+    ]
+   }
   },
   {
    "id": "no-boot",
@@ -764,7 +950,11 @@
     "logo+अडकतो",
     "windows+सुरू होत नाही",
     "chalu hot nahi",
-    "चालू होत नाही"
+    "चालू होत नाही",
+    "शुरू नहीं होता",
+    "चालू नहीं होता",
+    "logo पर अटका",
+    "windows nahi khul raha"
    ],
    "mr": {
     "title": "Windows सुरूच होत नाही / logo वर अडकतो",
@@ -793,7 +983,16 @@
      "t": "tool",
      "id": "hbcd"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Windows शुरू नहीं होता / logo पर अटका रहता है",
+    "why": "खराब boot files, खराब update, disk errors, खराब driver.",
+    "steps": [
+     "USB लगाएँ, Boot Menu key दबाएँ → \"Hiren's BootCD PE\" → PCDoctor-Rescue.cmd.",
+     "Rescue में: blue screen का कारण, अटके updates, SFC / DISM, chkdsk, boot repair, और data USB पर बचाना।",
+     "Disk खराब हो रही हो तो पहले data बचाएँ।"
+    ]
+   }
   },
   {
    "id": "activation",
@@ -805,7 +1004,9 @@
     "watermark",
     "product key",
     "license",
-    "genuine"
+    "genuine",
+    "एक्टिवेट",
+    "activate नहीं"
    ],
    "mr": {
     "title": "Windows activate नाही / product key",
@@ -834,7 +1035,16 @@
      "t": "settings",
      "id": "ms-settings:activation"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Windows activate नहीं / product key",
+    "why": "Reinstall के बाद activation, बदला हुआ motherboard, गलत edition.",
+    "steps": [
+     "\"Product keys खोजें\" - BIOS में रखी key अपने आप इस्तेमाल होती है।",
+     "Settings → Activation → \"Troubleshoot\".",
+     "Key न हो तो customer को original license चाहिए (crack / activator कभी नहीं - उनमें virus होता है)।"
+    ]
+   }
   },
   {
    "id": "password",
@@ -848,7 +1058,10 @@
     "forgot password",
     "login hot nahi",
     "locked out",
-    "account lock"
+    "account lock",
+    "पासवर्ड भूल",
+    "pin भूल",
+    "password bhool"
    ],
    "mr": {
     "title": "Windows चा password / PIN विसरला",
@@ -873,7 +1086,16 @@
      "t": "tool",
      "id": "ntpwedit"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Windows password / PIN भूल गए",
+    "why": "उपाय local account या Microsoft account (email) पर निर्भर है।",
+    "steps": [
+     "Microsoft account (email login): दूसरे phone/PC से account.live.com/password/reset.",
+     "Local account: USB से boot → Hiren's PE → NTPWEdit (सिर्फ़ मालिक की अनुमति से)।",
+     "BitLocker चालू हो तो recovery key चाहिए (aka.ms/myrecoverykey)."
+    ]
+   }
   },
   {
    "id": "time",
@@ -889,7 +1111,11 @@
     "wrong time",
     "certificate error",
     "your clock is ahead",
-    "your clock is behind"
+    "your clock is behind",
+    "समय गलत",
+    "घड़ी",
+    "तारीख गलत",
+    "samay galat"
    ],
    "mr": {
     "title": "वेळ / तारीख चुकीची, website certificate error",
@@ -916,7 +1142,15 @@
      "t": "settings",
      "id": "ms-settings:dateandtime"
     }
-   ]
+   ],
+   "hi": {
+    "title": "समय / तारीख गलत, website certificate errors",
+    "why": "Time sync बंद, गलत time zone, खत्म CMOS battery (motherboard की सिक्का battery).",
+    "steps": [
+     "\"समय ठीक करें\" - अपने आप समय चालू करके internet से sync करता है।",
+     "हर बार बंद करने के बाद समय गलत हो तो CMOS battery (CR2032) बदलें।"
+    ]
+   }
   },
   {
    "id": "taskbar",
@@ -933,7 +1167,9 @@
     "file explorer",
     "folder ughdat nahi",
     "folder उघडत नाही",
-    "windows explorer"
+    "windows explorer",
+    "start menu नहीं खुलता",
+    "taskbar गायब"
    ],
    "mr": {
     "title": "Taskbar / Start menu / File Explorer अडकले",
@@ -960,7 +1196,15 @@
      "t": "repair",
      "id": "os"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Taskbar / Start menu / File Explorer अटका",
+    "why": "Explorer process अटका, खराब shell extension, खराब system files.",
+    "steps": [
+     "\"Explorer फिर शुरू करें\" - taskbar, desktop और folders वापस आते हैं (खुला काम रहता है)।",
+     "बार-बार हो तो \"Windows system files मरम्मत\"।"
+    ]
+   }
   },
   {
    "id": "search",
@@ -971,7 +1215,9 @@
     "search kaam karat nahi",
     "search चालत नाही",
     "start search",
-    "search bar"
+    "search bar",
+    "search नहीं चल रहा",
+    "खोज नहीं"
    ],
    "mr": {
     "title": "Windows Search चालत नाही",
@@ -998,7 +1244,15 @@
      "t": "tool",
      "id": "everything"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Windows Search नहीं चल रहा",
+    "why": "Search service अटकी या index खराब हुआ।",
+    "steps": [
+     "\"Search ठीक करें\" - Windows Search service फिर शुरू करता है।",
+     "File जल्दी खोजने के लिए Tools गाइड का \"Everything\" इस्तेमाल करें।"
+    ]
+   }
   },
   {
    "id": "printer",
@@ -1015,7 +1269,10 @@
     "spooler",
     "print queue",
     "scanner",
-    "स्कॅनर"
+    "स्कॅनर",
+    "प्रिंट नहीं",
+    "print nahi ho raha",
+    "printer नहीं चल रहा"
    ],
    "mr": {
     "title": "Printer print देत नाही / offline",
@@ -1044,7 +1301,16 @@
      "t": "settings",
      "id": "ms-settings:printers"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Printer print नहीं कर रहा / offline",
+    "why": "Print queue में अटका document, spooler service, printer driver, cable / WiFi.",
+    "steps": [
+     "Power, paper और cable / WiFi जाँचें।",
+     "\"Printer ठीक करें\" - अटके print jobs हटाकर print service फिर शुरू करता है।",
+     "फिर भी न चले तो printer हटाकर निर्माता की website से driver install करें।"
+    ]
+   }
   },
   {
    "id": "sound",
@@ -1067,7 +1333,12 @@
     "mic",
     "माईक",
     "microphone",
-    "मायक्रोफोन"
+    "मायक्रोफोन",
+    "आवाज़ नहीं",
+    "आवाज नहीं",
+    "awaaz nahi",
+    "sound nahi",
+    "माइक"
    ],
    "mr": {
     "title": "आवाज येत नाही / mic चालत नाही",
@@ -1106,7 +1377,17 @@
      "t": "settings",
      "id": "ms-settings:privacy-microphone"
     }
-   ]
+   ],
+   "hi": {
+    "title": "आवाज़ नहीं आ रही / microphone नहीं चल रहा",
+    "why": "Mute / गलत output device, audio service, audio driver, microphone privacy setting.",
+    "steps": [
+     "Taskbar का speaker icon → सही device चुनें (Speakers / Headphones), mute तो नहीं देखें।",
+     "\"आवाज़ ठीक करें\" - Windows audio services फिर शुरू करता है।",
+     "Mic के लिए: Settings → Privacy → Microphone चालू।",
+     "फिर भी न चले तो \"Drivers जाँचें\" (Realtek / Intel audio)."
+    ]
+   }
   },
   {
    "id": "display",
@@ -1130,7 +1411,8 @@
     "graphics",
     "ग्राफिक्स",
     "blur",
-    "मोठे दिसते"
+    "मोठे दिसते",
+    "सब बड़ा दिखता"
    ],
    "mr": {
     "title": "Display / screen समस्या (resolution, flicker, brightness, HDMI)",
@@ -1163,7 +1445,16 @@
      "t": "page",
      "id": "toolbox"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Display की समस्या (resolution, flicker, brightness, HDMI)",
+    "why": "Display driver नहीं (Basic Display Adapter), cable, screen hardware.",
+    "steps": [
+     "\"Drivers जाँचें\" - display driver के बिना resolution और brightness नहीं चलते।",
+     "HDMI / projector: Win + P दबाकर \"Duplicate / Extend\" चुनें।",
+     "Screen पर lines / dots: Tools गाइड → \"Screen test\" से dead pixels / panel दोष देखें।"
+    ]
+   }
   },
   {
    "id": "keyboard",
@@ -1181,7 +1472,9 @@
     "cursor",
     "कर्सर",
     "click hot nahi",
-    "scroll"
+    "scroll",
+    "टचपैड",
+    "keyboard नहीं चल रहा"
    ],
    "mr": {
     "title": "Keyboard / touchpad / mouse चालत नाही",
@@ -1216,7 +1509,17 @@
      "t": "page",
      "id": "toolbox"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Keyboard / touchpad / mouse नहीं चल रहा",
+    "why": "Touchpad बंद (Fn key), driver, USB port, keyboard hardware.",
+    "steps": [
+     "Touchpad: Fn + F6/F7 (touchpad key) या Settings → Touchpad चालू।",
+     "Keyboard test: Tools गाइड → \"Keyboard test\" बताता है कौन सी keys नहीं चलतीं।",
+     "\"Drivers जाँचें\" (touchpad / HID).",
+     "USB mouse / keyboard दूसरे port में लगाकर देखें।"
+    ]
+   }
   },
   {
    "id": "usb",
@@ -1232,7 +1535,12 @@
     "not recognized",
     "ओळखत नाही",
     "mobile connect",
-    "phone connect"
+    "phone connect",
+    "पेनड्राइव",
+    "pendrive नहीं दिख",
+    "usb नहीं दिख",
+    "detect नहीं",
+    "mobile connect नहीं"
    ],
    "mr": {
     "title": "USB / pendrive / external disk / mobile दिसत नाही",
@@ -1263,7 +1571,17 @@
      "t": "repair",
      "id": "drivers"
     }
-   ]
+   ],
+   "hi": {
+    "title": "USB drive / external disk / phone नहीं दिख रहा",
+    "why": "Device पहचाना नहीं गया, driver, कम power, खराब cable / port.",
+    "steps": [
+     "दूसरा USB port / cable लगाएँ (desktop में पीछे के ports)।",
+     "\"USB ठीक करें\" - devices फिर से खोजता है।",
+     "Disk दिखे पर drive letter न हो: Disk Management में letter दें।",
+     "Phone: phone पर \"File transfer (MTP)\" चुनें।"
+    ]
+   }
   },
   {
    "id": "bluetooth",
@@ -1275,7 +1593,8 @@
     "इअरबड",
     "bluetooth speaker",
     "pair",
-    "पेअर"
+    "पेअर",
+    "pair नहीं"
    ],
    "mr": {
     "title": "Bluetooth चालत नाही / pair होत नाही",
@@ -1308,7 +1627,16 @@
      "t": "repair",
      "id": "drivers"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Bluetooth नहीं चल रहा / pair नहीं होता",
+    "why": "Bluetooth service, driver, airplane mode, device अभी phone से जुड़ा है।",
+    "steps": [
+     "\"Bluetooth ठीक करें\" - Bluetooth service फिर शुरू करता है।",
+     "Device \"Remove\" करके फिर pair करें; earbuds phone से disconnect करें।",
+     "Bluetooth का विकल्प ही न हो: \"Drivers जाँचें\"।"
+    ]
+   }
   },
   {
    "id": "camera",
@@ -1321,7 +1649,9 @@
     "video call",
     "zoom",
     "meet",
-    "teams camera"
+    "teams camera",
+    "कैमरा",
+    "camera नहीं चल रहा"
    ],
    "mr": {
     "title": "Camera चालत नाही",
@@ -1352,7 +1682,17 @@
      "t": "repair",
      "id": "drivers"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Camera नहीं चल रहा",
+    "why": "Privacy setting बंद, laptop का camera switch / shutter, driver, दूसरा app camera इस्तेमाल कर रहा है।",
+    "steps": [
+     "Settings → Privacy → Camera चालू।",
+     "Laptop का camera shutter / Fn camera key देखें।",
+     "Camera इस्तेमाल करने वाले दूसरे apps बंद करें।",
+     "\"Drivers जाँचें\"।"
+    ]
+   }
   },
   {
    "id": "drivers",
@@ -1366,7 +1706,10 @@
     "unknown device",
     "code 43",
     "code 10",
-    "driver install"
+    "driver install",
+    "ड्राइवर",
+    "पीला निशान",
+    "driver नहीं"
    ],
    "mr": {
     "title": "Driver नाही / Device Manager मध्ये पिवळे चिन्ह",
@@ -1393,7 +1736,15 @@
      "t": "repair",
      "id": "drvbackup"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Driver नहीं / Device Manager में पीला निशान",
+    "why": "नए Windows के बाद drivers नहीं, खराब driver.",
+    "steps": [
+     "\"Drivers जाँचें\" - क्या कम है बताता है; USB packs से बिना internet install करता है।",
+     "Windows reinstall से पहले \"Drivers backup\" लें।"
+    ]
+   }
   },
   {
    "id": "disk-failing",
@@ -1412,7 +1763,9 @@
     "smart",
     "disk error",
     "disk khrab",
-    "disk खराब"
+    "disk खराब",
+    "हार्ड डिस्क खराब",
+    "आवाज़ करती disk"
    ],
    "mr": {
     "title": "Hard disk / SSD खराब होत आहे का?",
@@ -1445,7 +1798,16 @@
      "t": "tool",
      "id": "victoria"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Hard disk / SSD खराब हो रही है?",
+    "why": "Bad sectors, पुरानी disk, SMART errors.",
+    "steps": [
+     "\"Disk की सेहत जाँचें\" - Good / Caution / Bad.",
+     "Caution / Bad: ज़रूरी data अभी दूसरी जगह copy करें, फिर disk बदलें।",
+     "Disk के file-system errors जाँचें।"
+    ]
+   }
   },
   {
    "id": "ram",
@@ -1458,7 +1820,10 @@
     "ram upgrade",
     "ram वाढवा",
     "out of memory",
-    "ram test"
+    "ram test",
+    "रैम",
+    "ram कम",
+    "memory कम"
    ],
    "mr": {
     "title": "RAM कमी / RAM खराब?",
@@ -1485,7 +1850,15 @@
      "t": "tg",
      "id": "win-memdiag"
     }
-   ]
+   ],
+   "hi": {
+    "title": "RAM कम / खराब RAM?",
+    "why": "कम RAM से PC धीमा होता है; खराब RAM से blue screens और crash होते हैं।",
+    "steps": [
+     "\"PC की जानकारी\" - कितनी RAM, खाली slots और कौन सी RAM खरीदें।",
+     "Blue screens / crash हों तो RAM test करें।"
+    ]
+   }
   },
   {
    "id": "virus",
@@ -1506,7 +1879,10 @@
     "ransomware",
     "files encrypted",
     "trojan",
-    "suspicious"
+    "suspicious",
+    "विज्ञापन",
+    "popup आते",
+    "virus aa gaya"
    ],
    "mr": {
     "title": "Virus / popups / जाहिराती",
@@ -1545,7 +1921,17 @@
      "t": "tool",
      "id": "adwcleaner"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Virus / pop-ups / ads",
+    "why": "Malware, adware, browser hijacker; virus ने Task Manager / Defender बंद किए हो सकते हैं।",
+    "steps": [
+     "\"Virus scan\" (Microsoft Safety Scanner) - सिर्फ़ पहचान, मिले हुए को हटाने का तरीका बताता है।",
+     "\"Registry जाँच\" - virus द्वारा बदले Task Manager, Defender और settings वापस लाता है।",
+     "Antivirus (Defender) चालू करें।",
+     "Virus Windows में scan रोके तो USB से boot → Kaspersky Rescue Disk."
+    ]
+   }
   },
   {
    "id": "browser",
@@ -1561,7 +1947,10 @@
     "browser slow",
     "redirect",
     "extensions",
-    "google ऐवजी"
+    "google ऐवजी",
+    "ब्राउज़र",
+    "homepage बदल",
+    "browser में ads"
    ],
    "mr": {
     "title": "Browser विचित्र (homepage बदलले, redirect, ads)",
@@ -1594,7 +1983,16 @@
      "t": "tg",
      "id": "msert"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Browser अजीब चल रहा है (homepage बदला, redirect, ads)",
+    "why": "Adware / अनचाहे extensions, proxy setting.",
+    "steps": [
+     "AdwCleaner से adware हटाएँ।",
+     "Browser के extensions देखें, अनचाहे हटाएँ; settings reset करें।",
+     "Registry जाँच में proxy दिखे तो बंद करें।"
+    ]
+   }
   },
   {
    "id": "task-manager",
@@ -1606,7 +2004,9 @@
     "cmd band",
     "command prompt disabled",
     "disabled by administrator",
-    "administrator ne band"
+    "administrator ne band",
+    "टास्क मैनेजर",
+    "task manager बंद"
    ],
    "mr": {
     "title": "Task Manager / Regedit / CMD \"administrator ने बंद केले\"",
@@ -1633,7 +2033,15 @@
      "t": "tg",
      "id": "msert"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Task Manager / Regedit / CMD \"disabled by your administrator\"",
+    "why": "आमतौर पर virus द्वारा किए policy बदलाव।",
+    "steps": [
+     "\"Registry जाँच\" - ये बदलाव ढूँढकर सुरक्षित रूप से वापस करता है (backup + Undo)।",
+     "फिर virus scan चलाएँ।"
+    ]
+   }
   },
   {
    "id": "apps-install",
@@ -1651,7 +2059,10 @@
     "स्टोअर",
     "microsoft store",
     "app ughdat nahi",
-    "app उघडत नाही"
+    "app उघडत नाही",
+    "install नहीं हो रहा",
+    "app नहीं खुलता",
+    "सॉफ्टवेयर"
    ],
    "mr": {
     "title": "Software install होत नाही / app उघडत नाही",
@@ -1684,7 +2095,16 @@
      "t": "fix",
      "id": "storage"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Software install नहीं होता / app नहीं खुलता",
+    "why": "खराब system files, कम disk जगह, Store cache, antivirus रोक रहा है।",
+    "steps": [
+     "C: पर खाली जगह देखें।",
+     "Microsoft Store apps: \"Store ठीक करें\" (cache reset).",
+     "\"Windows system files मरम्मत\"।"
+    ]
+   }
   },
   {
    "id": "data-recovery",
@@ -1703,7 +2123,11 @@
     "फोटो गेले",
     "recycle bin",
     "chukun delete",
-    "चुकून"
+    "चुकून",
+    "फाइल डिलीट",
+    "delete हो गई",
+    "format हो गया",
+    "data वापस"
    ],
    "mr": {
     "title": "चुकून delete / format झालेल्या files परत हव्यात",
@@ -1736,7 +2160,16 @@
      "t": "tool",
      "id": "recuva"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Delete / format हुई files वापस लाएँ",
+    "why": "Delete files disk पर तब तक रहती हैं जब तक नया data उन पर न लिखा जाए।",
+    "steps": [
+     "उस drive पर कुछ भी save / install करना तुरंत बंद करें।",
+     "Recycle Bin देखें।",
+     "Tools गाइड → PhotoRec / DMDE; वापस मिली files हमेशा दूसरे drive पर save करें।"
+    ]
+   }
   },
   {
    "id": "reinstall",
@@ -1750,7 +2183,10 @@
     "clean install",
     "windows 11 install",
     "windows 10 install",
-    "upgrade windows"
+    "upgrade windows",
+    "विंडोज़ डालना",
+    "नया windows",
+    "format करना"
    ],
    "mr": {
     "title": "Windows नवीन install / upgrade करायचे आहे",
@@ -1787,7 +2223,18 @@
      "t": "fix",
      "id": "advisor"
     }
-   ]
+   ],
+   "hi": {
+    "title": "Windows फिर से install / upgrade",
+    "why": "Reinstall से पहले data, drivers और key बचाएँ।",
+    "steps": [
+     "\"Drivers backup\" लें (USB पर)।",
+     "Product key लिख लें।",
+     "Data दूसरी जगह copy करें।",
+     "\"OS / Apps सलाह\" - इस PC के लिए Windows 11, 10 या हल्का OS कौन सा सही है।",
+     "फिर USB से boot → Windows 11 install."
+    ]
+   }
   },
   {
    "id": "old-pc",
@@ -1803,7 +2250,10 @@
     "कोणते os",
     "light os",
     "हलके",
-    "linux"
+    "linux",
+    "पुराना pc",
+    "पुराना कंप्यूटर",
+    "कौन सा windows"
    ],
    "mr": {
     "title": "जुना PC - कोणते OS / apps योग्य?",
@@ -1830,7 +2280,15 @@
      "t": "tg",
      "id": "cpuz"
     }
-   ]
+   ],
+   "hi": {
+    "title": "पुराना PC - कौन सा OS / apps सही?",
+    "why": "कम RAM, पुराने CPU या HDD वाले PC के लिए हल्के विकल्प।",
+    "steps": [
+     "\"OS / Apps सलाह\" - Windows 11 / 10 / Linux Mint और भारी apps के हल्के विकल्प सुझाता है।",
+     "\"PC की जानकारी\" - RAM / SSD upgrade सलाह।"
+    ]
+   }
   },
   {
    "id": "remote",
@@ -1842,7 +2300,8 @@
     "दूरून",
     "durun",
     "remote help",
-    "support"
+    "support",
+    "दूर से मदद"
    ],
    "mr": {
     "title": "दूरून मदत करायची (remote support)",
@@ -1865,7 +2324,15 @@
      "t": "tool",
      "id": "rustdesk"
     }
-   ]
+   ],
+   "hi": {
+    "title": "दूर से मदद (remote support)",
+    "why": "",
+    "steps": [
+     "Tools गाइड → RustDesk खोलें, दिखने वाला ID और password मदद करने वाले को दें।",
+     "Phone करके माँगने वाले अनजान लोगों को ID कभी न दें (धोखा)।"
+    ]
+   }
   }
  ]
 }

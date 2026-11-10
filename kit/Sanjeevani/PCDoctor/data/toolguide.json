@@ -4,67 +4,80 @@
   {
    "id": "health",
    "mr": "PC ची तब्येत तपासा",
-   "en": "Check PC health"
+   "en": "Check PC health",
+   "hi": "PC की सेहत जाँचें"
   },
   {
    "id": "stress",
    "mr": "गरम होणे / अचानक बंद पडणे (stress test)",
-   "en": "Overheating / sudden shutdowns (stress test)"
+   "en": "Overheating / sudden shutdowns (stress test)",
+   "hi": "गर्म होना / अचानक बंद होना (stress test)"
   },
   {
    "id": "crash",
    "mr": "Blue screen / crash चे कारण",
-   "en": "Blue screen / crash cause"
+   "en": "Blue screen / crash cause",
+   "hi": "Blue screen / crash का कारण"
   },
   {
    "id": "virus",
    "mr": "Virus / adware काढा",
-   "en": "Remove viruses / adware"
+   "en": "Remove viruses / adware",
+   "hi": "Virus / adware हटाएँ"
   },
   {
    "id": "speed",
    "mr": "वेग आणि जागा",
-   "en": "Speed and disk space"
+   "en": "Speed and disk space",
+   "hi": "स्पीड और जगह"
   },
   {
    "id": "drivers",
    "mr": "Drivers",
-   "en": "Drivers"
+   "en": "Drivers",
+   "hi": "Drivers"
   },
   {
    "id": "disk",
    "mr": "Disk test आणि data recovery",
-   "en": "Disk test and data recovery"
+   "en": "Disk test and data recovery",
+   "hi": "Disk test और data recovery"
   },
   {
    "id": "backup",
    "mr": "Partition आणि backup",
-   "en": "Partitions and backup"
+   "en": "Partitions and backup",
+   "hi": "Partition और backup"
   },
   {
    "id": "windows",
    "mr": "Windows tools (keys, password, boot)",
-   "en": "Windows tools (keys, password, boot)"
+   "en": "Windows tools (keys, password, boot)",
+   "hi": "Windows tools (keys, password, boot)"
   },
   {
    "id": "network",
    "mr": "Internet / network / remote मदत",
-   "en": "Internet / network / remote help"
+   "en": "Internet / network / remote help",
+   "hi": "Internet / network / remote मदद"
   },
   {
    "id": "apps",
    "mr": "उपयोगी apps",
-   "en": "Useful apps"
+   "en": "Useful apps",
+   "hi": "उपयोगी apps"
   },
   {
    "id": "mytools",
    "mr": "माझे tools (MyTools folder)",
-   "en": "My tools (MyTools folder)"
+   "en": "My tools (MyTools folder)",
+   "hi": "मेरे tools (MyTools folder)"
   },
   {
    "id": "bootmenu",
    "mr": "Pendrive वरून boot करून वापरायचे",
-   "en": "Use by booting from the USB"
+   "en": "Use by booting from the USB",
+   "hi": "Pendrive से boot करके इस्तेमाल करें"
   }
  ],
  "tools": {
@@ -91,7 +104,17 @@
     "good": "Good (blue) = fine. Caution (yellow) = the disk is starting to fail - copy the data now and plan a replacement. Bad (red) = copy the data immediately.",
     "warn": []
    },
-   "auto": "disk-health"
+   "auto": "disk-health",
+   "hi": {
+    "what": "Hard disk और SSD की सेहत (SMART) और तापमान बताता है।",
+    "when": "PC धीमा हो गया, files नहीं खुलतीं, disk से आवाज़ आती है, या Windows install करने से पहले।",
+    "steps": [
+     "\"अपने आप जाँचें\" दबाएँ - हर disk का नतीजा यहीं आसान भाषा में दिखेगा।",
+     "खुद देखना हो तो \"खोलें\" - ऊपर का नीला/पीला/लाल box ही health है।"
+    ],
+    "good": "Good (नीला) = ठीक। Caution (पीला) = disk खराब होने लगी है - data अभी copy करें, disk बदलने की तैयारी करें। Bad (लाल) = तुरंत data copy करें।",
+    "warn": []
+   }
   },
   "batteryinfoview": {
    "group": "health",
@@ -116,7 +139,17 @@
     "good": "Under 20% wear = fine. 20-40% = shorter backup, still usable. Over 40% = time to replace the battery.",
     "warn": []
    },
-   "auto": "battery"
+   "auto": "battery",
+   "hi": {
+    "what": "Laptop की battery कितनी घिसी है और कितना charge रखती है, यह बताता है।",
+    "when": "Laptop जल्दी बंद होता है, charging बीच में रुकती है, या नई battery का फ़ैसला करना है।",
+    "steps": [
+     "\"अपने आप जाँचें\" दबाएँ - Windows की अपनी battery report इस्तेमाल होती है।",
+     "\"खोलें\" से BatteryInfoView में हर आँकड़ा दिखता है।"
+    ],
+    "good": "20% से कम घिसाव = ठीक। 20-40% = backup कम, फिर भी चलेगी। 40% से ज़्यादा = battery बदलने का समय।",
+    "warn": []
+   }
   },
   "hwinfo": {
    "group": "health",
@@ -141,7 +174,17 @@
     "good": "CPU: 40-75°C fine, 80-90°C high (clean the dust / new thermal paste), 95°C+ dangerous. \"Thermal Throttling: Yes\" = it slows down from heat. Disk under 55°C is fine.",
     "warn": []
    },
-   "auto": "temps"
+   "auto": "temps",
+   "hi": {
+    "what": "CPU, GPU और disks का तापमान, fan speed और voltages - हर sensor एक window में।",
+    "when": "PC / laptop गर्म होता है, fan तेज़ चलता है, या load पर अचानक बंद हो जाता है।",
+    "steps": [
+     "\"अपने आप जाँचें\" दबाएँ - HWiNFO सीधे Sensors window में खुलता है (कोई सवाल नहीं) और यह page बताता है क्या देखना है।",
+     "5 मिनट काम करते हुए \"CPU Package\" या \"CPU (Tctl/Tdie)\" देखते रहें।"
+    ],
+    "good": "CPU: 40-75°C ठीक, 80-90°C ज़्यादा (धूल साफ़ करें / नया thermal paste), 95°C+ खतरनाक। \"Thermal Throttling: Yes\" = गर्मी से धीमा होता है। Disk 55°C से कम ठीक।",
+    "warn": []
+   }
   },
   "cpuz": {
    "group": "health",
@@ -166,7 +209,17 @@
     "good": "Channel should be \"Dual\". With \"Single\", adding a matching second stick makes it faster. Windows 10/11 runs well with 8 GB RAM or more and an SSD.",
     "warn": []
    },
-   "auto": "system-summary"
+   "auto": "system-summary",
+   "hi": {
+    "what": "CPU, RAM (size, प्रकार, slots) और motherboard की पूरी जानकारी।",
+    "when": "RAM upgrade की योजना, कौन सी RAM खरीदें, Windows 11 चलेगा या नहीं, या PC के अंदर क्या है।",
+    "steps": [
+     "\"अपने आप जाँचें\" दबाएँ - PC की जानकारी और upgrade सलाह (RAM, SSD) यहाँ दिखती है; CPU-Z की पूरी report Reports folder में save होती है।",
+     "\"खोलें\" - Memory tab में RAM का प्रकार (DDR3/DDR4/DDR5) और Channel (Single/Dual); SPD tab में हर slot।"
+    ],
+    "good": "Channel \"Dual\" होना चाहिए। \"Single\" हो तो वैसी ही दूसरी stick लगाने से तेज़ होता है। Windows 10/11 8 GB RAM या ज़्यादा और SSD के साथ अच्छा चलता है।",
+    "warn": []
+   }
   },
   "gpuz": {
    "group": "health",
@@ -187,6 +240,15 @@
      "\"Open\" - the Graphics Card tab shows name and memory; the Sensors tab the temperature."
     ],
     "good": "GPU under 85°C is fine.",
+    "warn": []
+   },
+   "hi": {
+    "what": "Graphics card की जानकारी और तापमान।",
+    "when": "Display या game की समस्या, graphics card असली है या नहीं जाँचना।",
+    "steps": [
+     "\"खोलें\" - Graphics Card tab में नाम और memory; Sensors tab में तापमान।"
+    ],
+    "good": "GPU 85°C से कम ठीक है।",
     "warn": []
    }
   },
@@ -221,7 +283,20 @@
    },
    "auto": "memdiag",
    "builtin": true,
-   "name": "Windows Memory Diagnostic (RAM test)"
+   "name": "Windows Memory Diagnostic (RAM test)",
+   "hi": {
+    "what": "RAM में खराबी जाँचता है (Windows में ही है)।",
+    "when": "बार-बार blue screen, programs अपने आप बंद होना, Windows install करते समय errors.",
+    "steps": [
+     "\"अपने आप जाँचें\" पिछले RAM test का नतीजा दिखाता है (अगर हुआ हो)।",
+     "\"खोलें\" - \"Restart now and check\" चुनें। PC restart होकर 10-20 मिनट test करता है और फिर Windows शुरू करता है। वापस आकर नतीजे के लिए \"अपने आप जाँचें\" दबाएँ।",
+     "और गहरी जाँच के लिए: USB से boot → MemTest86+."
+    ],
+    "good": "\"No errors\" = RAM ठीक। Errors हों तो sticks एक-एक करके test करें और खराब stick बदलें।",
+    "warn": [
+     "\"Restart now\" PC को तुरंत restart करता है - पहले सारा काम save करें।"
+    ]
+   }
   },
   "crystaldiskmark": {
    "group": "health",
@@ -250,6 +325,19 @@
     "warn": [
      "The test writes several GB - do not run it on a failing disk (check CrystalDiskInfo first).",
      "Do not run it again and again on an SSD."
+    ]
+   },
+   "hi": {
+    "what": "Disk की speed मापता है (read/write MB/s)।",
+    "when": "PC धीमा है - क्या disk कारण है? नया SSD असली है?",
+    "steps": [
+     "\"खोलें\" → ऊपर \"All\" दबाएँ। 2-5 मिनट रुकें।",
+     "पहली row (SEQ1M Q8T1) का Read आँकड़ा देखें।"
+    ],
+    "good": "HDD: 80-200 MB/s. SATA SSD: 450-560 MB/s. NVMe SSD: 1500-7000 MB/s. HDD 50 से कम = घिस गई या खराब हो रही है।",
+    "warn": [
+     "Test कई GB लिखता है - खराब हो रही disk पर न चलाएँ (पहले CrystalDiskInfo देखें)।",
+     "SSD पर बार-बार न चलाएँ।"
     ]
    }
   },
@@ -284,7 +372,21 @@
      "Do not work on the PC during the test."
     ]
    },
-   "auto": "stress-cpu"
+   "auto": "stress-cpu",
+   "hi": {
+    "what": "CPU और RAM पर पूरा load डालकर देखता है कि PC stable रहता है या नहीं।",
+    "when": "Load पर PC बंद / restart होता है या hang होता है, या मरम्मत (thermal paste, fan) के बाद पक्का करने के लिए।",
+    "steps": [
+     "\"अपने आप जाँचें\" दबाएँ - test 10 मिनट चलता है, तापमान पर नज़र रहती है और CPU 95°C पार करे तो अपने आप रुकता है। नतीजा यहाँ दिखेगा।",
+     "नीचे \"रोकें\" कभी भी दबा सकते हैं।"
+    ],
+    "good": "10 मिनट बिना error = CPU/RAM stable. Error या बंद होना = cooling, RAM या power supply की खराबी।",
+    "warn": [
+     "PC बहुत गर्म होगा और fan तेज़ चलेगा - यह सामान्य है।",
+     "Laptop का charger लगाएँ। जो PC पहले से 90°C से ऊपर चलता है उसकी धूल पहले साफ़ करें।",
+     "Test के दौरान PC पर काम न करें।"
+    ]
+   }
   },
   "occt": {
    "group": "stress",
@@ -314,6 +416,19 @@
      "The PC gets very hot; do not run the \"Power\" test on old PCs with a weak power supply.",
      "Plug in the laptop charger."
     ]
+   },
+   "hi": {
+    "what": "CPU, RAM, graphics card और power supply का stress test (graphs के साथ)।",
+    "when": "Prime95 से ज़्यादा जानकारी या graphics card का test चाहिए।",
+    "steps": [
+     "\"खोलें\" → बाईं ओर test चुनें (CPU / Memory / 3D) → Start. 10-15 मिनट।",
+     "Monitoring में तापमान देखें; error पर test खुद रुकता है।"
+    ],
+    "good": "Errors नहीं और तापमान 90°C से कम = ठीक।",
+    "warn": [
+     "PC बहुत गर्म होता है; कमज़ोर power supply वाले पुराने PC पर \"Power\" test न चलाएँ।",
+     "Laptop का charger लगाएँ।"
+    ]
    }
   },
   "furmark": {
@@ -342,6 +457,18 @@
      "The GPU gets very hot. Risky on old or laptop graphics - stop within 5 minutes.",
      "Stop at once if it passes 90°C."
     ]
+   },
+   "hi": {
+    "what": "Graphics card पर अधिकतम load (GPU stress test)।",
+    "when": "Game खेलते समय display जाता है या PC बंद होता है - क्या graphics card दोषी है?",
+    "steps": [
+     "\"खोलें\" → \"GPU stress test\". 5 मिनट से ज़्यादा न चलाएँ।"
+    ],
+    "good": "Dots/रंगों की गड़बड़ या बंद होना = GPU या power supply की खराबी।",
+    "warn": [
+     "GPU बहुत गर्म होता है। पुराने या laptop graphics पर खतरा - 5 मिनट में रोकें।",
+     "90°C पार हो तो तुरंत रोकें।"
+    ]
    }
   },
   "bluescreenview": {
@@ -367,7 +494,17 @@
     "good": "One third-party driver again and again (e.g. nvlddmkm.sys = nVIDIA, rt640x64.sys = Realtek LAN) = update/replace that driver. ntoskrnl.exe or many different drivers = test RAM and disk.",
     "warn": []
    },
-   "auto": "crashes"
+   "auto": "crashes",
+   "hi": {
+    "what": "Blue screens (BSOD) कब हुईं और कौन सा driver कारण था, यह दिखाता है।",
+    "when": "PC पर blue screen आकर restart होता है।",
+    "steps": [
+     "\"अपने आप जाँचें\" दबाएँ - हाल के crash, ज़िम्मेदार driver और क्या करें यहाँ दिखेगा।",
+     "\"खोलें\" - नीचे के हिस्से में लाल रंग वाले drivers संभावित कारण हैं।"
+    ],
+    "good": "एक ही third-party driver बार-बार (जैसे nvlddmkm.sys = nVIDIA, rt640x64.sys = Realtek LAN) = वह driver update/बदलें। ntoskrnl.exe या कई अलग drivers = RAM और disk जाँचें।",
+    "warn": []
+   }
   },
   "whocrashed": {
    "group": "crash",
@@ -395,6 +532,18 @@
     "warn": [
      "This program installs on this PC (remove it later from Control Panel)."
     ]
+   },
+   "hi": {
+    "what": "Crash के कारण आसान English में समझाता है (installer)।",
+    "when": "BlueScreenView का नतीजा समझना मुश्किल है।",
+    "steps": [
+     "\"Install करें\" - इस PC पर install होता है।",
+     "खोलकर \"Analyze\" दबाएँ; नीचे का \"Conclusion\" पढ़ें।"
+    ],
+    "good": "Conclusion में बताया driver update करें।",
+    "warn": [
+     "यह program इस PC पर install होता है (बाद में Control Panel से हटाएँ)।"
+    ]
    }
   },
   "msert": {
@@ -420,7 +569,17 @@
     "good": "\"No infection found\" = no virus.",
     "warn": []
    },
-   "auto": "msert"
+   "auto": "msert",
+   "hi": {
+    "what": "Microsoft का मुफ़्त virus scanner (install नहीं)।",
+    "when": "Virus, pop-ups, browser अपने आप खुलना, अजीब व्यवहार।",
+    "steps": [
+     "\"अपने आप जाँचें\" - quick scan (10-20 मिनट), सिर्फ़ पहचान (कुछ delete नहीं करता)। नतीजा यहाँ दिखेगा।",
+     "कुछ मिले तो: \"खोलें\" → Full scan चुनें और उसे हटाने दें।"
+    ],
+    "good": "\"No infection found\" = virus नहीं।",
+    "warn": []
+   }
   },
   "kvrt": {
    "group": "virus",
@@ -447,6 +606,18 @@
     "good": "\"No threats\" = fine.",
     "warn": [
      "The scan takes time; do not switch the PC off in the middle."
+    ]
+   },
+   "hi": {
+    "what": "Kaspersky का मुफ़्त virus removal tool (install नहीं)।",
+    "when": "Microsoft scanner के बाद भी virus का शक है।",
+    "steps": [
+     "\"खोलें\" → Accept → \"Start scan\". 15-60 मिनट।",
+     "मिले हर खतरे के लिए हटाने को \"Continue\" दबाएँ।"
+    ],
+    "good": "\"No threats\" = ठीक।",
+    "warn": [
+     "Scan में समय लगता है; बीच में PC बंद न करें।"
     ]
    }
   },
@@ -478,6 +649,19 @@
      "It asks to restart after cleaning - save your work.",
      "Some vendor-bundled \"PUP\" programs are removed too - check the list before quarantining."
     ]
+   },
+   "hi": {
+    "what": "Adware, toolbars और browser hijackers हटाता है।",
+    "when": "Browser में ads, homepage बदला, अनचाहे extensions.",
+    "steps": [
+     "\"खोलें\" → \"Scan now\". सूची देखें - पहचाने programs का ✔ हटाएँ।",
+     "\"Quarantine\" दबाएँ; PC restart होगा।"
+    ],
+    "good": "Restart के बाद browser सामान्य हो जाता है।",
+    "warn": [
+     "Cleaning के बाद restart माँगता है - काम save करें।",
+     "Company के साथ आए कुछ \"PUP\" programs भी हटते हैं - quarantine से पहले सूची देखें।"
+    ]
    }
   },
   "malwarebytes": {
@@ -503,6 +687,17 @@
     "good": "Quarantine whatever it finds.",
     "warn": [
      "Installs on this PC. A 14-day \"Premium trial\" starts - it turns into the free version by itself, no payment needed."
+    ]
+   },
+   "hi": {
+    "what": "अच्छा malware scanner (installer; free version scan और साफ़ करता है)।",
+    "when": "दूसरे scanners के बाद भी समस्या बनी है।",
+    "steps": [
+     "\"Install करें\" → free version चुनें → Scan."
+    ],
+    "good": "जो मिले उसे quarantine करें।",
+    "warn": [
+     "इस PC पर install होता है। 14 दिन का \"Premium trial\" शुरू होता है - फिर अपने आप free version बन जाता है, कोई भुगतान नहीं।"
     ]
    }
   },
@@ -533,7 +728,19 @@
      "Never delete folders in Windows, Program Files or ProgramData by hand - Windows will break."
     ]
    },
-   "auto": "bigfolders"
+   "auto": "bigfolders",
+   "hi": {
+    "what": "कुछ सेकंड में दिखाता है कि C: पर कौन से folders सबसे ज़्यादा जगह लेते हैं।",
+    "when": "C: drive भर गया है।",
+    "steps": [
+     "\"अपने आप जाँचें\" - 15 सबसे बड़े folders यहाँ दिखेंगे।",
+     "ले जाने के लिए PC Doctor का \"C: drive जगह\" page इस्तेमाल करें (सुरक्षित रूप से दूसरे drive पर)।"
+    ],
+    "good": "Downloads, Videos और पुराने backups जैसे बड़े folders ले जा सकते हैं या delete कर सकते हैं।",
+    "warn": [
+     "Windows, Program Files या ProgramData के folders हाथ से कभी delete न करें - Windows खराब होगा।"
+    ]
+   }
   },
   "autoruns": {
    "group": "speed",
@@ -564,7 +771,20 @@
      "Untick instead of Delete so it can be turned back on."
     ]
    },
-   "auto": "pd:speed"
+   "auto": "pd:speed",
+   "hi": {
+    "what": "Windows के साथ शुरू होने वाला हर program, service और driver.",
+    "when": "PC शुरू होने में बहुत समय लगता है।",
+    "steps": [
+     "आसान तरीका: \"PC Doctor में देखें\" - सुझाए startup programs सुरक्षित रूप से बंद करें (Undo के साथ)।",
+     "Autoruns अनुभवी users के लिए है: सिर्फ़ \"Logon\" tab बदलें।"
+    ],
+    "good": "Startup पर सिर्फ़ ज़रूरी चीज़ें रखें (antivirus, touchpad/sound drivers)।",
+    "warn": [
+     "Drivers / Services / Microsoft entries का ✔ न हटाएँ - Windows शुरू नहीं हो सकता।",
+     "Delete के बजाय ✔ हटाएँ ताकि फिर चालू कर सकें।"
+    ]
+   }
   },
   "procexp": {
    "group": "speed",
@@ -591,6 +811,18 @@
     "good": "At idle the CPU should be under 10%.",
     "warn": [
      "Do not \"Kill\" Windows processes such as System, csrss, wininit, lsass, svchost - the PC will crash."
+    ]
+   },
+   "hi": {
+    "what": "Task Manager से ज़्यादा जानकारी - कौन सा program CPU/RAM ले रहा है और कहाँ से चलता है।",
+    "when": "PC धीमा होता है, fan लगातार चलता है, संदिग्ध program.",
+    "steps": [
+     "\"खोलें\" → CPU column पर click करके क्रम लगाएँ। सबसे ऊपर वाला program कारण है।",
+     "Process पर right-click → \"Check VirusTotal\" से देखें कि सुरक्षित है या नहीं।"
+    ],
+    "good": "खाली बैठे CPU 10% से कम होना चाहिए।",
+    "warn": [
+     "System, csrss, wininit, lsass, svchost जैसी Windows processes को \"Kill\" न करें - PC crash होगा।"
     ]
    }
   },
@@ -623,7 +855,20 @@
      "If you do not recognise a name, leave it."
     ]
    },
-   "auto": "pd:advisor"
+   "auto": "pd:advisor",
+   "hi": {
+    "what": "कई अनचाहे programs एक साथ हटाता है, बचा हुआ कचरा भी।",
+    "when": "बहुत सारे bloatware / trial programs.",
+    "steps": [
+     "आसान तरीका: \"PC Doctor में देखें\" - \"OS / Apps सलाह\" हटाने लायक apps और हल्के विकल्प बताता है।",
+     "BCU: अनचाहे programs पर ✔ → \"Uninstall\", फिर बचा कचरा हटाने दें।"
+    ],
+    "good": "",
+    "warn": [
+     "Drivers, Microsoft Visual C++ / .NET या antivirus न हटाएँ।",
+     "नाम न पहचानें तो छोड़ दें।"
+    ]
+   }
   },
   "sdio": {
    "group": "drivers",
@@ -654,7 +899,20 @@
      "For laptop display / touchpad the maker's website driver is the better choice."
     ]
    },
-   "auto": "pd:drivers"
+   "auto": "pd:drivers",
+   "hi": {
+    "what": "बिना internet के drivers (USB पर रखे driver packs से)।",
+    "when": "नए Windows के बाद WiFi / LAN / sound / display नहीं चलते।",
+    "steps": [
+     "सुरक्षित तरीका: \"PC Doctor में देखें\" - कम drivers ढूँढकर सही क्रम बताता है।",
+     "SDIO में: पहले \"Create restore point\" पर ✔, फिर सिर्फ़ \"Missing\" drivers चुनें → Install."
+    ],
+    "good": "Device Manager में पीले विस्मयादिबोधक चिह्न नहीं।",
+    "warn": [
+     "\"Select all\" करके सब update न करें - चलते drivers खराब हो सकते हैं।",
+     "Laptop display / touchpad के लिए निर्माता की website का driver बेहतर है।"
+    ]
+   }
   },
   "doubledriver": {
    "group": "drivers",
@@ -674,6 +932,16 @@
     "when": "Before reinstalling Windows.",
     "steps": [
      "Easy way: PC Doctor → Repair → \"Drivers backup\" (uses Windows DISM).",
+     "Double Driver: Backup → Scan Current System → Backup Now."
+    ],
+    "good": "",
+    "warn": []
+   },
+   "hi": {
+    "what": "इस PC के drivers का backup / restore.",
+    "when": "Windows reinstall से पहले।",
+    "steps": [
+     "आसान तरीका: PC Doctor → मरम्मत → \"Drivers backup\" (Windows DISM इस्तेमाल करता है)।",
      "Double Driver: Backup → Scan Current System → Backup Now."
     ],
     "good": "",
@@ -708,6 +976,19 @@
      "Use only \"Ignore\" mode. \"Erase\", \"Write\" and \"Refresh\" modes wipe data on the disk!",
      "On a failing disk copy the data first, then test - the test itself can make it worse."
     ]
+   },
+   "hi": {
+    "what": "Hard disk में bad sectors ढूँढने वाला surface test.",
+    "when": "CrystalDiskInfo \"Caution\" दिखाए, disk आवाज़ करे, files खराब हों।",
+    "steps": [
+     "\"खोलें\" → दाईं ओर disk चुनें → \"Test & Repair\" tab → \"Ignore\" चुना है पक्का करें → Scan.",
+     "रंग: grey = ठीक, green/orange = धीमा, red/blue \"Err\" = bad sector."
+    ],
+    "good": "Red / Err नहीं = surface ठीक। कई red blocks = disk बदलें।",
+    "warn": [
+     "सिर्फ़ \"Ignore\" mode इस्तेमाल करें। \"Erase\", \"Write\" और \"Refresh\" modes disk का data मिटा देते हैं!",
+     "खराब disk पर पहले data copy करें, फिर test - test खुद हालत बिगाड़ सकता है।"
+    ]
    }
   },
   "hdtune": {
@@ -734,6 +1015,17 @@
     "warn": [
      "Installs on this PC."
     ]
+   },
+   "hi": {
+    "what": "Disk की सेहत, speed और error scan (installer)।",
+    "when": "आसान disk जाँच।",
+    "steps": [
+     "\"Install करें\" → खोलें → \"Error Scan\" tab → Start (Quick scan नहीं)।"
+    ],
+    "good": "सब हरे चौकोर = ठीक; लाल = bad sectors.",
+    "warn": [
+     "इस PC पर install होता है।"
+    ]
    }
   },
   "hddscan": {
@@ -759,6 +1051,17 @@
     "good": "No bad blocks = fine.",
     "warn": [
      "Use only \"Read\" / \"Verify\". The \"Erase\" test wipes data!"
+    ]
+   },
+   "hi": {
+    "what": "Disk surface test और SMART.",
+    "when": "Victoria का आसान विकल्प।",
+    "steps": [
+     "\"खोलें\" → disk चुनें → \"Surface Tests\" → Read चुनें → Add test."
+    ],
+    "good": "Bad blocks नहीं = ठीक।",
+    "warn": [
+     "सिर्फ़ \"Read\" / \"Verify\" इस्तेमाल करें। \"Erase\" test data मिटा देता है!"
     ]
    }
   },
@@ -792,6 +1095,20 @@
      "Always save recovered files to a different disk / USB.",
      "Do not use the \"Partition write / Apply\" options."
     ]
+   },
+   "hi": {
+    "what": "Format हुए या खोए partitions से files वापस लाता है।",
+    "when": "Drive format माँगता है, partition गायब हो गया, गलती से format हो गया।",
+    "steps": [
+     "\"खोलें\" → disk चुनें → partition चुनें → \"Open Volume\". Files पर right-click → \"Recover\" → दूसरे drive पर save करें।",
+     "Free version एक बार में एक folder वापस लाता है।"
+    ],
+    "good": "",
+    "warn": [
+     "जिस disk से files वापस ला रहे हैं उस पर कुछ भी save या install न करें - files हमेशा के लिए खो जाएँगी।",
+     "वापस मिली files हमेशा दूसरी disk / USB पर save करें।",
+     "\"Partition write / Apply\" विकल्प इस्तेमाल न करें।"
+    ]
    }
   },
   "testdisk": {
@@ -820,6 +1137,18 @@
      "Always choose a destination on a different drive.",
      "In TestDisk (text window) use \"Write\" only if you know what you are doing - a wrong partition table loses data."
     ]
+   },
+   "hi": {
+    "what": "PhotoRec: delete हुई photos और documents वापस लाता है। TestDisk: खोए partitions वापस लाता है।",
+    "when": "गलती से delete, memory card / USB format हो गया।",
+    "steps": [
+     "\"खोलें\" (QPhotoRec) → disk चुनें → \"File Formats\" में प्रकार चुनें → \"Destination\" दूसरा drive रखें → Search."
+    ],
+    "good": "Files मूल नामों के बिना वापस आती हैं (f12345.jpg) - folder खोलकर चुनें।",
+    "warn": [
+     "Destination हमेशा दूसरे drive पर चुनें।",
+     "TestDisk (text window) में \"Write\" तभी इस्तेमाल करें जब पता हो क्या कर रहे हैं - गलत partition table से data खोता है।"
+    ]
    }
   },
   "recuva": {
@@ -845,6 +1174,17 @@
     "good": "Green = fully recoverable, red = damaged.",
     "warn": [
      "Save recovered files to a different drive."
+    ]
+   },
+   "hi": {
+    "what": "हाल में delete हुई files आसानी से वापस लाता है।",
+    "when": "Recycle Bin से भी delete हो गई हैं।",
+    "steps": [
+     "\"खोलें\" → wizard में file का प्रकार और जगह चुनें → Start. हरी (Excellent) files Recover करें → दूसरे drive पर।"
+    ],
+    "good": "हरा = पूरी तरह वापस मिलेगी, लाल = खराब।",
+    "warn": [
+     "वापस मिली files दूसरे drive पर save करें।"
     ]
    }
   },
@@ -878,6 +1218,20 @@
      "Power must not fail during the job - laptop charger / UPS.",
      "Do not touch System Reserved / EFI / Recovery partitions."
     ]
+   },
+   "hi": {
+    "what": "Partitions का size बदलना, drives बनाना, disk को SSD पर ले जाना (installer)।",
+    "when": "C: बहुत छोटा है, D: से जगह लेनी है, HDD → SSD.",
+    "steps": [
+     "आसान तरीका: PC Doctor → \"C: drive जगह\" → \"नया DATA drive बनाएँ\" (सुरक्षित)।",
+     "\"Install करें\" → बदलाव तय करें → \"Apply\" दबाने तक कुछ नहीं बदलता।"
+    ],
+    "good": "",
+    "warn": [
+     "Partitions बदलने से पहले ज़रूरी data का backup लें।",
+     "काम के दौरान बिजली नहीं जानी चाहिए - laptop charger / UPS.",
+     "System Reserved / EFI / Recovery partitions को न छुएँ।"
+    ]
    }
   },
   "minitool-pw": {
@@ -910,6 +1264,20 @@
      "Power must not fail during the job - laptop charger / UPS.",
      "Do not touch System Reserved / EFI / Recovery partitions."
     ]
+   },
+   "hi": {
+    "what": "Partitions का size बदलना, drives बनाना, disk को SSD पर ले जाना (installer)।",
+    "when": "C: बहुत छोटा है, D: से जगह लेनी है, HDD → SSD.",
+    "steps": [
+     "आसान तरीका: PC Doctor → \"C: drive जगह\" → \"नया DATA drive बनाएँ\" (सुरक्षित)।",
+     "\"Install करें\" → बदलाव तय करें → \"Apply\" दबाने तक कुछ नहीं बदलता।"
+    ],
+    "good": "",
+    "warn": [
+     "Partitions बदलने से पहले ज़रूरी data का backup लें।",
+     "काम के दौरान बिजली नहीं जानी चाहिए - laptop charger / UPS.",
+     "System Reserved / EFI / Recovery partitions को न छुएँ।"
+    ]
    }
   },
   "aomei-backupper": {
@@ -937,6 +1305,18 @@
     "good": "",
     "warn": [
      "Restoring replaces everything on the chosen disk - choose the disk carefully."
+    ]
+   },
+   "hi": {
+    "what": "Windows / पूरी disk का image backup और restore (installer)।",
+    "when": "Windows को नए SSD पर ले जाना, बड़ी मरम्मत से पहले पूरा backup.",
+    "steps": [
+     "\"Install करें\" → \"System Backup\" → backup external disk पर रखें।",
+     "Windows शुरू न हो तो USB से boot → Rescuezilla से restore हो सकता है।"
+    ],
+    "good": "",
+    "warn": [
+     "Restore चुनी गई disk पर सब कुछ बदल देता है - disk ध्यान से चुनें।"
     ]
    }
   },
@@ -966,6 +1346,18 @@
     "warn": [
      "Restoring replaces everything on the chosen disk - choose the disk carefully."
     ]
+   },
+   "hi": {
+    "what": "Windows / पूरी disk का image backup और restore (installer)।",
+    "when": "Windows को नए SSD पर ले जाना, बड़ी मरम्मत से पहले पूरा backup.",
+    "steps": [
+     "\"Install करें\" → \"System Backup\" → backup external disk पर रखें।",
+     "Windows शुरू न हो तो USB से boot → Rescuezilla से restore हो सकता है।"
+    ],
+    "good": "",
+    "warn": [
+     "Restore चुनी गई disk पर सब कुछ बदल देता है - disk ध्यान से चुनें।"
+    ]
    }
   },
   "produkey": {
@@ -993,7 +1385,18 @@
      "Keep product keys private - do not share them with anyone but the customer."
     ]
    },
-   "auto": "keys"
+   "auto": "keys",
+   "hi": {
+    "what": "Windows / Office की product key दिखाता है।",
+    "when": "Windows reinstall से पहले key लिख लें।",
+    "steps": [
+     "\"अपने आप जाँचें\" - BIOS में रखी Windows key (नए laptops) और ProduKey की मिली keys यहाँ दिखती हैं और Reports में save होती हैं।"
+    ],
+    "good": "BIOS में key हो तो reinstall के बाद Windows अपने आप activate होता है।",
+    "warn": [
+     "Product keys निजी रखें - customer के अलावा किसी को न दें।"
+    ]
+   }
   },
   "dismpp": {
    "group": "windows",
@@ -1022,7 +1425,19 @@
      "Do not change things you do not understand under \"Drivers\", \"Apps\" or \"Optimizations\"."
     ]
    },
-   "auto": "pd:repair"
+   "auto": "pd:repair",
+   "hi": {
+    "what": "Windows cleanup और updates/drivers/apps का प्रबंधन।",
+    "when": "अनुभवी users के लिए - पुरानी Windows update files साफ़ करना।",
+    "steps": [
+     "आसान तरीका: \"PC Doctor में देखें\" - मरम्मत और स्पीड pages पर सुरक्षित cleanup.",
+     "Dism++: \"Space Cleanup\" → Scan → Clean."
+    ],
+    "good": "",
+    "warn": [
+     "\"Drivers\", \"Apps\" या \"Optimizations\" में जो समझ न आए वह न बदलें।"
+    ]
+   }
   },
   "ntpwedit": {
    "group": "windows",
@@ -1054,6 +1469,20 @@
      "It does not work for Microsoft accounts (email login) - use account.live.com/password/reset.",
      "With BitLocker on, the recovery key is needed first."
     ]
+   },
+   "hi": {
+    "what": "भूला हुआ local Windows password हटाता है।",
+    "when": "Customer अपने ही PC का password भूल गया।",
+    "steps": [
+     "USB से boot → Hiren's BootCD PE → NTPWEdit खोलें।",
+     "User चुनें → \"Change password\" → खाली छोड़ें → OK → \"Save changes\"."
+    ],
+    "good": "अगली बार बिना password के login होगा।",
+    "warn": [
+     "सिर्फ़ मालिक की अनुमति से इस्तेमाल करें।",
+     "Microsoft account (email login) पर नहीं चलता - account.live.com/password/reset इस्तेमाल करें।",
+     "BitLocker चालू हो तो पहले recovery key चाहिए।"
+    ]
    }
   },
   "winntsetup": {
@@ -1079,6 +1508,17 @@
     "good": "",
     "warn": [
      "The chosen partition is formatted - its data is erased."
+    ]
+   },
+   "hi": {
+    "what": "Windows सीधे दूसरी disk / partition पर install करता है।",
+    "when": "अनुभवी users के लिए - PE से Windows install करना।",
+    "steps": [
+     "Hiren's PE में खोलें → Windows ISO से install.wim चुनें → boot और install drives चुनें → Setup."
+    ],
+    "good": "",
+    "warn": [
+     "चुना गया partition format होता है - उसका data मिट जाता है।"
     ]
    }
   },
@@ -1108,6 +1548,18 @@
      "A wrong change stops Windows from starting.",
      "Back up / export before changing anything."
     ]
+   },
+   "hi": {
+    "what": "Boot entries / boot records (MBR, UEFI, BCD) बदलता है।",
+    "when": "अनुभवी users के लिए - boot की समस्याएँ।",
+    "steps": [
+     "आसान तरीका: USB से boot → Hiren's PE → PCDoctor-Rescue.cmd → \"Fix boot\"."
+    ],
+    "good": "",
+    "warn": [
+     "गलत बदलाव से Windows शुरू नहीं होगा।",
+     "कुछ भी बदलने से पहले backup / export लें।"
+    ]
    }
   },
   "easyuefi": {
@@ -1135,6 +1587,18 @@
     "warn": [
      "A wrong change stops Windows from starting.",
      "Back up / export before changing anything."
+    ]
+   },
+   "hi": {
+    "what": "Boot entries / boot records (MBR, UEFI, BCD) बदलता है।",
+    "when": "अनुभवी users के लिए - boot की समस्याएँ।",
+    "steps": [
+     "आसान तरीका: USB से boot → Hiren's PE → PCDoctor-Rescue.cmd → \"Fix boot\"."
+    ],
+    "good": "",
+    "warn": [
+     "गलत बदलाव से Windows शुरू नहीं होगा।",
+     "कुछ भी बदलने से पहले backup / export लें।"
     ]
    }
   },
@@ -1164,6 +1628,18 @@
      "A wrong change stops Windows from starting.",
      "Back up / export before changing anything."
     ]
+   },
+   "hi": {
+    "what": "Boot entries / boot records (MBR, UEFI, BCD) बदलता है।",
+    "when": "अनुभवी users के लिए - boot की समस्याएँ।",
+    "steps": [
+     "आसान तरीका: USB से boot → Hiren's PE → PCDoctor-Rescue.cmd → \"Fix boot\"."
+    ],
+    "good": "",
+    "warn": [
+     "गलत बदलाव से Windows शुरू नहीं होगा।",
+     "कुछ भी बदलने से पहले backup / export लें।"
+    ]
    }
   },
   "winmtr": {
@@ -1189,7 +1665,17 @@
     "good": "Loss on the first row (router) = WiFi/cable at home. Later rows = the ISP.",
     "warn": []
    },
-   "auto": "network"
+   "auto": "network",
+   "hi": {
+    "what": "Internet connection कहाँ टूटता है ढूँढता है (router, ISP, website)।",
+    "when": "Internet नहीं, बहुत धीमा, या बार-बार कटता है।",
+    "steps": [
+     "\"अपने आप जाँचें\" - router, internet और DNS जाँचकर बताता है समस्या कहाँ है।",
+     "WinMTR: host google.com → Start. पहली row जिसमें \"Loss %\" ज़्यादा हो वहीं टूटता है।"
+    ],
+    "good": "पहली row (router) पर loss = घर का WiFi/cable. बाद की rows = ISP.",
+    "warn": []
+   }
   },
   "advipscanner": {
    "group": "network",
@@ -1208,6 +1694,15 @@
     "when": "You need a printer's IP or want to see who is on the network.",
     "steps": [
      "\"Open\" → \"Scan\"."
+    ],
+    "good": "",
+    "warn": []
+   },
+   "hi": {
+    "what": "Network पर हर device ढूँढता है (printers, CCTV, PCs)।",
+    "when": "Printer का IP चाहिए या देखना है network पर कौन है।",
+    "steps": [
+     "\"खोलें\" → \"Scan\"."
     ],
     "good": "",
     "warn": []
@@ -1241,6 +1736,19 @@
      "Give the ID / password only to a technician you know - never to strangers who ask on the phone (fraud).",
      "Close the program when done."
     ]
+   },
+   "hi": {
+    "what": "Remote support - कोई और इस PC को चला सकता है (मुफ़्त)।",
+    "when": "दूर से customer की मदद करना।",
+    "steps": [
+     "\"खोलें\" → दिखने वाला ID और password मदद करने वाले को दें।",
+     "काम खत्म होने पर RustDesk बंद करें।"
+    ],
+    "good": "",
+    "warn": [
+     "ID / password सिर्फ़ जान-पहचान वाले technician को दें - phone पर माँगने वाले अनजान लोगों को कभी नहीं (धोखा)।",
+     "काम होने पर program बंद करें।"
+    ]
    }
   },
   "7zip": {
@@ -1267,6 +1775,17 @@
     "warn": [
      "Installs on this PC."
     ]
+   },
+   "hi": {
+    "what": "Zip / rar / 7z files खोलता और बनाता है (installer)।",
+    "when": "",
+    "steps": [
+     "\"Install करें\" - इस PC पर install होता है।"
+    ],
+    "good": "",
+    "warn": [
+     "इस PC पर install होता है।"
+    ]
    }
   },
   "notepadpp": {
@@ -1286,6 +1805,15 @@
     "when": "",
     "steps": [
      "\"Open\" - runs without installing."
+    ],
+    "good": "",
+    "warn": []
+   },
+   "hi": {
+    "what": "Text और config files के लिए अच्छा editor.",
+    "when": "",
+    "steps": [
+     "\"खोलें\" - बिना install के चलता है।"
     ],
     "good": "",
     "warn": []
@@ -1311,6 +1839,15 @@
     ],
     "good": "",
     "warn": []
+   },
+   "hi": {
+    "what": "PC की कोई भी file नाम से एक सेकंड में ढूँढता है।",
+    "when": "",
+    "steps": [
+     "\"खोलें\" - बिना install के चलता है।"
+    ],
+    "good": "",
+    "warn": []
    }
   },
   "vlc": {
@@ -1333,6 +1870,15 @@
     ],
     "good": "",
     "warn": []
+   },
+   "hi": {
+    "what": "हर तरह का video / audio चलाता है।",
+    "when": "",
+    "steps": [
+     "\"खोलें\" - बिना install के चलता है।"
+    ],
+    "good": "",
+    "warn": []
    }
   },
   "explorerpp": {
@@ -1352,6 +1898,15 @@
     "when": "",
     "steps": [
      "\"Open\" - runs without installing."
+    ],
+    "good": "",
+    "warn": []
+   },
+   "hi": {
+    "what": "File manager - Hiren's PE में files copy करने के लिए उपयोगी।",
+    "when": "",
+    "steps": [
+     "\"खोलें\" - बिना install के चलता है।"
     ],
     "good": "",
     "warn": []
@@ -1381,6 +1936,17 @@
     "warn": [
      "Installs on this PC."
     ]
+   },
+   "hi": {
+    "what": "बहुत हल्का PDF reader (Adobe से बहुत हल्का) - installer.",
+    "when": "",
+    "steps": [
+     "\"Install करें\" - इस PC पर install होता है।"
+    ],
+    "good": "",
+    "warn": [
+     "इस PC पर install होता है।"
+    ]
    }
   },
   "libreoffice": {
@@ -1406,6 +1972,17 @@
     "good": "",
     "warn": [
      "Installs on this PC."
+    ]
+   },
+   "hi": {
+    "what": "मुफ़्त office suite (Word / Excel / PowerPoint files) - installer.",
+    "when": "",
+    "steps": [
+     "\"Install करें\" - इस PC पर install होता है।"
+    ],
+    "good": "",
+    "warn": [
+     "इस PC पर install होता है।"
     ]
    }
   },
@@ -1433,6 +2010,17 @@
     "warn": [
      "Installs on this PC."
     ]
+   },
+   "hi": {
+    "what": "Torrent downloader (ads नहीं) - installer.",
+    "when": "",
+    "steps": [
+     "\"Install करें\" - इस PC पर install होता है।"
+    ],
+    "good": "",
+    "warn": [
+     "इस PC पर install होता है।"
+    ]
    }
   },
   "firefox": {
@@ -1459,6 +2047,17 @@
     "warn": [
      "Installs on this PC."
     ]
+   },
+   "hi": {
+    "what": "Browser - Chrome भारी लगे तो विकल्प - installer.",
+    "when": "",
+    "steps": [
+     "\"Install करें\" - इस PC पर install होता है।"
+    ],
+    "good": "",
+    "warn": [
+     "इस PC पर install होता है।"
+    ]
    }
   },
   "llamacpp": {
@@ -1482,7 +2081,16 @@
     "good": "",
     "warn": []
    },
-   "auto": "pd:ask"
+   "auto": "pd:ask",
+   "hi": {
+    "what": "PC Doctor के Assistant के पीछे का offline AI engine - बिना internet समस्या समझता है।",
+    "when": "इसे सीधे खोलने की ज़रूरत नहीं।",
+    "steps": [
+     "PC Doctor → Assistant में समस्या लिखें।"
+    ],
+    "good": "",
+    "warn": []
+   }
   },
   "ai-model": {
    "group": "apps",
@@ -1505,7 +2113,16 @@
     "good": "",
     "warn": []
    },
-   "auto": "pd:ask"
+   "auto": "pd:ask",
+   "hi": {
+    "what": "Google Gemma 4 E2B (Apache-2.0) - Assistant के लिए हिंदी / मराठी / English समझने वाला AI model.",
+    "when": "इसे सीधे खोलने की ज़रूरत नहीं।",
+    "steps": [
+     "PC Doctor → Assistant में समस्या लिखें।"
+    ],
+    "good": "",
+    "warn": []
+   }
   },
   "rufus": {
    "group": "apps",
@@ -1530,6 +2147,17 @@
     "good": "",
     "warn": [
      "The chosen USB is erased completely. Do not pick this Sanjeevani USB in the Device list!"
+    ]
+   },
+   "hi": {
+    "what": "Bootable Windows / Linux USB बनाता है।",
+    "when": "किसी PC के लिए सिर्फ़ Windows install वाला USB चाहिए।",
+    "steps": [
+     "\"खोलें\" → Device में दूसरा (खाली) USB चुनें → SELECT → ISO → START."
+    ],
+    "good": "",
+    "warn": [
+     "चुना गया USB पूरा मिट जाता है। Device सूची में यह Sanjeevani USB न चुनें!"
     ]
    }
   },
@@ -1556,7 +2184,17 @@
     "good": "",
     "warn": []
    },
-   "boot": true
+   "boot": true,
+   "hi": {
+    "what": "USB से Windows जैसा desktop - Windows शुरू न हो तब files copy करना, password reset और PC Doctor Rescue चलाना।",
+    "when": "Windows शुरू नहीं होता, blue screen loop, data निकालना है।",
+    "steps": [
+     "PC बंद करें, pendrive लगाएँ और चालू करते समय Boot Menu key दबाएँ (F12 / F9 / Esc / F11 - \"Boot Menu / BIOS keys\" देखें)।",
+     "Sanjeevani के menu से यह विकल्प चुनें।"
+    ],
+    "good": "",
+    "warn": []
+   }
   },
   "systemrescue": {
    "group": "bootmenu",
@@ -1585,7 +2223,19 @@
      "Only if you know Linux commands."
     ]
    },
-   "boot": true
+   "boot": true,
+   "hi": {
+    "what": "Linux पर आधारित repair toolkit (अनुभवी users के लिए)।",
+    "when": "जब Hiren's PE काम न करे।",
+    "steps": [
+     "PC बंद करें, pendrive लगाएँ और चालू करते समय Boot Menu key दबाएँ (F12 / F9 / Esc / F11 - \"Boot Menu / BIOS keys\" देखें)।",
+     "Sanjeevani के menu से यह विकल्प चुनें।"
+    ],
+    "good": "",
+    "warn": [
+     "सिर्फ़ तब, जब Linux commands आती हों।"
+    ]
+   }
   },
   "memtest86plus": {
    "group": "bootmenu",
@@ -1610,7 +2260,17 @@
     "good": "",
     "warn": []
    },
-   "boot": true
+   "boot": true,
+   "hi": {
+    "what": "RAM का पूरा test (पुराने और नए PC)।",
+    "when": "बार-बार blue screen, अचानक restart.",
+    "steps": [
+     "PC बंद करें, pendrive लगाएँ और चालू करते समय Boot Menu key दबाएँ (F12 / F9 / Esc / F11 - \"Boot Menu / BIOS keys\" देखें)।",
+     "Sanjeevani के menu से यह विकल्प चुनें।"
+    ],
+    "good": "",
+    "warn": []
+   }
   },
   "memtest86": {
    "group": "bootmenu",
@@ -1635,7 +2295,17 @@
     "good": "",
     "warn": []
    },
-   "boot": true
+   "boot": true,
+   "hi": {
+    "what": "RAM test - नए UEFI PC के लिए।",
+    "when": "जब MemTest86+ शुरू न हो।",
+    "steps": [
+     "PC बंद करें, pendrive लगाएँ और चालू करते समय Boot Menu key दबाएँ (F12 / F9 / Esc / F11 - \"Boot Menu / BIOS keys\" देखें)।",
+     "Sanjeevani के menu से यह विकल्प चुनें।"
+    ],
+    "good": "",
+    "warn": []
+   }
   },
   "gparted": {
    "group": "bootmenu",
@@ -1664,7 +2334,19 @@
      "Changing the wrong partition loses data and Windows. Back up first."
     ]
    },
-   "boot": true
+   "boot": true,
+   "hi": {
+    "what": "Partition editor (Linux).",
+    "when": "जब Windows से partitions न बदल सकें।",
+    "steps": [
+     "PC बंद करें, pendrive लगाएँ और चालू करते समय Boot Menu key दबाएँ (F12 / F9 / Esc / F11 - \"Boot Menu / BIOS keys\" देखें)।",
+     "Sanjeevani के menu से यह विकल्प चुनें।"
+    ],
+    "good": "",
+    "warn": [
+     "गलत partition बदलने से data और Windows खो जाते हैं। पहले backup लें।"
+    ]
+   }
   },
   "clonezilla": {
    "group": "bootmenu",
@@ -1693,7 +2375,19 @@
      "Swapping source and target erases the original disk - check twice."
     ]
    },
-   "boot": true
+   "boot": true,
+   "hi": {
+    "what": "पूरी disk की हूबहू copy / image.",
+    "when": "HDD → SSD ले जाना, पूरा backup.",
+    "steps": [
+     "PC बंद करें, pendrive लगाएँ और चालू करते समय Boot Menu key दबाएँ (F12 / F9 / Esc / F11 - \"Boot Menu / BIOS keys\" देखें)।",
+     "Sanjeevani के menu से यह विकल्प चुनें।"
+    ],
+    "good": "",
+    "warn": [
+     "Source और target उलटे हुए तो मूल disk मिट जाएगी - दो बार जाँचें।"
+    ]
+   }
   },
   "rescuezilla": {
    "group": "bootmenu",
@@ -1722,7 +2416,19 @@
      "Restore / clone erases everything on the chosen target disk."
     ]
    },
-   "boot": true
+   "boot": true,
+   "hi": {
+    "what": "आसान windows के साथ disk backup / restore / clone.",
+    "when": "Windows शुरू न हो तब पूरा backup, नए SSD पर ले जाना।",
+    "steps": [
+     "PC बंद करें, pendrive लगाएँ और चालू करते समय Boot Menu key दबाएँ (F12 / F9 / Esc / F11 - \"Boot Menu / BIOS keys\" देखें)।",
+     "Sanjeevani के menu से यह विकल्प चुनें।"
+    ],
+    "good": "",
+    "warn": [
+     "Restore / clone चुनी गई target disk पर सब कुछ मिटा देता है।"
+    ]
+   }
   },
   "supergrub2": {
    "group": "bootmenu",
@@ -1747,7 +2453,17 @@
     "good": "",
     "warn": []
    },
-   "boot": true
+   "boot": true,
+   "hi": {
+    "what": "Disk पर Windows / Linux ढूँढकर शुरू करता है।",
+    "when": "Boot menu टूटने से Windows नहीं दिखता।",
+    "steps": [
+     "PC बंद करें, pendrive लगाएँ और चालू करते समय Boot Menu key दबाएँ (F12 / F9 / Esc / F11 - \"Boot Menu / BIOS keys\" देखें)।",
+     "Sanjeevani के menu से यह विकल्प चुनें।"
+    ],
+    "good": "",
+    "warn": []
+   }
   },
   "bootrepair": {
    "group": "bootmenu",
@@ -1776,7 +2492,19 @@
      "Do not run it on a Windows-only PC."
     ]
    },
-   "boot": true
+   "boot": true,
+   "hi": {
+    "what": "Linux / GRUB boot repair.",
+    "when": "Linux + Windows dual boot टूट गया।",
+    "steps": [
+     "PC बंद करें, pendrive लगाएँ और चालू करते समय Boot Menu key दबाएँ (F12 / F9 / Esc / F11 - \"Boot Menu / BIOS keys\" देखें)।",
+     "Sanjeevani के menu से यह विकल्प चुनें।"
+    ],
+    "good": "",
+    "warn": [
+     "सिर्फ़ Windows वाले PC पर न चलाएँ।"
+    ]
+   }
   },
   "krd": {
    "group": "bootmenu",
@@ -1801,7 +2529,17 @@
     "good": "",
     "warn": []
    },
-   "boot": true
+   "boot": true,
+   "hi": {
+    "what": "Windows शुरू किए बिना virus scan (Kaspersky).",
+    "when": "Virus Windows के अंदर scan रोकता है।",
+    "steps": [
+     "PC बंद करें, pendrive लगाएँ और चालू करते समय Boot Menu key दबाएँ (F12 / F9 / Esc / F11 - \"Boot Menu / BIOS keys\" देखें)।",
+     "Sanjeevani के menu से यह विकल्प चुनें।"
+    ],
+    "good": "",
+    "warn": []
+   }
   },
   "shredos": {
    "group": "bootmenu",
@@ -1830,7 +2568,19 @@
      "The chosen disk is erased for good. Unplug this USB and other disks first."
     ]
    },
-   "boot": true
+   "boot": true,
+   "hi": {
+    "what": "Disks हमेशा के लिए मिटाता है (data वापस नहीं आएगा)।",
+    "when": "PC / disk बेचने से पहले।",
+    "steps": [
+     "PC बंद करें, pendrive लगाएँ और चालू करते समय Boot Menu key दबाएँ (F12 / F9 / Esc / F11 - \"Boot Menu / BIOS keys\" देखें)।",
+     "Sanjeevani के menu से यह विकल्प चुनें।"
+    ],
+    "good": "",
+    "warn": [
+     "चुनी गई disk हमेशा के लिए मिट जाती है। पहले यह USB और दूसरी disks निकाल दें।"
+    ]
+   }
   },
   "win11": {
    "group": "bootmenu",
@@ -1859,7 +2609,19 @@
      "Deleting / formatting a partition during install erases its data."
     ]
    },
-   "boot": true
+   "boot": true,
+   "hi": {
+    "what": "Windows 11 install / repair.",
+    "when": "नया Windows install, या \"Repair your computer\".",
+    "steps": [
+     "PC बंद करें, pendrive लगाएँ और चालू करते समय Boot Menu key दबाएँ (F12 / F9 / Esc / F11 - \"Boot Menu / BIOS keys\" देखें)।",
+     "Sanjeevani के menu से यह विकल्प चुनें।"
+    ],
+    "good": "",
+    "warn": [
+     "Install के दौरान partition delete / format करने से उसका data मिट जाता है।"
+    ]
+   }
   },
   "mint-xfce": {
    "group": "bootmenu",
@@ -1888,7 +2650,19 @@
      "\"Erase disk and install\" removes Windows and data."
     ]
    },
-   "boot": true
+   "boot": true,
+   "hi": {
+    "what": "पुराने / धीमे PC के लिए हल्का Linux.",
+    "when": "पुराना PC जहाँ Windows बहुत भारी है।",
+    "steps": [
+     "PC बंद करें, pendrive लगाएँ और चालू करते समय Boot Menu key दबाएँ (F12 / F9 / Esc / F11 - \"Boot Menu / BIOS keys\" देखें)।",
+     "Sanjeevani के menu से यह विकल्प चुनें।"
+    ],
+    "good": "",
+    "warn": [
+     "\"Erase disk and install\" Windows और data हटा देता है।"
+    ]
+   }
   },
   "lazesoft": {
    "group": "bootmenu",
@@ -1913,7 +2687,17 @@
     "good": "",
     "warn": []
    },
-   "boot": true
+   "boot": true,
+   "hi": {
+    "what": "Windows boot repair और password reset.",
+    "when": "Windows शुरू नहीं होता।",
+    "steps": [
+     "PC बंद करें, pendrive लगाएँ और चालू करते समय Boot Menu key दबाएँ (F12 / F9 / Esc / F11 - \"Boot Menu / BIOS keys\" देखें)।",
+     "Sanjeevani के menu से यह विकल्प चुनें।"
+    ],
+    "good": "",
+    "warn": []
+   }
   },
   "hdat2": {
    "group": "bootmenu",
@@ -1942,7 +2726,19 @@
      "Use only the Read / Verify tests."
     ]
    },
-   "boot": true
+   "boot": true,
+   "hi": {
+    "what": "Disk bad-sector test (DOS).",
+    "when": "पुरानी IDE / SATA disks.",
+    "steps": [
+     "PC बंद करें, pendrive लगाएँ और चालू करते समय Boot Menu key दबाएँ (F12 / F9 / Esc / F11 - \"Boot Menu / BIOS keys\" देखें)।",
+     "Sanjeevani के menu से यह विकल्प चुनें।"
+    ],
+    "good": "",
+    "warn": [
+     "सिर्फ़ Read / Verify tests इस्तेमाल करें।"
+    ]
+   }
   }
  }
 }
