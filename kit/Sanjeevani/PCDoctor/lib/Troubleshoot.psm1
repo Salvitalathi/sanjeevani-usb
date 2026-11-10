@@ -588,6 +588,8 @@ $script:D['virus'] = @{
         $st = $null; try { $st = Get-MpComputerStatus -ErrorAction Stop } catch { }
         if ($other.Count) {
             if (-not @($other | Where-Object Enabled).Count) { $n = ($other | ForEach-Object Name) -join ', '; $why += TT "the antivirus ($n) is switched off" "antivirus ($n) बंद आहे" "antivirus ($n) बंद है" }
+        } elseif ($st -and $st.AMRunningMode -and [string]$st.AMRunningMode -ne 'Normal') {
+            # Defender is in passive / EDR mode: another security product is in charge - not a problem
         } elseif ($st) {
             if (-not $st.RealTimeProtectionEnabled) { $why += TT 'Microsoft Defender protection is off and no other antivirus is installed' 'Microsoft Defender protection बंद आहे आणि दुसरा antivirus नाही' 'Microsoft Defender protection बंद है और दूसरा antivirus नहीं है' }
             elseif ($st.AntivirusSignatureAge -gt 7 -and $st.AntivirusSignatureAge -lt 3650) { $why += TT "the virus definitions are $($st.AntivirusSignatureAge) days old" "virus definitions $($st.AntivirusSignatureAge) दिवस जुनी आहेत" "virus definitions $($st.AntivirusSignatureAge) दिन पुरानी हैं" }
@@ -598,7 +600,7 @@ $script:D['virus'] = @{
         if ($reg.Count) { $why += TT "$($reg.Count) Windows settings were changed the way viruses do" "$($reg.Count) Windows settings virus सारख्या बदललेल्या आहेत" "$($reg.Count) Windows settings virus की तरह बदली गई हैं" }
         $auto = @(Get-TSSuspiciousAutostarts)
         if ($auto.Count) { $n = ($auto | Select-Object -First 3 | ForEach-Object Name) -join ', '; $why += TT "$($auto.Count) suspicious programs start by themselves ($n)" "$($auto.Count) संशयास्पद programs आपोआप सुरू होतात ($n)" "$($auto.Count) संदिग्ध programs अपने आप शुरू होते हैं ($n)" }
-        $data = @{ Reg = $reg; Auto = $auto; Threats = $thr.Count; DefenderActive = (-not $other.Count -and $st) }
+        $data = @{ Reg = $reg; Auto = $auto; Threats = $thr.Count; DefenderActive = [bool](-not $other.Count -and $st -and (-not $st.AMRunningMode -or [string]$st.AMRunningMode -eq 'Normal')) }
         if ($why.Count) { return (New-TSCheck $true (Add-TT (TT 'Found:' 'सापडले:' 'मिला:') (Join-TT $why '; ')) $data) }
         return (New-TSCheck $null (TT 'The antivirus is on, no threats are recorded and no malware settings or autostarts were found.' 'Antivirus चालू आहे, कोणत्याही virus ची नोंद नाही आणि virus सारखे बदल किंवा autostarts सापडले नाहीत.' 'Antivirus चालू है, किसी virus का रिकॉर्ड नहीं, और virus जैसे बदलाव या autostarts नहीं मिले।') $data)
     }
@@ -653,8 +655,9 @@ $script:D['auto-open'] = @{
         if ($tasks.Count) { $n = ($tasks | Select-Object -First 3 | ForEach-Object TaskName) -join ', '; $why += TT "$($tasks.Count) scheduled tasks repeatedly open websites / files ($n)" "$($tasks.Count) scheduled tasks वारंवार websites / files उघडतात ($n)" "$($tasks.Count) scheduled tasks बार-बार websites / files खोलते हैं ($n)" }
         if ($c.Found -eq $true -or $why.Count) {
             $t = if ($c.Found -eq $true) { $c.Text } else { $null }
+            $w = if ($why.Count) { Add-TT (TT 'Found:' 'सापडले:' 'मिला:') (Join-TT $why '; ') } else { $null }
             $data = $c.Data; $data.Tasks = $tasks
-            return (New-TSCheck $true (Join-TT @($t, (Add-TT (TT 'Found:' 'सापडले:' 'मिला:') (Join-TT $why '; '))) ' ') $data)
+            return (New-TSCheck $true (Join-TT @($t, $w) ' ') $data)
         }
         $data = $c.Data; $data.Tasks = @()
         return (New-TSCheck $null (TT 'No program that opens windows, files or websites by itself was found.' 'Windows, files किंवा websites आपोआप उघडणारा कोणताही program सापडला नाही.' 'Windows, files या websites अपने आप खोलने वाला कोई program नहीं मिला।') $data)
