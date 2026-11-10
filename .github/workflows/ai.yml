@@ -25,7 +25,7 @@ jobs:
           $rels = gh api 'repos/ggml-org/llama.cpp/releases?per_page=20' | ConvertFrom-Json
           foreach ($r in ($rels | Select-Object -First 3)) { Write-Host "release $($r.tag_name) ($($r.assets.Count) files):"; $r.assets.name | Select-Object -First 40 | ForEach-Object { Write-Host "    $_" } }
           foreach ($rel in $rels) {
-            if ($rel.draft -or $rel.prerelease) { continue }
+            if ($rel.draft) { continue }
             $asset = $rel.assets | Where-Object { $_.name -match $re } | Select-Object -First 1
             if ($asset) { Write-Host "llama.cpp $($rel.tag_name): $($asset.name)"; break }
           }

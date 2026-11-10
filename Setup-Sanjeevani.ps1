@@ -186,8 +186,10 @@ function Resolve-Source($e) {
                 $a = $j.assets | Where-Object { $_.name -match $s.asset } | Select-Object -First 1
                 if (-not $a -and $s.anyRelease) {
                     # projects whose "latest" release is source-only (llama.cpp): newest release that carries the file
-                    foreach ($r in @(Get-WebText "https://api.github.com/repos/$($s.repo)/releases?per_page=20" @{ Accept = 'application/vnd.github+json' } | ConvertFrom-Json)) {
-                        if ($r.draft -or $r.prerelease) { continue }
+                    # (assigned first: PS 5.1 ConvertFrom-Json emits the whole array as one object; llama.cpp marks its builds as pre-releases)
+                    $rels = Get-WebText "https://api.github.com/repos/$($s.repo)/releases?per_page=20" @{ Accept = 'application/vnd.github+json' } | ConvertFrom-Json
+                    foreach ($r in $rels) {
+                        if ($r.draft) { continue }
                         $a = $r.assets | Where-Object { $_.name -match $s.asset } | Select-Object -First 1
                         if ($a) { $j = $r; break }
                     }
