@@ -46,7 +46,16 @@ jobs:
               if ($e -ne 'piper' -and $e -ne 'cache') { $bad++ }
             }
           }
-          Get-Content "$root\Sanjeevani\*.log" -ErrorAction SilentlyContinue | Select-String 'voice' | ForEach-Object { Write-Host $_ }
+          Get-ChildItem $root -Recurse -Filter *.log -ErrorAction SilentlyContinue | Get-Content | Select-String 'voice' | ForEach-Object { Write-Host $_ }
+          foreach ($l in 'en', 'mr') {
+            Write-Host "--- piper directly ($l)"
+            $psi = New-Object Diagnostics.ProcessStartInfo $a.Piper
+            $psi.Arguments = "--model `"$($a.Voices[$l])`" --output_file `"$out\direct-$l.wav`""
+            $psi.UseShellExecute = $false; $psi.RedirectStandardInput = $true; $psi.RedirectStandardError = $true; $psi.CreateNoWindow = $true
+            $p = [Diagnostics.Process]::Start($psi)
+            $b = [Text.Encoding]::UTF8.GetBytes((Get-PDVoiceLine 'greet' $l) + "`n"); $p.StandardInput.BaseStream.Write($b, 0, $b.Length); $p.StandardInput.Close()
+            Write-Host $p.StandardError.ReadToEnd(); $p.WaitForExit(); Write-Host "exit $($p.ExitCode)"
+          }
           if ($bad) { Write-Host "$bad sentences were not spoken by the offline Indian voice"; exit 1 }
       - name: Publish to the voice-samples branch
         if: always()
