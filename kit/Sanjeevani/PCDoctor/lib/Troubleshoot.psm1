@@ -796,6 +796,7 @@ function Get-PDTroubleshootSpeech($R, [string]$Lang = 'mr') {
     $dev = @{ en = $(if ($R.IsLaptop) { 'laptop' } else { 'PC' }); mr = $(if ($R.IsLaptop) { 'laptop' } else { 'PC' }); hi = $(if ($R.IsLaptop) { 'laptop' } else { 'PC' }) }[$Lang]
     if (-not $R.Issue) {
         $s = @{ en = "I checked everything. No such problem was found on your $dev."; mr = "मी सर्व तपासले. असा कोणताही issue आपल्या $dev मध्ये आढळला नाही."; hi = "मैंने सब कुछ जाँच लिया। ऐसा कोई issue आपके $dev में नहीं मिला।" }[$Lang]
+        foreach ($c in (@($R.Checked) | Select-Object -First 3)) { $s += ' ' + (Get-TSTitle $c.Problem $Lang) + ': ' + (Get-TSPick $c.Check.Text $Lang) }
         if (@($R.Refreshed).Count) { $s += ' ' + @{ en = 'As a precaution I restarted the related service.'; mr = 'खबरदारी म्हणून संबंधित service पुन्हा सुरू केली.'; hi = 'सावधानी के तौर पर संबंधित service फिर से शुरू की।' }[$Lang] }
         if (@($R.Guide).Count) { $s += ' ' + @{ en = 'If it still happens, see the steps on the screen.'; mr = 'तरीही असे होत असेल तर स्क्रीनवरचे उपाय पहा.'; hi = 'फिर भी ऐसा हो तो स्क्रीन पर दिए उपाय देखें।' }[$Lang] }
         return $s

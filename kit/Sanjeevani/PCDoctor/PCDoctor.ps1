@@ -2133,7 +2133,7 @@ function Confirm-AskConsent([bool]$online, $cfg, [switch]$Remember) {
     return $ok
 }
 # understand -> check -> fix, in the background; the chat page always gets the result, the voice screen too when open
-function Start-AssistJob([string]$text, [string]$mode, $cfg) {
+function Start-AssistJob([string]$text, [string]$mode, $cfg, $U = $null) {
     $online = ($mode -in 'auto', 'online') -and $cfg.key
     $ui.AskBox.Text = ''
     $me = New-Bubble $true; Add-BubbleText $me $text 15 '#FFFFFF'
@@ -2144,10 +2144,10 @@ function Start-AssistJob([string]$text, [string]$mode, $cfg) {
     Start-PDJob -Title 'Assistant' -Work {
         param($P)
         $probs = Get-PDProblems $P.DataDir
-        $u = Resolve-PDProblemIds -Text $P.Text -Problems $probs -UsbRoot $P.UsbRoot -Mode $P.Mode -PcInfo $P.Pc
+        $u = if ($P.U) { $P.U } else { Resolve-PDProblemIds -Text $P.Text -Problems $probs -UsbRoot $P.UsbRoot -Mode $P.Mode -PcInfo $P.Pc }
         $r = if ($u.Ids.Count) { Invoke-PDTroubleshoot -Ids $u.Ids -Problems $probs } else { $null }
         [pscustomobject]@{ U = $u; R = $r; mr = $(if ($r) { Format-PDTroubleshoot $r 'mr' }); en = $(if ($r) { Format-PDTroubleshoot $r 'en' }); hi = $(if ($r) { Format-PDTroubleshoot $r 'hi' }) }
-    } -Params @{ Text = $text; Mode = $mode; Pc = $pc; DataDir = $DataDir; UsbRoot = $UsbRoot } -OnDone { param($o) Show-AskResult $o; if ($script:V.Fixing) { Complete-VoiceFix $o } }
+    } -Params @{ Text = $text; Mode = $mode; Pc = $pc; DataDir = $DataDir; UsbRoot = $UsbRoot; U = $U } -OnDone { param($o) Show-AskResult $o; if ($script:V.Fixing) { Complete-VoiceFix $o } }
 }
 
 function Show-AskResult($o) {
@@ -2238,7 +2238,7 @@ function Say-V([string]$text, [scriptblock]$Then, [string]$lang) {
     New-Item -ItemType Directory -Path $VoiceTemp -Force -ErrorAction SilentlyContinue | Out-Null
     $it = @{ Text = $text; Lang = $lang; Then = $Then; Ready = $false; Wav = (Join-Path $VoiceTemp ('s' + [guid]::NewGuid().ToString('N').Substring(0, 10) + '.wav')); Engine = $null }
     [void]$script:V.Queue.Add($it)
-    Start-VTask { param($P) New-PDSpeech -Text $P.Text -Lang $P.Lang -Out $P.Out -UsbRoot $P.Root } @{ Text = $text; Lang = $lang; Out = $it.Wav; Root = $UsbRoot } { param($r, $c) $c.Engine = $r; $c.Ready = $true; Step-VSpeech } $it
+    Start-VTask { param($P) New-PDSpeech -Text $P.Text -Lang $P.Lang -Out $P.Out -UsbRoot $P.Root -Mode $P.Mode } @{ Text = $text; Lang = $lang; Out = $it.Wav; Root = $UsbRoot; Mode = $script:AiMode } { param($r, $c) $c.Engine = $r; $c.Ready = $true; if (-not $r) { $global:PDLogQueue.Enqueue('[WARN] voice: no voice could say: ' + $c.Text) }; Step-VSpeech } $it
 }
 function Step-VSpeech {
     if (-not $script:V.Open -or $script:V.Speaking -or -not $script:V.Queue.Count) { return }
@@ -2284,6 +2284,14 @@ function Set-VState([string]$s) {
     foreach ($b in $script:V.Bars) { $b.Stroke = Brush $VStateColor[$s] }
     $ui.VCoreIcon.Text = [string][char]$(switch ($s) { 'listen' { 0xE720 } 'think' { 0xE9F5 } 'work' { 0xE90F } 'speak' { 0xE767 } default { 0xE720 } })
     $ui.VMicBtn.IsEnabled = ($s -ne 'work')
+    Set-VMicWait $false
+}
+function Set-VMicWait([bool]$on) {
+    $script:V.MicWait = $on
+    $ui.VMicBtn.Background = if ($on) { Brush '#0F766E' } else { [Windows.Media.Brushes]::Transparent }
+    $ui.VMicBtn.BorderBrush = if ($on) { Brush '#5EEAD4' } else { Brush '#1E4A5C' }
+    if ($on -and -not $script:NoAnim) { $a = New-Anim 1 0.45 700; $a.AutoReverse = $true; $a.RepeatBehavior = [Windows.Media.Animation.RepeatBehavior]::Forever; $ui.VMicBtn.BeginAnimation([Windows.UIElement]::OpacityProperty, $a) }
+    else { $ui.VMicBtn.BeginAnimation([Windows.UIElement]::OpacityProperty, $null); $ui.VMicBtn.Opacity = 1 }
 }
 function Set-VLang([string]$l) {
     $script:V.Lang = $l
@@ -2359,7 +2367,7 @@ function Open-Voice {
         $script:VMusic = New-Object Windows.Media.MediaPlayer
         $script:VMusic.Add_MediaEnded({ $script:VMusic.Position = [TimeSpan]::Zero; $script:VMusic.Play() })
     }
-    $script:V.Open = $true; $script:V.Tries = 0; $script:V.GreetDone = $false; $script:V.Mic = $null; $script:V.Fixing = $false
+    $script:V.Open = $true; $script:V.Tries = 0; $script:V.GreetDone = $false; $script:V.Mic = $null; $script:V.Fixing = $false; $script:V.Confirm = $null; $script:V.SttSource = ''
     Set-VLang $Lang
     $ui.VSay.Text = ''; $ui.VUser.Text = ''; $ui.VSteps.Children.Clear(); $ui.VInput.Text = ''
     $ui.VAuto.IsChecked = ((Get-PDSetting $UsbRoot 'voice' $true) -ne $false)
@@ -2375,8 +2383,16 @@ function Open-Voice {
         Add-VStep $(if ($script:V.Mic.Has) { 'microphone ready' } else { 'no microphone' }) $(if ($script:V.Mic.Has) { '#2DD4BF' } else { '#FBBF24' })
         if ($script:V.GreetDone) { Invoke-VAfterGreet }
     }
+    Request-VVoicePack $script:V.Lang
     Say-V (Get-PDVoiceLine 'welcome' 'en') -lang 'en'
     Say-V (VL 'greet') -Then { $script:V.GreetDone = $true; if ($script:V.Mic) { Invoke-VAfterGreet } }
+}
+# no offline voice for this language yet: download it in the background (once; the next sentences use it)
+function Request-VVoicePack([string]$l) {
+    if (-not $script:V.PackTried) { $script:V.PackTried = @{} }
+    if ($script:V.PackTried[$l]) { return }
+    $script:V.PackTried[$l] = $true
+    Start-VTask { param($P) Install-PDVoicePack -UsbRoot $P.Root -Lang $P.Lang } @{ Root = $UsbRoot; Lang = $l } { param($r, $c) if ($r -eq 'installed') { Add-VStep "voice $($c) installed" '#2DD4BF' } } $l
 }
 function Invoke-VAfterGreet {
     $m = $script:V.Mic
@@ -2411,7 +2427,7 @@ function Start-VListen {
     Set-VState 'listen'
     New-Item -ItemType Directory -Path $VoiceTemp -Force -ErrorAction SilentlyContinue | Out-Null
     $wav = Join-Path $VoiceTemp ('r' + [guid]::NewGuid().ToString('N').Substring(0, 10) + '.wav')
-    Start-VTask { param($P) Invoke-PDRecord -Path $P.Out } @{ Out = $wav } { param($r, $c) Complete-VRecord $r $c } @{ Wav = $wav }
+    Start-VTask { param($P) Invoke-PDRecord -Path $P.Out -MaxMs 25000 -SilenceMs 1300 -NoSpeechMs 15000 } @{ Out = $wav } { param($r, $c) Complete-VRecord $r $c } @{ Wav = $wav }
 }
 function Complete-VRecord([string]$r, $c) {
     $script:V.Listening = $false
@@ -2421,37 +2437,92 @@ function Complete-VRecord([string]$r, $c) {
         Start-VTask { param($P) ConvertFrom-PDSpeech -Wav $P.Wav -Lang $P.Lang -UsbRoot $P.Root -Mode $P.Mode } @{ Wav = $c.Wav; Lang = $script:V.Lang; Root = $UsbRoot; Mode = $script:AiMode } {
             param($t, $c) Remove-Item -LiteralPath $c.Wav -Force -ErrorAction SilentlyContinue
             if ($t -and $t.Error -and -not $t.Text) { $global:PDLogQueue.Enqueue('[WARN] voice: ' + $t.Error) }
+            $script:V.SttSource = $(if ($t) { $t.Source } else { '' })
             Invoke-VHeard $(if ($t) { [string]$t.Text } else { '' }) $true
         } $c
         return
     }
     Remove-Item -LiteralPath $c.Wav -Force -ErrorAction SilentlyContinue
-    if ($r -eq 'stopped') { Set-VState 'idle'; return }
+    if ($r -eq 'stopped') { Set-VState 'idle'; Set-VMicWait $true; return }
     if ($r -like 'error:*') { $global:PDLogQueue.Enqueue("[WARN] voice: microphone $r"); $script:V.Mic.Has = $false; Say-V (VL 'nomic'); Set-VState 'idle'; return }
-    Invoke-VHeard '' $true
+    # nobody spoke: do not keep the mic open forever - ask the user to press the mic button when ready
+    Say-V (VL 'pressmic') -Then { Set-VState 'idle'; Set-VMicWait $true }
 }
 # the user said (or typed) something
 function Invoke-VHeard([string]$text, [bool]$spoken) {
     $text = ($text -replace '\s+', ' ').Trim()
     if ($text.Length -lt 2) {
         $script:V.Tries++
-        if ($spoken -and $script:V.Tries -le 2) { Say-V (VL 'nohear') -Then { Start-VListen } }
-        else { Say-V (VL 'typeit'); Set-VState 'idle'; $ui.VInput.Focus() | Out-Null }
+        if ($spoken -and $script:V.Tries -le 1) { Say-V (VL 'nohear') -Then { Start-VListen } }
+        else { Say-V (VL 'pressmic') -Then { Set-VState 'idle'; Set-VMicWait $true } }
         return
     }
     $script:V.Tries = 0
     $ui.VUser.Text = '› ' + $text
     Add-VStep ('user: ' + $(if ($text.Length -gt 40) { $text.Substring(0, 40) + '…' } else { $text })) '#67E8F9'
     $l = Get-PDTextLang $text
-    if ($l -and $l -ne $script:V.Lang) { Set-VLang $l; Add-VStep "language: $($VLangNames[$l])" '#67E8F9' }
+    if ($l -and $l -ne $script:V.Lang) { Set-VLang $l; Add-VStep "language: $($VLangNames[$l])" '#67E8F9'; Request-VVoicePack $l }
+    if ($script:V.Confirm) { Resolve-VConfirm $text $spoken; return }
     if (Test-PDGoodbye $text) { Say-V (VL 'bye') -Then { Close-Voice }; return }
-    Start-VoiceFix $text
+    Start-VoiceFix $text $spoken
 }
-function Start-VoiceFix([string]$text) {
+# 1. understand (AI) -> 2. when not sure: "did you mean ...?" -> 3. check and repair
+function Start-VoiceFix([string]$text, [bool]$spoken = $true) {
     if ($script:Job) { Say-V (VL 'busy'); Set-VState 'idle'; return }
     $mode = $script:AiMode; $cfg = Get-PDAiConfig $UsbRoot
     $online = ($mode -in 'auto', 'online') -and $cfg.key
     if (-not (Confirm-AskConsent $online $cfg -Remember)) { Say-V (VL 'more') -Then { Start-VListen }; return }
+    $script:V.Text = $text
+    Set-VState 'think'
+    Add-VStep 'understanding the problem' '#A78BFA'
+    Say-V (VL 'thinking')
+    $pc = if ($online -and $cfg.sendPcInfo) { Get-AskPcInfo } else { '' }
+    Start-PDJob -Title (L 'Understanding the problem' 'समस्या समजून घेत आहे' 'समस्या समझ रहे हैं') -Work {
+        param($P) Resolve-PDProblemIds -Text $P.Text -Problems (Get-PDProblems $P.DataDir) -UsbRoot $P.UsbRoot -Mode $P.Mode -PcInfo $P.Pc
+    } -Params @{ Text = $text; Mode = $mode; Pc = $pc; DataDir = $DataDir; UsbRoot = $UsbRoot } -OnDone { param($u) Complete-VUnderstand $u }
+    $script:V.Spoken = $spoken
+}
+function Get-VTitle([string]$id) {
+    $p = (Get-PDProblems $DataDir) | Where-Object { $_.id -eq $id } | Select-Object -First 1
+    if (-not $p) { return $id }
+    $t = $p.($script:V.Lang).title; if ($t) { $t } else { $p.en.title }
+}
+function Complete-VUnderstand($u) {
+    if (-not $script:V.Open) { return }
+    if (-not $u -or -not @($u.Ids).Count) {
+        Add-VStep 'not understood' '#FBBF24'
+        Say-V (VL 'unclear') -Then { Start-VListen }
+        return
+    }
+    $script:V.U = $u
+    Add-VStep ('understood · ' + (Get-VTitle $u.Ids[0])) '#C4B5FD'
+    # sure enough: typed text, or heard and understood online; otherwise ask first
+    $sure = (-not $script:V.Spoken) -or ($script:V.SttSource -eq 'online' -and $u.Source -eq 'online')
+    if ($sure) { Start-VRepair; return }
+    $script:V.Confirm = @{ Index = 0; Ids = @($u.Ids) }
+    Say-V (VL 'confirm' @(Get-VTitle $u.Ids[0])) -Then { Start-VListen }
+}
+function Resolve-VConfirm([string]$text, [bool]$spoken) {
+    $c = $script:V.Confirm
+    if (Test-PDYes $text) {
+        $id = $c.Ids[$c.Index]; $script:V.Confirm = $null
+        $script:V.U.Ids = @($id) + @($c.Ids | Where-Object { $_ -ne $id })
+        Start-VRepair; return
+    }
+    if (Test-PDNo $text) {
+        $c.Index++
+        if ($c.Index -lt $c.Ids.Count) { Say-V (VL 'confirm2' @(Get-VTitle $c.Ids[$c.Index])) -Then { Start-VListen }; return }
+        $script:V.Confirm = $null
+        Say-V (VL 'sayagain') -Then { Start-VListen }; return
+    }
+    # neither yes nor no: it is a new / better description of the problem
+    $script:V.Confirm = $null
+    if (Test-PDGoodbye $text) { Say-V (VL 'bye') -Then { Close-Voice }; return }
+    Start-VoiceFix $text $spoken
+}
+function Start-VRepair {
+    if ($script:Job) { Say-V (VL 'busy'); Set-VState 'idle'; return }
+    $mode = $script:AiMode; $cfg = Get-PDAiConfig $UsbRoot
     $ui.VSteps.Children.Clear()
     $global:PDState.Events = New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]'
     $script:V.Fixing = $true
@@ -2459,8 +2530,8 @@ function Start-VoiceFix([string]$text) {
     Say-V (VL 'ack')
     Say-V (VL 'working')
     Start-VMusic
-    Add-VStep 'understanding the problem' '#A78BFA'
-    Start-AssistJob $text $mode $cfg
+    Add-VStep ('problem · ' + (Get-VTitle $script:V.U.Ids[0])) '#A78BFA'
+    Start-AssistJob $script:V.Text $mode $cfg $script:V.U
 }
 # spoken progress from the troubleshooter (check / probe / fix / verify)
 function Update-VEvents {
@@ -2828,7 +2899,7 @@ $win.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, [Windows.R
                 switch ($arg) {
                     'open'  { Open-Voice }
                     'close' { Close-Voice }
-                    'mic'   { if ($script:V.Listening) { [SJVoice.Mic]::StopNow = $true } elseif ($script:V.Mic -and -not $script:V.Mic.Has) { Say-V (VL 'nomic'); $ui.VInput.Focus() | Out-Null } else { $script:V.Tries = 0; Start-VListen } }
+                    'mic'   { Set-VMicWait $false; if ($script:V.Listening) { [SJVoice.Mic]::StopNow = $true } elseif ($script:V.Mic -and -not $script:V.Mic.Has) { Say-V (VL 'nomic'); $ui.VInput.Focus() | Out-Null } else { $script:V.Tries = 0; Start-VListen } }
                     'send'  { $t = $ui.VInput.Text; $ui.VInput.Text = ''; Invoke-VHeard $t $false }
                 }
             }
@@ -2881,6 +2952,8 @@ $win.Add_Closing({
 $ui.AskBox.Add_KeyDown({ param($s, $e) if ($e.Key -eq 'Return') { $e.Handled = $true; Invoke-AskGo } })
 $ui.VInput.Add_KeyDown({ param($s, $e) if ($e.Key -eq 'Return') { $e.Handled = $true; $t = $ui.VInput.Text; $ui.VInput.Text = ''; Invoke-VHeard $t $false } elseif ($e.Key -eq 'Escape') { Close-Voice } })
 $ui.VInput.Add_TextChanged({ $ui.VHint.Visibility = if ($ui.VInput.Text) { 'Collapsed' } else { 'Visible' } })
+# the orb itself is a big mic button
+foreach ($el in $ui.VCore, $ui.VCoreIcon) { $el.Cursor = 'Hand'; $el.Add_MouseLeftButtonUp({ if ($script:V.Open -and -not $script:V.Fixing) { Set-VMicWait $false; if ($script:V.Mic -and -not $script:V.Mic.Has) { Say-V (VL 'nomic') } else { $script:V.Tries = 0; Start-VListen } } }) }
 $ui.VAuto.Add_Click({ [void](Set-PDSetting $UsbRoot 'voice' ([bool]$ui.VAuto.IsChecked)) })
 # voice screen: tasks, spoken progress, orb animation, music fade
 $vtimer = New-Object System.Windows.Threading.DispatcherTimer

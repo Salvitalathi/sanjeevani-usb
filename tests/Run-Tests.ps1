@@ -670,6 +670,9 @@ Test-Case 'Voice: lines in 3 languages, language detection, goodbye, microphone 
     foreach ($k in $cases.Keys) { $g = Get-PDTextLang $k; Assert ($g -eq $cases[$k]) "language of '$k' = $g, expected $($cases[$k])" }
     foreach ($t in 'नाही', 'नको, धन्यवाद', 'No thanks', 'धन्यवाद', 'नहीं, शुक्रिया', 'bas') { Assert (Test-PDGoodbye $t) "'$t' should end the talk" }
     foreach ($t in 'internet नाही', 'नाही चालत', 'no internet', 'nahi chalat', 'printer चालत नाही', 'no sound', 'माझा laptop खूप हळू चालतो') { Assert (-not (Test-PDGoodbye $t)) "'$t' is a problem, not a goodbye" }
+    foreach ($t in 'हो', 'होय, बरोबर', 'हाँ', 'yes') { Assert (Test-PDYes $t) "'$t' is yes" }
+    foreach ($t in 'नाही', 'नको', 'नहीं', 'no') { Assert ((Test-PDNo $t) -and -not (Test-PDYes $t)) "'$t' is no" }
+    Assert ((ConvertTo-PDRoman 'मी संजीवनी. आपली काय मदत करू शकते?') -eq 'mee sanjeevnee. aaplee kaay madat karoo shakte?') "Roman: $(ConvertTo-PDRoman 'मी संजीवनी. आपली काय मदत करू शकते?')"
     Assert (Initialize-PDVoiceNative) 'microphone / volume helper (C#) does not compile on PowerShell 5.1'
     Write-Host ("      microphones: {0}" -f [SJVoice.Mic]::Devices) -ForegroundColor DarkGray
     $m = Enable-PDMicrophone
@@ -684,6 +687,10 @@ Test-Case 'Voice: speech is written with a Windows voice; speech-to-text request
         $wav = Join-Path $root 'hello.wav'
         $eng = New-PDSpeech -Text 'Welcome to Sanjeevani PC Doctor.' -Lang 'en' -Out $wav -UsbRoot $root
         Write-Host "      speech engine on this Windows: $(if ($eng) { $eng } else { 'none (subtitles only)' })" -ForegroundColor DarkGray
+        $wav2 = Join-Path $root 'mr.wav'
+        $eng2 = New-PDSpeech -Text 'मी संजीवनी. आपली काय मदत करू शकते?' -Lang 'mr' -Out $wav2 -UsbRoot $root -Mode 'offline'
+        Write-Host "      Marathi speech engine on this Windows: $eng2" -ForegroundColor DarkGray
+        if ($eng) { Assert ($eng2) 'Marathi is not spoken although Windows has a voice (Roman fallback)' }
         if ($eng) { Assert ((Get-Item $wav).Length -gt 2000) 'speech file is empty' }
         else { [IO.File]::WriteAllBytes($wav, [byte[]](@(0x52, 0x49, 0x46, 0x46) + @(0) * 60)) }
         Assert (-not (Test-PDCanListen -UsbRoot $root)) 'can listen without key or offline model'

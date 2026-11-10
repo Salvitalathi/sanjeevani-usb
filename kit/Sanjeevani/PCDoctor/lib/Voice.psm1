@@ -25,6 +25,13 @@ $script:Lines = @{
     more     = @{ en = 'Do you need any other help?'; mr = 'आपल्याला अजून काही मदत हवी आहे का?'; hi = 'क्या आपको और कोई मदद चाहिए?' }
     bye      = @{ en = 'Thank you! Take care.'; mr = 'धन्यवाद! काळजी घ्या.'; hi = 'धन्यवाद! ध्यान रखिए।' }
     nohear   = @{ en = 'I could not hear you. Please say it again.'; mr = 'मला नीट ऐकू आले नाही. कृपया पुन्हा सांगा.'; hi = 'मुझे ठीक से सुनाई नहीं दिया। कृपया फिर से बोलिए।' }
+    pressmic = @{ en = 'I did not hear your voice. Please press the mic button and speak.'; mr = 'तुमचा आवाज मला आला नाही. कृपया mic चे button दाबून बोला.'; hi = 'आपकी आवाज़ मुझे नहीं आई। कृपया mic का button दबाकर बोलिए।' }
+    thinking = @{ en = 'One moment, let me understand that.'; mr = 'एक क्षण, मी समजून घेते.'; hi = 'एक पल, मैं समझ लेती हूँ।' }
+    confirm  = @{ en = 'Did you mean: {0}?'; mr = 'तुम्हाला असे म्हणायचे आहे का: {0}?'; hi = 'क्या आप यह कहना चाहते हैं: {0}?' }
+    confirm2 = @{ en = 'Then is it this: {0}?'; mr = 'मग असे आहे का: {0}?'; hi = 'तो क्या यह है: {0}?' }
+    sayagain = @{ en = 'Sorry, please tell me the problem once more, in other words.'; mr = 'माफ करा, कृपया समस्या पुन्हा एकदा, दुसऱ्या शब्दांत सांगा.'; hi = 'माफ़ कीजिए, कृपया समस्या एक बार फिर, दूसरे शब्दों में बताइए।' }
+    yesno    = @{ en = 'Please say yes or no.'; mr = 'कृपया हो किंवा नाही असे सांगा.'; hi = 'कृपया हाँ या नहीं बोलिए।' }
+    checked  = @{ en = 'I checked: {0}.'; mr = 'मी तपासले: {0}.'; hi = 'मैंने जाँचा: {0}.' }
     typeit   = @{ en = 'You can also type your problem below.'; mr = 'आपण खाली समस्या लिहूनही सांगू शकता.'; hi = 'आप नीचे अपनी समस्या लिखकर भी बता सकते हैं।' }
     unclear  = @{ en = 'I did not understand this problem well. Please tell me which part is not working, for example the internet, printer, sound or screen, and what happens.'
                   mr = 'ही समस्या मला नीट समजली नाही. कोणता भाग चालत नाही ते सांगा, उदाहरणार्थ internet, printer, आवाज किंवा screen, आणि काय होते.'
@@ -83,12 +90,23 @@ function Test-PDGoodbye([string]$Text) {
     return ($t -notmatch '(internet|net|wifi|printer|sound|screen|display|चालत|चालू|उघडत|येत|होत|चल|खुल|आ रहा|हो रहा|काम|start|open|work|chalat|chal|khul|ughad|\bhot\b|\byet\b|kaam)')
 }
 
+# answers to "did you mean ...?"
+function Test-PDYes([string]$Text) {
+    $t = ($Text.ToLowerInvariant() -replace '[\.,!?।]', ' ' -replace '\s+', ' ').Trim()
+    return ($t -match '^(हो|होय|हो ना|हो हो|हो बरोबर|हा|हां|हाँ|हाँ जी|जी|जी हाँ|हो की|बरोबर|बरोबर आहे|अगदी बरोबर|असेच|हेच|तेच|ठीक|ठीक आहे|ठीक है|चालेल|सही|सही है|बिल्कुल|yes|yeah|yep|yup|ya|haa|ha|haan|ho|hoy|barobar|correct|right|exactly|ok|okay|sure)( .{0,25})?$') -and $t -notmatch '(नाही|नको|नहीं|\bno\b|\bnot\b|nahi)'
+}
+function Test-PDNo([string]$Text) {
+    $t = ($Text.ToLowerInvariant() -replace '[\.,!?।]', ' ' -replace '\s+', ' ').Trim()
+    if ($t.Length -gt 40) { return $false }
+    return ($t -match '^(नाही|नाय|नको|नहीं|ना|नही|चूक|चुकीचे|गलत|असे नाही|तसे नाही|ऐसा नहीं|no|nope|nah|not that|wrong|nahi|nako|naay)( .{0,25})?$')
+}
+
 # ------------------------------------------------------------------ files on the USB
+function Get-PDVoiceDirs([string]$UsbRoot) { @((Join-Path $UsbRoot 'Tools\Voice'), (Join-Path $env:LOCALAPPDATA 'Sanjeevani\Voice')) }
 function Get-PDVoiceAssets([string]$UsbRoot) {
-    $base = Join-Path $UsbRoot 'Tools\Voice'
     $r = [pscustomobject]@{ Piper = $null; Voices = @{}; Whisper = $null; WhisperModel = $null }
-    if (-not (Test-Path -LiteralPath $base)) { return $r }
-    $files = @(Get-ChildItem -LiteralPath $base -Recurse -File -Force -ErrorAction SilentlyContinue)
+    $files = @(foreach ($base in (Get-PDVoiceDirs $UsbRoot)) { if (Test-Path -LiteralPath $base) { Get-ChildItem -LiteralPath $base -Recurse -File -Force -ErrorAction SilentlyContinue } })
+    if (-not $files.Count) { return $r }
     $r.Piper = ($files | Where-Object Name -eq 'piper.exe' | Select-Object -First 1).FullName
     foreach ($l in 'en', 'mr', 'hi') {
         $v = $files | Where-Object { $_.Name -match "^$l(_[A-Z]{2})?-.*\.onnx$" -and (Test-Path -LiteralPath ($_.FullName + '.json')) } | Select-Object -First 1
@@ -147,7 +165,7 @@ public static class Mic {
                 waveInAddBuffer(h, hdr[i], (uint)hsz);
             }
             waveInStart(h);
-            int elapsed = 0, silent = 0, voiced = 0, idx = 0; double noise = 0; int noiseN = 0;
+            int elapsed = 0, silent = 0, voiced = 0, idx = 0; double floor = -1, peak = 0;
             byte[] tmp = new byte[bufBytes];
             while (true) {
                 WAVEHDR w = (WAVEHDR)Marshal.PtrToStructure(hdr[idx], typeof(WAVEHDR));
@@ -163,13 +181,20 @@ public static class Mic {
                 for (int k = 0; k + 1 < n; k += 2) { short s = (short)(tmp[k] | (tmp[k + 1] << 8)); sum += (double)s * s; }
                 double rms = cnt > 0 ? Math.Sqrt(sum / cnt) : 0;
                 elapsed += BUFMS;
-                if (elapsed <= 400) { noise += rms; noiseN++; }
-                double floor = noiseN > 0 ? noise / noiseN : 200;
-                double thr = Math.Max(450, floor * 2.8);
+                // background level: drops fast, rises slowly (so steady room noise is learned, speech is not)
+                if (floor < 0) floor = rms;
+                else if (rms < floor) floor = floor * 0.6 + rms * 0.4;
+                else if (!Speaking || rms < floor * 2) floor = floor * 0.985 + rms * 0.015;
+                double thr = Math.Max(380, floor * 2.4);
+                if (rms > peak) peak = rms;
                 Level = (float)Math.Min(1.0, rms / (thr * 3));
-                if (elapsed > 400) {
+                if (elapsed > 300) {
+                    // end of speech: back near the room level, or far below the loudest part of what was said
+                    double endThr = Math.Max(thr * 0.8, Speaking ? peak * 0.12 : 0);
                     if (rms > thr) { voiced++; silent = 0; if (voiced >= 2) Speaking = true; }
-                    else { silent += BUFMS; if (!Speaking) voiced = 0; }
+                    else if (Speaking && rms < endThr) { silent += BUFMS; }
+                    else if (!Speaking) { voiced = 0; }
+                    else { silent += BUFMS / 2; }
                 }
                 // re-queue the buffer
                 w.dwFlags = 0; w.dwBytesRecorded = 0;
@@ -281,11 +306,97 @@ function ConvertTo-PDSpeakable([string]$Text) {
     $t = $t -replace '\b([A-Z]):(?=\s+drive)', '$1' -replace '\b([A-Z]):(?=\s|$|[,.;])', '$1 drive' -replace '(\d+)\s*%', '$1 percent' -replace '\s{2,}', ' '
     return $t.Trim()
 }
-# Writes the sentence as a .wav (Piper -> Windows OneCore voice -> SAPI). Returns the engine used, or $null.
+# Devanagari -> Roman letters, so an English (India) voice can still say Marathi / Hindi when no Indian-language voice exists
+$script:RomV = @{ 'अ' = 'a'; 'आ' = 'aa'; 'इ' = 'i'; 'ई' = 'ee'; 'उ' = 'u'; 'ऊ' = 'oo'; 'ऋ' = 'ru'; 'ए' = 'e'; 'ऐ' = 'ai'; 'ओ' = 'o'; 'औ' = 'au'; 'ऑ' = 'o'; 'ॲ' = 'ae' }
+$script:RomM = @{ 'ा' = 'aa'; 'ि' = 'i'; 'ी' = 'ee'; 'ु' = 'u'; 'ू' = 'oo'; 'ृ' = 'ru'; 'े' = 'e'; 'ै' = 'ai'; 'ो' = 'o'; 'ौ' = 'au'; 'ॉ' = 'o'; 'ॅ' = 'ae' }
+$script:RomC = @{ 'क' = 'k'; 'ख' = 'kh'; 'ग' = 'g'; 'घ' = 'gh'; 'ङ' = 'ng'; 'च' = 'ch'; 'छ' = 'chh'; 'ज' = 'j'; 'झ' = 'jh'; 'ञ' = 'ny'; 'ट' = 't'; 'ठ' = 'th'; 'ड' = 'd'; 'ढ' = 'dh'; 'ण' = 'n'
+    'त' = 't'; 'थ' = 'th'; 'द' = 'd'; 'ध' = 'dh'; 'न' = 'n'; 'प' = 'p'; 'फ' = 'ph'; 'ब' = 'b'; 'भ' = 'bh'; 'म' = 'm'; 'य' = 'y'; 'र' = 'r'; 'ल' = 'l'; 'ळ' = 'l'; 'व' = 'v'; 'श' = 'sh'; 'ष' = 'sh'; 'स' = 's'; 'ह' = 'h' }
+function ConvertTo-PDRoman([string]$Text) {
+    $sb = New-Object Text.StringBuilder
+    foreach ($word in ($Text -split '(\s+)')) {
+        if ($word -notmatch '[\u0900-\u097F]') { [void]$sb.Append($word); continue }
+        $w = New-Object Text.StringBuilder
+        $ch = $word.ToCharArray()
+        for ($i = 0; $i -lt $ch.Length; $i++) {
+            $c = [string]$ch[$i]; $n = if ($i + 1 -lt $ch.Length) { [string]$ch[$i + 1] } else { '' }
+            $before = $w.ToString()
+            if ($n -eq '़') { $c = @{ 'क' = 'q'; 'ख' = 'kh'; 'ग' = 'g'; 'ज' = 'z'; 'फ' = 'f'; 'ड' = 'r'; 'ढ' = 'rh' }[$c]; $i++; $n = if ($i + 1 -lt $ch.Length) { [string]$ch[$i + 1] } else { '' }; [void]$w.Append($c) }
+            elseif ($script:RomC.ContainsKey($c)) { [void]$w.Append($script:RomC[$c]) }
+            elseif ($script:RomV.ContainsKey($c)) { [void]$w.Append($script:RomV[$c]); continue }
+            elseif ($c -eq 'ं' -or $c -eq 'ँ') { [void]$w.Append('n'); continue }
+            elseif ($c -eq 'ः') { [void]$w.Append('h'); continue }
+            elseif ($c -eq '्' -or $script:RomM.ContainsKey($c)) { if ($script:RomM.ContainsKey($c)) { [void]$w.Append($script:RomM[$c]) }; continue }
+            elseif ($c -eq '।') { [void]$w.Append('.'); continue }
+            else { [void]$w.Append($c); continue }
+            # a consonant: its own vowel comes from the next sign; none = inherent "a" (dropped at the end of a word)
+            if ($n -eq '्') { $i++; continue }
+            if ($script:RomM.ContainsKey($n)) { continue }
+            $last = ($i + 1 -ge $ch.Length) -or ($n -notmatch '[\u0900-\u097F]')
+            if ($last) { if ($w.Length -le 2) { [void]$w.Append('a') }; continue }
+            # "C a C V" in the middle of a word: the "a" is not spoken (आपली = aaplee, करतो = karto)
+            $n2 = if ($i + 2 -lt $ch.Length) { [string]$ch[$i + 2] } else { '' }
+            $drop = $before.Length -gt 0 -and $before -match '[aeiou]$' -and $script:RomC.ContainsKey($n) -and $script:RomM.ContainsKey($n2)
+            if (-not $drop) { [void]$w.Append('a') }
+        }
+        [void]$sb.Append($w.ToString())
+    }
+    return $sb.ToString()
+}
+
+# Gemini's own text-to-speech (the same natural voices as Google's assistants) - only with the user's key.
+function New-PDSpeechGemini([string]$Text, [string]$Out, $Cfg) {
+    $off = [AppDomain]::CurrentDomain.GetData('SJTtsOff')
+    if ($off -and ([datetime]$off) -gt (Get-Date)) { return $false }
+    try {
+        $tr = { param($u, $h, $b, $m) Invoke-PDHttpJson -Url $u -Headers $h -Body $b -Method $m }
+        $model = [AppDomain]::CurrentDomain.GetData('SJTtsModel')
+        if (-not $model) {
+            $model = 'gemini-2.5-flash-preview-tts'
+            try {
+                $lst = & $tr 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=200' @{ 'x-goog-api-key' = $Cfg.key } $null 'GET'
+                $names = @((ConvertFrom-Json $lst).models | ForEach-Object { $_.name -replace '^models/', '' } | Where-Object { $_ -match 'tts' -and $_ -match 'flash' })
+                if ($names.Count) { $model = $names | Sort-Object { [double](([regex]::Match($_, '\d+(\.\d+)?')).Value) } -Descending | Select-Object -First 1 }
+            } catch { }
+            [AppDomain]::CurrentDomain.SetData('SJTtsModel', $model)
+        }
+        $body = ConvertTo-Json -Depth 10 -Compress -InputObject @{
+            contents = @(@{ parts = @(@{ text = "Read aloud in a warm, friendly, natural Indian female voice, like a helpful assistant: $Text" }) })
+            generationConfig = @{ responseModalities = @('AUDIO'); speechConfig = @{ voiceConfig = @{ prebuiltVoiceConfig = @{ voiceName = 'Kore' } } } }
+        }
+        $txt = & $tr "https://generativelanguage.googleapis.com/v1beta/models/$($model):generateContent" @{ 'x-goog-api-key' = $Cfg.key } $body 'POST'
+        $j = ConvertFrom-Json $txt
+        $part = @(@($j.candidates)[0].content.parts | Where-Object { $_.inlineData })[0]
+        if (-not $part) { return $false }
+        $pcm = [Convert]::FromBase64String($part.inlineData.data)
+        $rate = 24000; if ($part.inlineData.mimeType -match 'rate=(\d+)') { $rate = [int]$Matches[1] }
+        $fs = [IO.File]::Create($Out); $bw = New-Object IO.BinaryWriter $fs
+        $bw.Write([Text.Encoding]::ASCII.GetBytes('RIFF')); $bw.Write([int](36 + $pcm.Length)); $bw.Write([Text.Encoding]::ASCII.GetBytes('WAVEfmt '))
+        $bw.Write([int]16); $bw.Write([int16]1); $bw.Write([int16]1); $bw.Write([int]$rate); $bw.Write([int]($rate * 2)); $bw.Write([int16]2); $bw.Write([int16]16)
+        $bw.Write([Text.Encoding]::ASCII.GetBytes('data')); $bw.Write([int]$pcm.Length); $bw.Write($pcm); $bw.Close()
+        return ((Get-Item -LiteralPath $Out).Length -gt 2000)
+    } catch {
+        Write-PDLog "voice: online voice not available: $($_.Exception.Message)" 'WARN'
+        [AppDomain]::CurrentDomain.SetData('SJTtsOff', (Get-Date).AddMinutes(10))      # quota / no internet: offline voices for a while
+        return $false
+    }
+}
+
+# Writes the sentence as a .wav. Returns the engine used, or $null. Good recordings are cached on this PC, so a sentence
+# said once with the online voice is said the same way later, even offline.
 function New-PDSpeech {
-    param([string]$Text, [string]$Lang = 'mr', [string]$Out, [string]$UsbRoot)
+    param([string]$Text, [string]$Lang = 'mr', [string]$Out, [string]$UsbRoot, [string]$Mode = 'auto')
     $Text = ConvertTo-PDSpeakable $Text
     if (-not $Text) { return $null }
+    $cacheDir = Join-Path $env:LOCALAPPDATA 'Sanjeevani\voice-cache'
+    $sha = [Security.Cryptography.SHA1]::Create()
+    $key = -join ($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes("v2|$Lang|$Text")) | ForEach-Object { $_.ToString('x2') })
+    $cached = Join-Path $cacheDir "$key.wav"
+    if (Test-Path -LiteralPath $cached) { try { Copy-Item -LiteralPath $cached -Destination $Out -Force; return 'cache' } catch { } }
+    $keep = { try { New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null; Copy-Item -LiteralPath $Out -Destination $cached -Force } catch { } }
+    $cfg = Get-PDAiConfig $UsbRoot
+    if ($Mode -in 'auto', 'online' -and $cfg.key -and $cfg.provider -ne 'claude') {
+        if (New-PDSpeechGemini $Text $Out $cfg) { & $keep; return 'online' }
+    }
     $a = Get-PDVoiceAssets $UsbRoot
     $voice = $a.Voices[$Lang]
     if ($a.Piper -and $voice) {
@@ -299,10 +410,17 @@ function New-PDSpeech {
             $p.StandardInput.BaseStream.Write($b, 0, $b.Length); $p.StandardInput.Close()
             $null = $p.StandardError.ReadToEnd()
             if (-not $p.WaitForExit(30000)) { try { $p.Kill() } catch { } }
-            if ((Test-Path -LiteralPath $Out) -and (Get-Item -LiteralPath $Out).Length -gt 2000) { return 'piper' }
+            if ((Test-Path -LiteralPath $Out) -and (Get-Item -LiteralPath $Out).Length -gt 2000) { & $keep; return 'piper' }
         } catch { Write-PDLog "voice: piper failed: $($_.Exception.Message)" 'WARN' }
     }
     if (New-PDSpeechWinRT $Text $Lang $Out) { return 'windows' }
+    # no Marathi / Hindi voice on this Windows: an English (India) voice reads the sentence in Roman letters
+    if ($Text -match '[\u0900-\u097F]') {
+        $rom = ConvertTo-PDRoman $Text
+        if (New-PDSpeechWinRT $rom 'en' $Out) { return 'windows-roman' }
+        if (New-PDSpeechSapi $rom 'en' $Out) { return 'sapi-roman' }
+        return $null
+    }
     if (New-PDSpeechSapi $Text $Lang $Out) { return 'sapi' }
     return $null
 }
@@ -353,8 +471,10 @@ function ConvertFrom-PDSpeech {
             if (-not $Transport) { $Transport = { param($u, $h, $b, $m) Invoke-PDHttpJson -Url $u -Headers $h -Body $b -Method $m } }
             $model = Resolve-PDGeminiModel $cfg $Transport
             $b64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($Wav))
-            $prompt = 'Transcribe this short recording of a person describing a computer problem. The language is Marathi, Hindi or English (often mixed with English computer words). ' +
-                      'Write Marathi and Hindi in Devanagari, English words in English. Reply with only the words that were spoken; reply with nothing if nobody speaks.'
+            $prompt = 'Transcribe this short recording. A person in India is talking to "Sanjeevani", a PC repair assistant - usually describing a computer / laptop problem, or answering yes / no. ' +
+                      'The language is Marathi, Hindi or English, often mixed with English computer words (PC, laptop, internet, WiFi, printer, screen, battery, virus). ' +
+                      'The speaker may have a strong rural accent or unclear pronunciation: write what they most likely meant, in correct spelling. ' +
+                      'Write Marathi and Hindi in Devanagari, English words in English letters. Reply with only the words that were spoken; reply with nothing if nobody speaks.'
             $body = ConvertTo-Json -Depth 8 -Compress -InputObject @{ contents = @(@{ parts = @(@{ text = $prompt }, @{ inline_data = @{ mime_type = 'audio/wav'; data = $b64 } }) }); generationConfig = @{ temperature = 0 } }
             $txt = & $Transport "https://generativelanguage.googleapis.com/v1beta/models/$($model):generateContent" @{ 'x-goog-api-key' = $cfg.key } $body 'POST'
             $j = ConvertFrom-Json $txt
@@ -367,7 +487,12 @@ function ConvertFrom-PDSpeech {
     if ($a.Whisper -and $a.WhisperModel -and $Mode -ne 'online') {
         try {
             $psi = New-Object Diagnostics.ProcessStartInfo $a.Whisper
-            $psi.Arguments = "-m `"$($a.WhisperModel)`" -f `"$Wav`" -l auto -nt -np -t $([int][math]::Max([double]2, [double]([Environment]::ProcessorCount - 1)))"
+            # the conversation language is a strong hint (Marathi is otherwise often heard as Hindi); a few typical words help the spelling
+            $wl = if ($Lang -in 'mr', 'hi') { $Lang } else { 'auto' }
+            $hint = @{ mr = 'संजीवनी, माझा PC, laptop, internet, WiFi, printer, आवाज, screen, battery, virus. मधेच बंद पडतो, चालत नाही, हळू चालतो, गरम होतो, उघडत नाही. हो, नाही, धन्यवाद.'
+                       hi = 'संजीवनी, मेरा PC, laptop, internet, WiFi, printer, आवाज़, screen, battery, virus. बीच में बंद हो जाता है, नहीं चल रहा, धीमा चलता है, गर्म होता है। हाँ, नहीं, धन्यवाद।'
+                       en = 'Sanjeevani, my PC, laptop, internet, WiFi, printer, sound, screen, battery, virus. Yes, no, thank you.' }[$Lang]
+            $psi.Arguments = "-m `"$($a.WhisperModel)`" -f `"$Wav`" -l $wl --prompt `"$hint`" -nt -np -t $([int][math]::Max([double]2, [double]([Environment]::ProcessorCount - 1)))"
             $psi.UseShellExecute = $false; $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true; $psi.CreateNoWindow = $true
             $psi.StandardOutputEncoding = [Text.Encoding]::UTF8
             $psi.WorkingDirectory = Split-Path $a.Whisper
@@ -385,6 +510,48 @@ function ConvertFrom-PDSpeech {
     return $res
 }
 
+function Install-PDVoicePack {
+    param([string]$UsbRoot, [string]$Lang = 'mr')
+    $a = Get-PDVoiceAssets $UsbRoot
+    if ($a.Piper -and $a.Voices[$Lang]) { return 'present' }
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    $dest = $null
+    foreach ($d in (Get-PDVoiceDirs $UsbRoot)) {
+        try { New-Item -ItemType Directory -Path $d -Force -ErrorAction Stop | Out-Null; $t = Join-Path $d '.w'; [IO.File]::WriteAllText($t, 'x'); Remove-Item $t -Force; $dest = $d; break } catch { }
+    }
+    if (-not $dest) { return 'nowrite' }
+    $ua = @{ 'User-Agent' = 'Sanjeevani-PCDoctor' }
+    try {
+        if (-not $a.Piper) {
+            Write-PDLog 'voice: downloading the Piper voice engine (~22 MB)' 'STEP'
+            $url = 'https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_windows_amd64.zip'
+            try { $rel = Invoke-RestMethod -Uri 'https://api.github.com/repos/rhasspy/piper/releases/latest' -Headers $ua -TimeoutSec 20; $u2 = @($rel.assets | Where-Object { $_.name -match '^piper_windows_amd64\.zip$' })[0].browser_download_url; if ($u2) { $url = $u2 } } catch { }
+            $zip = Join-Path $env:TEMP 'sjv-piper.zip'
+            Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing -Headers $ua -TimeoutSec 300
+            Expand-Archive -LiteralPath $zip -DestinationPath (Join-Path $dest 'Piper voice engine') -Force
+            Remove-Item $zip -Force -ErrorAction SilentlyContinue
+        }
+        if (-not $a.Voices[$Lang]) {
+            Write-PDLog "voice: downloading the $Lang voice (~60 MB)" 'STEP'
+            $prefer = @{ mr = @('female', 'sunita', 'medium'); hi = @('priyamvada', 'female', 'medium'); en = @('en_GB-alba', 'en_US-amy', 'hfc_female', 'lessac') }[$Lang]
+            $j = Invoke-RestMethod -Uri 'https://huggingface.co/rhasspy/piper-voices/resolve/main/voices.json' -Headers $ua -TimeoutSec 60
+            $all = @($j.PSObject.Properties | ForEach-Object { $_.Value } | Where-Object { $_.language.family -eq $Lang })
+            if (-not $all.Count) { return 'novoice' }
+            $best = $all | Sort-Object { $v = $_; $sc = 0; for ($i = 0; $i -lt $prefer.Count; $i++) { if ($v.key -match $prefer[$i]) { $sc += 100 - $i * 10 } }; $sc + @{ medium = 5; high = 4; low = 2; x_low = 1 }[[string]$v.quality] } -Descending | Select-Object -First 1
+            $path = @($best.files.PSObject.Properties.Name | Where-Object { $_ -match '\.onnx$' })[0]
+            $vd = Join-Path $dest "Piper voice - $Lang"
+            New-Item -ItemType Directory -Path $vd -Force | Out-Null
+            $base = "https://huggingface.co/rhasspy/piper-voices/resolve/main/$path"
+            $file = Join-Path $vd ([IO.Path]::GetFileName($path))
+            Invoke-WebRequest -Uri ($base + '.json') -OutFile ($file + '.json') -UseBasicParsing -Headers $ua -TimeoutSec 120
+            Invoke-WebRequest -Uri $base -OutFile ($file + '.part') -UseBasicParsing -Headers $ua -TimeoutSec 900
+            Move-Item -LiteralPath ($file + '.part') -Destination $file -Force
+        }
+        Write-PDLog "voice: $Lang voice ready ($dest)" 'OK'
+        return 'installed'
+    } catch { Write-PDLog "voice: download failed: $($_.Exception.Message)" 'WARN'; return 'failed' }
+}
+
 # Can Sanjeevani hear at all (online key or offline whisper)?
 function Test-PDCanListen([string]$UsbRoot, [string]$Mode = 'auto') {
     $cfg = Get-PDAiConfig $UsbRoot
@@ -393,4 +560,4 @@ function Test-PDCanListen([string]$UsbRoot, [string]$Mode = 'auto') {
     return [bool]($a.Whisper -and $a.WhisperModel -and $Mode -ne 'online')
 }
 
-Export-ModuleMember -Function Get-PDVoiceLine, Get-PDVoiceKeys, Get-PDTextLang, Test-PDGoodbye, Get-PDVoiceAssets, Initialize-PDVoiceNative, Enable-PDMicrophone, Invoke-PDRecord, ConvertTo-PDSpeakable, New-PDSpeech, ConvertFrom-PDSpeech, Test-PDCanListen
+Export-ModuleMember -Function Test-PDYes, Test-PDNo, ConvertTo-PDRoman, Install-PDVoicePack, New-PDSpeechGemini, Get-PDVoiceLine, Get-PDVoiceKeys, Get-PDTextLang, Test-PDGoodbye, Get-PDVoiceAssets, Initialize-PDVoiceNative, Enable-PDMicrophone, Invoke-PDRecord, ConvertTo-PDSpeakable, New-PDSpeech, ConvertFrom-PDSpeech, Test-PDCanListen

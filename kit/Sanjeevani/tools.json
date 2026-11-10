@@ -1014,15 +1014,15 @@
     {
       "id": "whisper-model",
       "guide": false,
-      "name": "Whisper small (speech model)",
+      "name": "Whisper medium (speech model)",
       "category": "Voice",
       "desc": "मराठी / हिंदी / English ऐकण्यासाठी model (MIT license)",
-      "file": "ggml-small-q5_1.bin",
+      "file": "ggml-medium-q5_0.bin",
       "exe": "\\.bin$",
-      "sizeMB": 190,
+      "sizeMB": 540,
       "source": {
         "kind": "url",
-        "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin"
+        "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium-q5_0.bin"
       },
       "page": "https://huggingface.co/ggerganov/whisper.cpp"
     }

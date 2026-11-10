@@ -20,7 +20,7 @@ param(
     [switch]$WithMint,            # also download Linux Mint XFCE (~3 GB)
     [switch]$WithDrivers,         # also download ALL Snappy Driver Installer driver packs (~70 GB, offline drivers)
     [switch]$WithAI,              # also download the offline AI for PC Doctor's Assistant (llama.cpp + Gemma 4 E2B, ~3.2 GB)
-    [switch]$WithVoice,           # also download the voice of the Assistant (Piper female voices + whisper.cpp speech recognition, ~450 MB)
+    [switch]$WithVoice,           # also download the voice of the Assistant (Piper female voices + whisper.cpp speech recognition, ~800 MB)
     [switch]$NoVoice,             # never ask about the voice
     [ValidateSet('', 'en', 'mr', 'hi')][string]$Lang = '',   # language of PC Doctor, the guides and (in Windows Terminal) these messages
     [switch]$SkipDownloads,
@@ -684,7 +684,7 @@ if (-not $SkipDownloads -and -not $Only) {
         $WithAI = $c -match '^[Yy]'
     }
     if (-not $WithVoice -and -not $NoVoice -and -not ($installed['piper'])) {
-        $c = Read-Host ("    " + (T 'Also download the voice of the Assistant (Sanjeevani speaks and listens in Marathi / Hindi / English, works offline, ~450 MB)? Y/N' 'Assistant चा आवाज download करायचा? (संजीवनी मराठी / हिंदी / English मध्ये बोलते आणि ऐकते, internet शिवाय, ~450 MB) Y/N' 'Assistant की आवाज़ download करें? (संजीवनी हिंदी / मराठी / English में बोलती और सुनती है, बिना internet, ~450 MB) Y/N'))
+        $c = Read-Host ("    " + (T 'Also download the voice of the Assistant (Sanjeevani speaks and listens in Marathi / Hindi / English, works offline, ~800 MB)? Y/N' 'Assistant चा आवाज download करायचा? (संजीवनी मराठी / हिंदी / English मध्ये बोलते आणि ऐकते, internet शिवाय, ~800 MB) Y/N' 'Assistant की आवाज़ download करें? (संजीवनी हिंदी / मराठी / English में बोलती और सुनती है, बिना internet, ~800 MB) Y/N'))
         $WithVoice = $c -notmatch '^[Nn]'
     }
     $sdioDrv = Join-Path $UsbRoot 'Tools\Drivers\Snappy Driver Installer Origin\drivers'
