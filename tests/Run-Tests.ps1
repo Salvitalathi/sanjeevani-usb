@@ -147,6 +147,7 @@ Test-Case 'PC Doctor window builds and shows every page in English, Marathi and 
     foreach ($l in 'en', 'mr', 'hi') {
         $log = Join-Path $env:TEMP "pcd-selftest-$l.txt"
         $p = Start-Process powershell.exe -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-File', "`"$ps1`"", '-SelfTest', '-Lang', $l) -RedirectStandardOutput $log -PassThru -WindowStyle Hidden
+        $null = $p.Handle   # keeps the process handle so ExitCode is available afterwards
         if (-not $p.WaitForExit(180000)) { $p.Kill(); throw "PC Doctor ($l) self-test hung" }
         $out = Get-Content $log -Raw
         Assert ($p.ExitCode -eq 0 -and $out -match "SELFTEST OK \($l\)") "PC Doctor ($l): $out"
