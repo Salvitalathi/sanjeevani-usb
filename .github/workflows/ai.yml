@@ -21,8 +21,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $rel = gh api repos/ggml-org/llama.cpp/releases/latest | ConvertFrom-Json
-          $asset = $rel.assets | Where-Object { $_.name -match '^llama-b\d+-bin-win-cpu-x64\.zip$' } | Select-Object -First 1
-          Write-Host "llama.cpp $($rel.tag_name): $($asset.name)"
+          Write-Host "llama.cpp $($rel.tag_name) assets:"; $rel.assets.name | ForEach-Object { Write-Host "  $_" }
+          $re = '(?i)win.*x64.*\.zip$'; $bad = '(?i)cuda|cudart|vulkan|sycl|hip|rocm|opencl|arm64|openvino|kompute'
+          $asset = $rel.assets | Where-Object { $_.name -match $re -and $_.name -notmatch $bad } | Sort-Object { if ($_.name -match '(?i)cpu') { 0 } else { 1 } } | Select-Object -First 1
+          Write-Host "chosen: $($asset.name)"
           Invoke-WebRequest $asset.browser_download_url -OutFile llama.zip
           Expand-Archive llama.zip -DestinationPath ai\llama
           curl.exe -L --fail --retry 5 -o ai\gemma-4-E2B-it-Q4_K_M.gguf https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf
