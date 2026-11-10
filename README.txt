@@ -36,4 +36,4 @@ Folder layout on the USB
 
 Advanced:  Setup-Sanjeevani.ps1 -Usb E: -UpdateOnly
            Setup-Sanjeevani.ps1 -Only hbcd,cpuz
-           Setup-Sanjeevani.ps1 -GPT -WithWindows -WithMint -WithAI -Lang en
+           Setup-Sanjeevani.ps1 -GPT -WithWindows -WithMint -WithAI -WithVoice -Lang en

@@ -950,6 +950,7 @@
     },
     {
       "id": "piper",
+      "guide": false,
       "name": "Piper (voice engine)",
       "category": "Voice",
       "desc": "Assistant चा आवाज - offline text-to-speech (MIT license)",
@@ -964,6 +965,7 @@
     },
     {
       "id": "voice-mr",
+      "guide": false,
       "name": "Piper voice - Marathi",
       "category": "Voice",
       "desc": "मराठी आवाज (Piper)",
@@ -974,6 +976,7 @@
     },
     {
       "id": "voice-hi",
+      "guide": false,
       "name": "Piper voice - Hindi",
       "category": "Voice",
       "desc": "हिंदी आवाज (Piper, priyamvada - female)",
@@ -984,6 +987,7 @@
     },
     {
       "id": "voice-en",
+      "guide": false,
       "name": "Piper voice - English",
       "category": "Voice",
       "desc": "English voice (Piper, female)",
@@ -994,6 +998,7 @@
     },
     {
       "id": "whisper",
+      "guide": false,
       "name": "whisper.cpp (speech recognition)",
       "category": "Voice",
       "desc": "Assistant ऐकतो - offline speech-to-text (MIT license)",
@@ -1008,6 +1013,7 @@
     },
     {
       "id": "whisper-model",
+      "guide": false,
       "name": "Whisper small (speech model)",
       "category": "Voice",
       "desc": "मराठी / हिंदी / English ऐकण्यासाठी model (MIT license)",

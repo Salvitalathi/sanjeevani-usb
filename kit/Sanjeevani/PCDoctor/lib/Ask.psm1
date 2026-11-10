@@ -269,4 +269,4 @@ function Resolve-PDProblemIds {
 }
 
 Export-ModuleMember -Function Resolve-PDProblemIds, Get-PDProblems, Test-PDKeyword, Find-PDProblem, Invoke-PDQuickFix, Get-PDAiConfig, Save-PDAiConfig,
-    New-PDAiPrompt, ConvertFrom-PDAiAnswer, Invoke-PDAiAsk, Invoke-PDHttpJson
+    New-PDAiPrompt, ConvertFrom-PDAiAnswer, Invoke-PDAiAsk, Invoke-PDHttpJson, Resolve-PDGeminiModel

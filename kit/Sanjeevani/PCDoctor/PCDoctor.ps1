@@ -2249,7 +2249,7 @@ function Step-VSpeech {
         try { $script:VPlayer.Open((New-Object Uri $it.Wav)); $script:VPlayer.Volume = 1.0; $script:VPlayer.Play(); return } catch { }
     }
     # no voice available: the subtitle stays on screen for a reading time
-    $script:V.SpeakUntil = (Get-Date).AddMilliseconds([math]::Min(9000, [math]::Max(1800, $it.Text.Length * 60)))
+    $script:V.SpeakUntil = (Get-Date).AddMilliseconds([math]::Min([double]9000, [math]::Max([double]1800, [double]$it.Text.Length * 60)))
 }
 function End-VSpeech {
     $it = $script:V.Cur

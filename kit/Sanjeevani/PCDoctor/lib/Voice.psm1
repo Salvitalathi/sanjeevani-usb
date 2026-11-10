@@ -367,7 +367,7 @@ function ConvertFrom-PDSpeech {
     if ($a.Whisper -and $a.WhisperModel -and $Mode -ne 'online') {
         try {
             $psi = New-Object Diagnostics.ProcessStartInfo $a.Whisper
-            $psi.Arguments = "-m `"$($a.WhisperModel)`" -f `"$Wav`" -l auto -nt -np -t $([math]::Max(2, [Environment]::ProcessorCount - 1))"
+            $psi.Arguments = "-m `"$($a.WhisperModel)`" -f `"$Wav`" -l auto -nt -np -t $([int][math]::Max([double]2, [double]([Environment]::ProcessorCount - 1)))"
             $psi.UseShellExecute = $false; $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true; $psi.CreateNoWindow = $true
             $psi.StandardOutputEncoding = [Text.Encoding]::UTF8
             $psi.WorkingDirectory = Split-Path $a.Whisper

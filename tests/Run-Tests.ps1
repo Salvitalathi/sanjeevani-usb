@@ -198,7 +198,7 @@ Test-Case 'Tools guide: every tool has English, Marathi and Hindi help and a val
     $handlers = [regex]::Matches($src, "(?m)^\s*'([a-z-]+)'\s+\{ return Invoke-TG") | ForEach-Object { $_.Groups[1].Value }
     $groups = @($g.groups | ForEach-Object { $_.id })
     $bad = @()
-    foreach ($e in @($cat.isos) + @($cat.tools)) { if (-not $g.tools.($e.id)) { $bad += "no guide for $($e.id)" } }
+    foreach ($e in @($cat.isos) + @($cat.tools)) { if (-not $g.tools.($e.id) -and $e.guide -ne $false) { $bad += "no guide for $($e.id)" } }   # guide = false: parts of PC Doctor itself (voice engine / voices)
     foreach ($p in $g.tools.PSObject.Properties) {
         $v = $p.Value
         if ($v.risk -notin 'safe', 'caution', 'danger') { $bad += "$($p.Name): risk" }
