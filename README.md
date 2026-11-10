@@ -1,45 +1,52 @@
-# संजीवनी Rescue USB
+# Sanjeevani Rescue USB
 
-PC तपासणी, दुरुस्ती आणि वेग वाढवण्यासाठी bootable pendrive. यात फक्त free आणि legal tools वापरले आहेत. Pendrive [Ventoy](https://www.ventoy.net) वर आधारित आहे.
+**English** · [मराठी](README.mr.md) · [हिन्दी](README.hi.md)
 
-![Boot menu](docs/boot-menu-preview-1080p.png)
+A bootable technician pendrive to check, repair and speed up Windows PCs - built only from free and legal tools, on top of [Ventoy](https://www.ventoy.net). Everything a user sees is available in **English, Marathi and Hindi**.
 
-## वापर
+| Health check | Assistant |
+|---|---|
+| ![PC Doctor health check](docs/pcdoctor-dashboard.png) | ![PC Doctor Assistant](docs/pcdoctor-assistant.png) |
 
-1. हे repository download करा (**Code → Download ZIP**) किंवा Actions मधून `Sanjeevani-USB-Kit` artifact घ्या, आणि extract करा.
-2. 64 GB pendrive लावा (offline driver packs हवे असतील तर 256 GB). **त्यातला सगळा data पुसला जाईल.**
-3. `SETUP.cmd` → Administrator परवानगी → pendrive चा Disk number → `ERASE`.
-4. नंतर update करण्यासाठी pendrive वरील `Sanjeevani\Setup\UPDATE.cmd` चालवा.
-5. **स्वतःचे apps जोडायचे असल्यास** ते pendrive वरच्या `MyTools` folder मध्ये copy करा. Portable app चा पूर्ण folder चालतो, तसंच एकटी .exe, installer किंवा zip / 7z / rar पण. Zip UPDATE.cmd आपोआप extract करतो, किंवा PC Doctor मध्ये "Extract करा" दाबा. ते PC Doctor → Tools मार्गदर्शक → "माझे tools" मध्ये दिसतील. पहिल्यांदा virus तपासणी "हे तुम्ही टाकले का?" असं विचारेल, तेव्हा हो म्हणा.
-6. **दुसरे OS / boot tools जोडायचे असल्यास** `.iso` (किंवा `.wim`, `.img`, `.vhd`) फाईल pendrive च्या `ISO` folder मध्ये copy करा. ती boot menu मध्ये आपोआप दिसते. उदा. Windows 10, Ubuntu, Tails. 4 GB पेक्षा मोठी ISO पण चालते.
-7. Pendrive भरला असेल तर `CLEAN.cmd` चालवा. तो duplicate driver packs, जुनी versions आणि अर्धवट downloads शोधतो. आधी यादी दाखवतो आणि Y दिल्यावरच त्या फाईली `_to_delete` मध्ये हलवतो. `Reports` आणि `Rescue` (ग्राहकांचा data) ला तो कधीच हात लावत नाही.
+## Make the USB
 
-पूर्ण मार्गदर्शक: [`kit/Sanjeevani/Docs/guide-mr.html`](kit/Sanjeevani/Docs/guide-mr.html)
+1. Download this repository (**Code → Download ZIP**) or the `Sanjeevani-USB-Kit` artifact from Actions, and extract it.
+2. Plug in a 64 GB pendrive (256 GB for the offline driver packs). **Everything on it is erased.**
+3. Run `SETUP.cmd` → allow Administrator → choose the language → the pendrive's Disk number → `ERASE`.
+4. Update later with `Sanjeevani\Setup\UPDATE.cmd` on the USB.
+5. **Your own apps:** copy them to the USB's `MyTools` folder (a portable app folder, a single .exe, an installer, or a zip / 7z / rar). They appear in PC Doctor → Tools Guide → "My tools".
+6. **Other OSes / boot tools:** copy any `.iso` (or `.wim`, `.img`, `.vhd`) into the `ISO` folder - it shows up in the boot menu by itself.
+7. USB full? `CLEAN.cmd` lists duplicate driver packs, old versions and partial downloads, and moves them to `_to_delete` only after you agree. It never touches `Reports` or `Rescue` (customer data).
 
-## Pendrive वर काय असते
+Full guide: [`kit/Sanjeevani/Docs/guide-en.html`](kit/Sanjeevani/Docs/guide-en.html) ([मराठी](kit/Sanjeevani/Docs/guide-mr.html), [हिन्दी](kit/Sanjeevani/Docs/guide-hi.html)) - Setup also copies it to the USB in the chosen language.
 
-| भाग | माहिती |
+## What is on the USB
+
+| Part | What it does |
 |---|---|
 | Boot menu | Hiren's BootCD PE, SystemRescue, MemTest86+/MemTest86, GParted, Clonezilla, Rescuezilla, Super Grub2, Boot-Repair, Kaspersky Rescue Disk, ShredOS, Windows 11, Linux Mint XFCE |
-| PC Doctor (`START-Sanjeevani.cmd`) | Scan आणि health score, One-Click Optimize, DISM/SFC repair, startup/bloatware/visual tweaks (सगळ्यांना Undo), C: drive वरचे files दुसऱ्या drive वर हलवणे, OS आणि apps सल्ला, HTML report |
-| Offline repair | Hiren's PE मधून `Sanjeevani\PCDoctor\Offline-Repair.cmd` चालवा: offline SFC/DISM, bcdboot, अडकलेले updates revert करणे |
-| 🗣 समस्या सांगा (PC Doctor मध्ये) | समस्या मराठी, English किंवा Roman मराठीत लिहा (उदा. "net chalat nahi", "laptop खूप गरम होतो"). PC Doctor internet शिवाय 38 सामान्य समस्यांपैकी योग्य समस्या ओळखतो आणि तपासणी व दुरुस्तीची buttons देतो. Internet असल्यास तुमच्या स्वतःच्या key ने AI ला पण विचारता येतं (Google Gemini ची key मोफत मिळते, किंवा Claude). AI काहीही स्वतः चालवत नाही, फक्त PC Doctor च्या दुरुस्त्या सुचवतो. |
-| Tools मार्गदर्शक (PC Doctor मध्ये) | HWiNFO, CPU-Z, CrystalDiskInfo, Prime95, BlueScreenView, MSERT, WizTree, ProduKey, SDIO, RustDesk आणि इतर 60+ tools. प्रत्येक tool चं मराठी / English स्पष्टीकरण आणि इशारे. 11 तपासण्या tool स्वतः चालवून निकाल सोप्या भाषेत सांगतात. Pendrive वरचे `Tools` / `Installers` folders लपवलेले असतात. |
+| PC Doctor (`START-Sanjeevani.cmd`) | Health check with a score (and why it is not 100), One-Click Optimize, DISM/SFC repair, registry check for virus changes, startup / bloatware / visual tweaks (all with Undo), moving files off a full C: drive, OS and app advice, HTML report |
+| Assistant | Describe the problem in your own words - English, Marathi, Hindi or Roman script. After one consent it makes a restore point, **checks whether the problem really exists on this PC, fixes it, verifies, and tries the next likely cause** if needed, then says briefly what was wrong and what it did. Works offline with a local AI (Gemma 4 E2B via llama.cpp, optional 3.2 GB download), online with your own Gemini / Claude key, or with keyword matching. The AI never runs commands - it only picks from PC Doctor's tested checks and repairs. |
+| Tools Guide | 60+ tools (HWiNFO, CPU-Z, CrystalDiskInfo, Prime95, BlueScreenView, MSERT, WizTree, ProduKey, SDIO, RustDesk ...) explained with warnings; 11 automatic checks run the tool and explain the result. |
+| Rescue | When Windows will not start: Hiren's PE → `PCDoctor-Rescue.cmd` (drivers, blue-screen cause, stuck updates, SFC/DISM offline, boot repair, saving data). |
+| Protection | Write-protect switch support and a SHA-256 integrity check of the USB against viruses on customers' PCs. |
 
-## Repository रचना
+## Repository
 
 ```
-SETUP.cmd, Setup-Sanjeevani.ps1   USB बनवणे / update / link check (-ResolveOnly)
-kit/                              pendrive वर copy होणारे सर्व
-  ventoy/theme/sanjeevani/        boot menu theme (build/make_theme.py ने बनवलेले)
-  Sanjeevani/PCDoctor/            PC Doctor (PowerShell 5.1 + WPF), lib/*.psm1, data/*.json
-  Sanjeevani/tools.json           tools ची यादी आणि download sources
-tests/Run-Tests.ps1               Windows वर चालणारे tests (GitHub Actions)
-build/                            theme / font generator, package.py, pscheck.py
+SETUP.cmd, Setup-Sanjeevani.ps1   make / update the USB, link check (-ResolveOnly)
+CLEAN.cmd, Clean-Sanjeevani.ps1   free space on a full USB safely
+kit/                              everything copied to the pendrive
+  ventoy/theme/sanjeevani/        boot menu theme (build/make_theme.py)
+  Sanjeevani/PCDoctor/            PC Doctor (PowerShell 5.1 + WPF), lib/*.psm1, data/*.json, assets/
+  Sanjeevani/Docs/                guides (build/make_guides.py), test pages
+  Sanjeevani/tools.json           tool list and download sources
+tests/                            Windows tests (GitHub Actions)
+build/                            generators (theme, icon, guides, problem catalog, tools guide), package.py
 ```
 
 ## Development
 
-- `.ps1`/`.psm1` files **UTF-8 with BOM** मध्येच ठेवा. BOM नसेल तर Windows PowerShell 5.1 मराठी मजकूर चुकीचा वाचतो आणि script चालत नाही. `.cmd` files CRLF मध्ये ठेवा. दोन्ही गोष्टी tests तपासतात.
-- प्रत्येक push वर Windows Server वर tests चालतात: parsing, encoding, XAML, undo, सुरक्षित file move, आणि खऱ्या Windows वर scan.
-- Download links दर आठवड्याला आपोआप तपासले जातात (`links.yml`).
+- `.ps1`/`.psm1` must be **UTF-8 with BOM** (Windows PowerShell 5.1 misreads Marathi / Hindi otherwise); `.cmd` files CRLF. Tests check both.
+- User-facing text uses `L 'English' 'मराठी' 'हिन्दी'`; window labels live in the `$UiText` table of `PCDoctor.ps1`. A test fails if any language is missing.
+- Every push runs the tests on Windows Server: parsing, encoding, PC Doctor self-test in all three languages, undo, safe file moves, real scans and repairs. `ui.yml` renders every page to PNG (`ui-shots` branch), `ai.yml` measures the offline AI, `links.yml` checks download links weekly.

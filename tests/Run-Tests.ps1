@@ -190,7 +190,7 @@ Test-Case 'Modules import' {
     $true
 }
 
-Test-Case 'Tools guide: every tool has Marathi + English help and a valid check' {
+Test-Case 'Tools guide: every tool has English, Marathi and Hindi help and a valid check' {
     $g = Get-Content (Join-Path $DataDir 'toolguide.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     $cat = Get-Content (Join-Path $fakeUsb 'Sanjeevani\tools.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     $src = Get-Content (Join-Path $fakeUsb 'Sanjeevani\PCDoctor\lib\ToolGuide.psm1') -Raw
@@ -202,7 +202,7 @@ Test-Case 'Tools guide: every tool has Marathi + English help and a valid check'
         $v = $p.Value
         if ($v.risk -notin 'safe', 'caution', 'danger') { $bad += "$($p.Name): risk" }
         if ($v.group -notin $groups) { $bad += "$($p.Name): group" }
-        foreach ($l in 'mr', 'en') { if (-not $v.$l.what) { $bad += "$($p.Name): $l.what" }; if (-not @($v.$l.steps).Count) { $bad += "$($p.Name): $l.steps" } }
+        foreach ($l in 'mr', 'en', 'hi') { if (-not $v.$l.what) { $bad += "$($p.Name): $l.what" }; if (-not @($v.$l.steps).Count) { $bad += "$($p.Name): $l.steps" } }
         if ($v.risk -eq 'danger' -and -not @($v.mr.warn).Count) { $bad += "$($p.Name): dangerous tool without warnings" }
         if ($v.auto -and $v.auto -notlike 'pd:*' -and $v.auto -notin $handlers) { $bad += "$($p.Name): unknown check $($v.auto)" }
         if ($v.auto -like 'pd:*' -and $v.auto.Substring(3) -notin 'speed', 'advisor', 'drivers', 'repair', 'storage', 'ask') { $bad += "$($p.Name): unknown PC Doctor page" }
@@ -486,7 +486,7 @@ Test-Case 'Registry check finds virus-style and broken entries, fixes them and U
     $true
 }
 
-Test-Case 'Problem finder: Marathi / English / Roman Marathi sentences find the right problem' {
+Test-Case 'Problem finder: Marathi / Hindi / English / Roman sentences find the right problem' {
     $probs = Get-PDProblems $DataDir
     $cases = [ordered]@{
         'net chalat nahi' = 'no-internet'; 'इंटरनेट चालत नाही' = 'no-internet'; 'माझ्या laptop मध्ये wifi दिसत नाही' = 'wifi'
@@ -498,6 +498,8 @@ Test-Case 'Problem finder: Marathi / English / Roman Marathi sentences find the 
         'My laptop does not start, stuck on logo' = 'no-boot'; 'touchpad not working' = 'keyboard'; 'screen flicker karto' = 'display'
         'bluetooth earbuds connect hot nahi' = 'bluetooth'; 'task manager disabled by administrator' = 'task-manager'
         'hotspot connect hot nahi' = 'wifi'; 'mic चालत नाही' = 'sound'; 'camera chalat nahi zoom madhe' = 'camera'
+        'इंटरनेट नहीं चल रहा' = 'no-internet'; 'मेरा कंप्यूटर बहुत धीमा है' = 'slow-pc'; 'लैपटॉप बहुत गर्म होता है' = 'overheat'
+        'नीली स्क्रीन आती है' = 'bsod'; 'प्रिंटर प्रिंट नहीं कर रहा' = 'printer'; 'आवाज़ नहीं आ रही' = 'sound'; 'पासवर्ड भूल गया' = 'password'
     }
     $bad = @()
     foreach ($k in $cases.Keys) {
@@ -518,7 +520,7 @@ Test-Case 'Problem catalog: every button leads to a real PC Doctor action' {
     $quick = [regex]::Matches($ask, "(?m)^\s+'([a-z]+)' \{") | ForEach-Object { $_.Groups[1].Value }
     $bad = @()
     foreach ($p in $probs) {
-        foreach ($l in 'mr', 'en') { if (-not $p.$l.title -or -not @($p.$l.steps).Count) { $bad += "$($p.id): $l text" } }
+        foreach ($l in 'mr', 'en', 'hi') { if (-not $p.$l.title -or -not @($p.$l.steps).Count) { $bad += "$($p.id): $l text" } }
         if (-not @($p.actions).Count) { $bad += "$($p.id): no actions" }
         foreach ($a in $p.actions) {
             $ok = switch ($a.t) {

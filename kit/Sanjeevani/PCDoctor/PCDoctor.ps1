@@ -348,16 +348,18 @@ $xamlText = @'
     </Style>
 
     <Style TargetType="CheckBox">
-      <Setter Property="Foreground" Value="#D5DEEA"/><Setter Property="Margin" Value="0,5"/><Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Foreground" Value="#D5DEEA"/><Setter Property="Margin" Value="0,5,16,5"/><Setter Property="Cursor" Value="Hand"/>
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="CheckBox">
-            <StackPanel Orientation="Horizontal" Background="Transparent">
-              <Border x:Name="box" Width="18" Height="18" CornerRadius="5" BorderThickness="1.5" BorderBrush="#3B4B68" Background="#0D1526" VerticalAlignment="Top" Margin="0,1,10,0">
+            <DockPanel Background="Transparent">
+              <Border x:Name="box" DockPanel.Dock="Left" Width="18" Height="18" CornerRadius="5" BorderThickness="1.5" BorderBrush="#3B4B68" Background="#0D1526" VerticalAlignment="Top" Margin="0,2,10,0">
                 <TextBlock x:Name="tick" Text="&#xE73E;" FontFamily="{StaticResource IconFont}" FontSize="11" Foreground="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
               </Border>
-              <ContentPresenter VerticalAlignment="Center"/>
-            </StackPanel>
+              <ContentPresenter VerticalAlignment="Center">
+                <ContentPresenter.Resources><Style TargetType="TextBlock"><Setter Property="TextWrapping" Value="Wrap"/></Style></ContentPresenter.Resources>
+              </ContentPresenter>
+            </DockPanel>
             <ControlTemplate.Triggers>
               <Trigger Property="IsChecked" Value="True"><Setter TargetName="box" Property="Background" Value="#0D9488"/><Setter TargetName="box" Property="BorderBrush" Value="#2DD4BF"/><Setter TargetName="tick" Property="Visibility" Value="Visible"/></Trigger>
               <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="box" Property="BorderBrush" Value="#2DD4BF"/></Trigger>
@@ -1398,7 +1400,7 @@ function Show-Storage($a) {
     $script:Storage = $a
     $used = $a.SizeBytes - $a.FreeBytes
     $userTotal = ($a.UserFolders | Where-Object { $_.OnSystem -and -not $_.OneDrive } | Measure-Object SizeBytes -Sum).Sum
-    $ui.StorageSummary.Text = ((L "{0}: {2} used of {1}, {3} free.`nYour files (can be moved): {4} · Hibernation file: {5} · Page file: {6}`nDisk style: {7} · Unallocated: {8} · Safe shrink of C:: {9}" "{0}: {1} पैकी {2} वापरले, {3} मोकळे.`nतुमचे files (हलवता येतील): {4} · Hibernation file: {5} · Page file: {6}`nDisk style: {7} · Unallocated: {8} · C: मधून सुरक्षित shrink: {9}" "{0}: {1} में से {2} इस्तेमाल, {3} खाली।`nआपकी files (ले जा सकते हैं): {4} · Hibernation file: {5} · Page file: {6}`nDisk style: {7} · Unallocated: {8} · C: से सुरक्षित shrink: {9}") -f
+    $ui.StorageSummary.Text = ((L "{0} {2} used of {1}, {3} free.`nYour files (can be moved): {4} · Hibernation file: {5} · Page file: {6}`nDisk style: {7} · Unallocated: {8} · Safe shrink of C:: {9}" "{0} {1} पैकी {2} वापरले, {3} मोकळे.`nतुमचे files (हलवता येतील): {4} · Hibernation file: {5} · Page file: {6}`nDisk style: {7} · Unallocated: {8} · C: मधून सुरक्षित shrink: {9}" "{0} {1} में से {2} इस्तेमाल, {3} खाली।`nआपकी files (ले जा सकते हैं): {4} · Hibernation file: {5} · Page file: {6}`nDisk style: {7} · Unallocated: {8} · C: से सुरक्षित shrink: {9}") -f
         $a.Drive, (Format-PDSize $a.SizeBytes), (Format-PDSize $used), (Format-PDSize $a.FreeBytes), (Format-PDSize $userTotal),
         (Format-PDSize $a.HiberfilBytes), (Format-PDSize $a.PagefileBytes), $a.DiskStyle, (Format-PDSize $a.UnallocatedBytes), (Format-PDSize $a.ShrinkableBytes))
     $ui.ShrinkInfo.Text = (L '(at most ~{0:N0} GB)' '(जास्तीत जास्त ~{0:N0} GB)' '(ज़्यादा से ज़्यादा ~{0:N0} GB)') -f ([math]::Floor(([math]::Max([double]$a.UnallocatedBytes, [double]$a.ShrinkableBytes)) / 1GB))

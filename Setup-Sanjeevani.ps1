@@ -944,21 +944,31 @@ Ok "$($isoFiles.Count) boot entries configured"
 
 # ------------------------------------------------------------------ MyTools: the place for your own apps
 $my = Join-Path $UsbRoot 'MyTools'
-if (-not (Test-Path -LiteralPath $my)) {
-    New-Item -ItemType Directory -Path $my -Force | Out-Null
-    $readme = @(
-        'MyTools - तुमचे स्वतःचे tools / apps इथे ठेवा  (your own tools / apps go here)',
-        '',
-        '* Portable program: त्याचा पूर्ण folder इथे copy करा (उदा. MyTools\AnyDesk\AnyDesk.exe), किंवा एकच .exe.',
-        '* Installer (.exe / .msi): थेट इथे ठेवा.',
-        '* वर्णन हवे असल्यास program च्या नावाची .txt file ठेवा (उदा. AnyDesk.txt) - पहिली ओळ PC Doctor मध्ये दिसते.',
-        '* PC Doctor -> Tools मार्गदर्शक -> "माझे tools" मध्ये ते दिसतील.',
-        '* पहिल्यांदा PC Doctor / UPDATE.cmd विचारेल "हे तुम्ही टाकले का?" - हो म्हणा म्हणजे ते virus check मध्ये नोंदले जातील.',
-        '* फक्त official website वरून घेतलेले, virus scan केलेले programs ठेवा.',
-        '',
-        'Put portable program folders, single .exe files or installers (.exe/.msi) here. They appear in',
-        'PC Doctor -> Tools guide -> "My tools". Confirm them once when the USB check asks, so they are trusted.'
-    )
+if (-not (Test-Path -LiteralPath $my)) { New-Item -ItemType Directory -Path $my -Force | Out-Null }
+if ($true) {   # (re)written in the chosen language
+    $readme = @{
+        en = @('MyTools - put your own tools / apps here', '',
+            '* Portable program: copy its whole folder here (e.g. MyTools\AnyDesk\AnyDesk.exe), or a single .exe.',
+            '* Installer (.exe / .msi) or zip / 7z / rar: put it here directly (zips are extracted by UPDATE.cmd).',
+            '* Description: a .txt with the program''s name (e.g. AnyDesk.txt) - its first line is shown in PC Doctor.',
+            '* They appear in PC Doctor -> Tools Guide -> "My tools".',
+            '* The first time, the USB check asks "Did you put these here?" - answer Yes so they are recorded.',
+            '* Only programs from official websites, virus-scanned.')
+        mr = @('MyTools - तुमचे स्वतःचे tools / apps इथे ठेवा', '',
+            '* Portable program: त्याचा पूर्ण folder इथे copy करा (उदा. MyTools\AnyDesk\AnyDesk.exe), किंवा एकच .exe.',
+            '* Installer (.exe / .msi) किंवा zip / 7z / rar: थेट इथे ठेवा (zip UPDATE.cmd आपोआप extract करतो).',
+            '* वर्णन: program च्या नावाची .txt ठेवा (उदा. AnyDesk.txt) - पहिली ओळ PC Doctor मध्ये दिसते.',
+            '* PC Doctor -> Tools मार्गदर्शक -> "माझे tools" मध्ये ते दिसतील.',
+            '* पहिल्यांदा USB तपासणी विचारेल "हे तुम्ही टाकले का?" - हो म्हणा म्हणजे ते नोंदवले जातील.',
+            '* फक्त official website वरून घेतलेले, virus scan केलेले programs ठेवा.')
+        hi = @('MyTools - अपने tools / apps यहाँ रखें', '',
+            '* Portable program: उसका पूरा folder यहाँ copy करें (जैसे MyTools\AnyDesk\AnyDesk.exe), या एक .exe.',
+            '* Installer (.exe / .msi) या zip / 7z / rar: सीधे यहाँ रखें (zip को UPDATE.cmd अपने आप extract करता है).',
+            '* विवरण: program के नाम की .txt रखें (जैसे AnyDesk.txt) - पहली line PC Doctor में दिखती है।',
+            '* वे PC Doctor -> Tools गाइड -> "मेरे tools" में दिखेंगे।',
+            '* पहली बार USB जाँच पूछेगी "क्या ये आपने रखे?" - हाँ कहें ताकि वे दर्ज हों।',
+            '* सिर्फ़ official website से लिए, virus scan किए programs रखें।')
+    }[$Lang]
     Set-Content -LiteralPath (Join-Path $my 'README.txt') -Value $readme -Encoding UTF8
 }
 

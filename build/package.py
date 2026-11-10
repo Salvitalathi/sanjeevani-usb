@@ -7,7 +7,7 @@ DIST = os.path.join(ROOT, 'dist')
 OUT = os.path.join(DIST, 'Sanjeevani-USB-Kit')
 shutil.rmtree(DIST, ignore_errors=True)
 shutil.copytree(os.path.join(ROOT, 'kit'), os.path.join(OUT, 'kit'))
-for f in ('SETUP.cmd', 'Setup-Sanjeevani.ps1', 'CLEAN.cmd', 'Clean-Sanjeevani.ps1', 'README.txt'):
+for f in ('SETUP.cmd', 'Setup-Sanjeevani.ps1', 'CLEAN.cmd', 'Clean-Sanjeevani.ps1', 'README.txt', 'README-Marathi.txt', 'README-Hindi.txt'):
     shutil.copy(os.path.join(ROOT, f), OUT)
 for dp, _, fs in os.walk(OUT):
     for f in fs:
@@ -18,7 +18,8 @@ for dp, _, fs in os.walk(OUT):
         if b.startswith(b'\xef\xbb\xbf'): b = b[3:]
         t = b.decode('utf-8').replace('\r\n', '\n')
         if ext in ('.ps1', '.psm1', '.cmd', '.txt'): t = t.replace('\n', '\r\n')
-        open(p, 'wb').write((b'\xef\xbb\xbf' if ext in ('.ps1', '.psm1') else b'') + t.encode('utf-8'))
+        bom = ext in ('.ps1', '.psm1') or (ext == '.txt' and any(ord(c) > 127 for c in t))   # Notepad shows मराठी / हिन्दी right
+        open(p, 'wb').write((b'\xef\xbb\xbf' if bom else b'') + t.encode('utf-8'))
 z = os.path.join(DIST, 'Sanjeevani-USB-Kit.zip')
 with zipfile.ZipFile(z, 'w', zipfile.ZIP_DEFLATED) as zf:
     for dp, _, fs in os.walk(OUT):
