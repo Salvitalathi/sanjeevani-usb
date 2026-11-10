@@ -1,0 +1,369 @@
+"""Writes kit/Sanjeevani/PCDoctor/data/problems.json - the common PC problems PC Doctor's
+"समस्या सांगा" (describe your problem) page understands, in Marathi, English and Roman Marathi.
+
+Per problem:
+  kw      - words / phrases that point to it (Devanagari, English, Roman Marathi). Lower case.
+            A phrase scores more than a single word; "a+b" means both words anywhere in the text.
+            Generic verbs alone ("चालत नाही") are never keywords. Short English words (< 5 letters)
+            must match a whole word ("net" does not match "internet").
+  mr / en - title, why (likely causes), steps (what to do, in order)
+  actions - PC Doctor actions offered as buttons, all existing safe features:
+            {t: scan|optimize}                       run Quick Scan / One-Click Optimize
+            {t: repair, id: os|chkdsk|wu|net|defender|drivers|drvbackup|restorepoint|offline-info}
+            {t: quick, id: printer|audio|time|explorer|search|bluetooth|wifi|usb|store|dns}   (Ask.psm1)
+            {t: tg, id: <tool id>}                   Tools guide automatic check
+            {t: tool, id: <tool id>}                 open the tool's page in the Tools guide
+            {t: page, id: speed|storage|advisor|repair|toolbox}
+            {t: fix, id: registry|storage|advisor}   existing PC Doctor fix routes
+            {t: settings, id: <ms-settings uri>}     open a Windows Settings page
+Run:  python3 build/make_problems.py
+"""
+import json, os
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUT = os.path.join(ROOT, 'kit', 'Sanjeevani', 'PCDoctor', 'data', 'problems.json')
+
+P = []
+def p(id, kw, mr, en, actions):
+    P.append({'id': id, 'kw': kw, 'mr': mr, 'en': en, 'actions': actions})
+
+def T(title, why, steps): return {'title': title, 'why': why, 'steps': steps}
+
+# ---------------------------------------------------------------- internet / network
+p('no-internet',
+  ['internet', 'net', 'नेट', 'इंटरनेट', 'no internet', 'not connected', 'नो इंटरनेट', 'net chalat nahi', 'net nahi', 'internet nahi', 'connection', 'कनेक्शन', 'dns', 'website open hot nahi', 'website उघडत नाही', 'वेबसाईट', 'browsing'],
+  T('Internet चालत नाही', 'Router / ISP बंद, चुकीची network settings, DNS बिघडलेला, virus ने लावलेला proxy किंवा network driver.',
+    ['आधी तपासा: त्याच WiFi वर mobile ला internet आहे का? नसेल तर router / ISP ची समस्या आहे - router 30 सेकंद बंद करून सुरू करा.',
+     '"Internet तपासा" दाबा - router, internet आणि DNS पैकी कुठे अडते ते कळेल.',
+     'फक्त हाच PC अडत असेल तर "Network reset" करा आणि PC restart करा.',
+     'Registry तपासणीत proxy दिसला तर तो बंद करा.']),
+  T('No internet', 'Router / ISP down, wrong network settings, broken DNS, a proxy set by malware, or the network driver.',
+    ['First: does a phone on the same WiFi have internet? If not, it is the router / ISP - switch the router off for 30 seconds.',
+     'Press "Check internet" to see whether the router, the internet or DNS fails.',
+     'If only this PC fails, run "Network reset" and restart the PC.',
+     'If the registry check finds a proxy, switch it off.']),
+  [{'t': 'tg', 'id': 'winmtr'}, {'t': 'quick', 'id': 'dns'}, {'t': 'repair', 'id': 'net'}, {'t': 'fix', 'id': 'registry'}])
+p('wifi',
+  ['wifi', 'wi-fi', 'वायफाय', 'वाय-फाय', 'wifi dikhat nahi', 'wifi disat nahi', 'wifi दिसत नाही', 'wireless', 'wlan', 'hotspot', 'हॉटस्पॉट', 'wifi option', 'airplane', 'विमान mode', 'wifi connect'],
+  T('WiFi दिसत नाही / connect होत नाही', 'WiFi switch / airplane mode, WLAN service बंद, WiFi driver नाही किंवा बिघडलेला, चुकीचा password.',
+    ['Keyboard वरची WiFi key (Fn + F2/F12) आणि Airplane mode बंद आहे ना ते पाहा.',
+     '"WiFi दुरुस्ती" दाबा - WLAN service आणि बंद असलेले network adapters चालू करतो.',
+     'WiFi चा पर्यायच दिसत नसेल तर driver नाही - "Drivers तपासा" (pendrive वरच्या driver packs मधून internet शिवाय install होतो).',
+     'Connect होत नसेल तर network "Forget" करून पुन्हा password टाका.']),
+  T('WiFi missing / will not connect', 'WiFi switch / airplane mode, WLAN service stopped, WiFi driver missing or broken, wrong password.',
+    ['Check the keyboard WiFi key (Fn + F2/F12) and that Airplane mode is off.',
+     'Press "WiFi repair" - starts the WLAN service and disabled network adapters.',
+     'No WiFi option at all means no driver - "Check drivers" (installs from the USB driver packs without internet).',
+     'If it will not connect, "Forget" the network and enter the password again.']),
+  [{'t': 'quick', 'id': 'wifi'}, {'t': 'repair', 'id': 'drivers'}, {'t': 'settings', 'id': 'ms-settings:network-wifi'}])
+p('slow-internet',
+  ['slow internet', 'internet slow', 'net slow', 'net halu', 'नेट हळू', 'internet हळू', 'speed kami', 'buffering', 'बफरिंग', 'download slow', 'net band hote', 'net तुटते', 'disconnect', 'डिस्कनेक्ट', 'internet+slow', 'net+slow', 'internet+हळू', 'नेट+हळू', 'net+halu', 'wifi+slow', 'internet+halu', 'इंटरनेट+हळू', 'internet+drop'],
+  T('Internet हळू / मध्येच तुटते', 'कमकुवत WiFi signal, router लांब, ISP, background मध्ये updates / downloads, adware.',
+    ['"Internet तपासा" ने packet loss आणि वेग पाहा.', 'Router च्या जवळ जाऊन तपासा; शक्य असल्यास LAN cable लावा.',
+     'Background मधले downloads (Windows Update, torrent) थांबवा.', 'Ads / popups येत असतील तर virus तपासणी करा.']),
+  T('Slow / dropping internet', 'Weak WiFi signal, router far away, ISP, background updates / downloads, adware.',
+    ['"Check internet" shows packet loss and speed.', 'Test near the router; use a LAN cable if possible.',
+     'Pause background downloads (Windows Update, torrents).', 'With ads / pop-ups, run a virus check.']),
+  [{'t': 'tg', 'id': 'winmtr'}, {'t': 'quick', 'id': 'dns'}, {'t': 'tg', 'id': 'msert'}])
+p('lan',
+  ['lan', 'ethernet', 'cable', 'केबल', 'लॅन', 'lan cable', 'network cable', 'unidentified network', 'limited'],
+  T('LAN / cable internet चालत नाही', 'Cable / router port, LAN driver, IP मिळत नाही (unidentified network).',
+    ['Cable दोन्ही बाजूंनी नीट लावा; router च्या दुसऱ्या port मध्ये लावून पाहा.', '"Internet तपासा" दाबा.',
+     '"Unidentified network" असल्यास "Network reset" करा.', 'LAN adapter दिसत नसेल तर "Drivers तपासा".']),
+  T('LAN / cable internet not working', 'Cable / router port, LAN driver, no IP address (unidentified network).',
+    ['Re-seat the cable at both ends; try another router port.', 'Press "Check internet".',
+     'With "Unidentified network", run "Network reset".', 'If no LAN adapter shows, "Check drivers".']),
+  [{'t': 'tg', 'id': 'winmtr'}, {'t': 'repair', 'id': 'net'}, {'t': 'repair', 'id': 'drivers'}])
+
+# ---------------------------------------------------------------- speed / storage
+p('slow-pc',
+  ['slow', 'हळू', 'हळु', 'halu', 'pc+slow', 'laptop+slow', 'pc+हळू', 'laptop+हळू', 'computer+slow', 'hang', 'हँग', 'हॅंग', 'lag', 'लॅग', 'atakto', 'अडकतो', 'अडकते', 'slow chalto', 'वेळ लागतो', 'not responding', 'freeze', 'फ्रीज', 'speed vadhva', 'वेग', 'fast kara'],
+  T('PC / Laptop हळू चालतो, hang होतो', 'जास्त startup programs, junk, कमी RAM, जुना HDD, disk भरलेला, virus किंवा खराब होणारी disk.',
+    ['"One-Click Optimize" दाबा - junk साफ, startup कमी, bloatware काढणे, योग्य settings (restore point आधी).',
+     'Score 100 का नाही ते तपासणी page वर पाहा - RAM / SSD सल्ला तिथे दिसतो.',
+     'Disk ची तब्येत तपासा - खराब होणारी disk PC खूप हळू करते.', 'Virus scan करा.']),
+  T('PC / laptop is slow or hangs', 'Too many startup programs, junk, little RAM, an old HDD, a full disk, malware or a failing disk.',
+    ['Press "One-Click Optimize" - cleans junk, trims startup, removes bloatware, sets good defaults (restore point first).',
+     'See why the score is not 100 on the scan page - RAM / SSD advice is there.',
+     'Check disk health - a failing disk makes the PC very slow.', 'Run a virus scan.']),
+  [{'t': 'optimize'}, {'t': 'tg', 'id': 'crystaldiskinfo'}, {'t': 'tg', 'id': 'cpuz'}, {'t': 'tg', 'id': 'msert'}])
+p('slow-boot',
+  ['slow start', 'start hoto ushira', 'सुरू व्हायला वेळ', 'boot slow', 'startup slow', 'चालू व्हायला', 'on vhayla', 'login slow', 'start व्हायला', 'सुरु होण्यास'],
+  T('PC सुरू व्हायला खूप वेळ लागतो', 'Startup मध्ये खूप programs, HDD, अडकलेले updates.',
+    ['"वेग वाढवा" page वर startup programs बंद करा (सुचवलेले आधीच निवडलेले).', 'Fast startup / HDD असल्यास SSD चा विचार करा.',
+     'Updates अडकले असतील तर "Windows Update दुरुस्ती".']),
+  T('PC takes long to start', 'Too many startup programs, an HDD, stuck updates.',
+    ['Turn off startup programs on the "Speed" page (suggested ones are pre-selected).', 'With an HDD, consider an SSD.',
+     'If updates are stuck, "Windows Update repair".']),
+  [{'t': 'page', 'id': 'speed'}, {'t': 'tg', 'id': 'cpuz'}, {'t': 'repair', 'id': 'wu'}])
+p('disk-full',
+  ['c drive full', 'c: full', 'disk full', 'जागा नाही', 'jaga nahi', 'storage full', 'low disk', 'space nahi', 'memory full', 'मेमरी फुल', 'c drive bharla', 'c ड्राइव्ह', 'red bar', 'जागा कमी', 'space'],
+  T('C: drive भरला / जागा नाही', 'Downloads, videos, जुने updates, Windows.old, temp files, browser cache.',
+    ['"One-Click Optimize" - junk साफ करतो आणि किती मोकळे झाले ते दाखवतो.', '"C: drive जागा" page - मोठे folders सुरक्षितपणे D: वर हलवा (Undo सह).',
+     'सगळ्यात मोठे folders पाहा (WizTree).']),
+  T('C: drive full', 'Downloads, videos, old updates, Windows.old, temp files, browser cache.',
+    ['"One-Click Optimize" cleans junk and shows how much was freed.', '"C: drive space" page - move big folders safely to D: (with Undo).',
+     'See the biggest folders (WizTree).']),
+  [{'t': 'optimize'}, {'t': 'fix', 'id': 'storage'}, {'t': 'tg', 'id': 'wiztree'}])
+p('disk-100',
+  ['disk 100', '100% disk', 'disk usage', 'disk+100', 'डिस्क 100', 'disk full use', 'task manager disk'],
+  T('Disk 100% वापर दाखवतो', 'HDD वर Windows, updates / antivirus scan, खराब होणारी disk, कमी RAM.',
+    ['Disk ची तब्येत तपासा.', 'One-Click Optimize (services आणि startup कमी करतो).', 'HDD असल्यास SSD हा कायमचा उपाय.']),
+  T('Disk at 100%', 'Windows on an HDD, updates / antivirus scans, a failing disk, little RAM.',
+    ['Check disk health.', 'One-Click Optimize (trims services and startup).', 'With an HDD, an SSD is the lasting fix.']),
+  [{'t': 'tg', 'id': 'crystaldiskinfo'}, {'t': 'optimize'}, {'t': 'tg', 'id': 'cpuz'}])
+
+# ---------------------------------------------------------------- crashes / heat / power
+p('bsod',
+  ['blue screen', 'bsod', 'ब्लू स्क्रीन', 'निळी स्क्रीन', 'nili screen', 'blue', 'stop code', 'your pc ran into a problem', 'crash', 'क्रॅश', 'restart hoto', 'आपोआप restart', 'apoaap restart', 'automatic restart'],
+  T('Blue screen येऊन restart होतो', 'खराब / जुना driver (display, WiFi), RAM दोष, disk खराब, गरम होणे.',
+    ['"Blue screen चे कारण" दाबा - कोणता driver दोषी आणि काय करायचे ते सांगतो.', 'RAM test करा.', 'Disk ची तब्येत तपासा.',
+     'Windows सुरूच होत नसेल तर pendrive वरून boot करून PC Doctor Rescue वापरा.']),
+  T('Blue screen and restart', 'A bad / old driver (display, WiFi), faulty RAM, a failing disk, overheating.',
+    ['Press "Blue-screen cause" - names the driver and what to do.', 'Test the RAM.', 'Check disk health.',
+     'If Windows will not start, boot the USB and use PC Doctor Rescue.']),
+  [{'t': 'tg', 'id': 'bluescreenview'}, {'t': 'tg', 'id': 'win-memdiag'}, {'t': 'tg', 'id': 'crystaldiskinfo'}, {'t': 'repair', 'id': 'offline-info'}])
+p('overheat',
+  ['garam', 'गरम', 'heat', 'overheat', 'too hot', 'हीट', 'tapman', 'तापमान', 'temperature', 'fan', 'फॅन', 'पंखा', 'fan awaj', 'fan noise', 'fan जोरात', 'thermal'],
+  T('Laptop / PC खूप गरम होतो, fan जोरात', 'Fan / heatsink मध्ये धूळ, जुनी thermal paste, vents अडलेले, background मध्ये जड program किंवा virus.',
+    ['"तापमान तपासा" - HWiNFO थेट sensors मध्ये उघडतो आणि काय पाहायचे ते सांगतो.', 'Laptop कठीण पृष्ठभागावर ठेवा (गादी/उशीवर नको).',
+     '80-90°C+ असल्यास fan / heatsink साफ करा, thermal paste बदला.', 'दुरुस्तीनंतर 10 मिनिटांचा stress test करून खात्री करा.']),
+  T('Laptop / PC runs very hot, loud fan', 'Dust in the fan / heatsink, old thermal paste, blocked vents, a heavy background program or malware.',
+    ['"Check temperatures" - HWiNFO opens straight into sensors and this page tells you what to look at.', 'Keep the laptop on a hard surface (not a bed/pillow).',
+     'At 80-90°C+ clean the fan / heatsink and renew the thermal paste.', 'After the repair, confirm with the 10-minute stress test.']),
+  [{'t': 'tg', 'id': 'hwinfo'}, {'t': 'tg', 'id': 'prime95'}, {'t': 'tool', 'id': 'procexp'}])
+p('shutdown',
+  ['band padto', 'बंद पडतो', 'बंद पडते', 'shutdown', 'shut down', 'turns off', 'switch off hoto', 'अचानक बंद', 'achanak band', 'power off', 'बंद होतो'],
+  T('PC अचानक बंद पडतो (blue screen शिवाय)', 'जास्त गरम होणे, power supply / charger / battery, RAM.',
+    ['Crash इतिहास पाहा - blue screen की थेट power बंद ते कळेल.', 'तापमान तपासा; stress test करा.', 'Laptop: battery आणि charger तपासा; desktop: power supply.']),
+  T('PC switches off suddenly (no blue screen)', 'Overheating, power supply / charger / battery, RAM.',
+    ['Check the crash history - blue screen or a straight power-off.', 'Check temperatures; run the stress test.', 'Laptop: battery and charger; desktop: power supply.']),
+  [{'t': 'tg', 'id': 'bluescreenview'}, {'t': 'tg', 'id': 'hwinfo'}, {'t': 'tg', 'id': 'batteryinfoview'}, {'t': 'tg', 'id': 'prime95'}])
+p('battery',
+  ['battery', 'बॅटरी', 'बॅटरि', 'charge', 'चार्ज', 'charging', 'चार्जिंग', 'backup kami', 'बॅकअप कमी', 'battery lavkar sampte', 'battery drain', 'plugged in not charging'],
+  T('Battery लवकर संपते / charge होत नाही', 'जुनी battery (झीज), charger, battery driver, जास्त brightness / background programs.',
+    ['"Battery तपासा" - झीज किती ते सांगतो (40%+ = बदला).', '"Plugged in, not charging" असल्यास laptop बंद करून charger काढा, 1 मिनिट power button दाबा, पुन्हा सुरू करा.',
+     'Battery saver आणि कमी brightness वापरा.']),
+  T('Battery drains fast / will not charge', 'An old battery (wear), the charger, the battery driver, high brightness / background programs.',
+    ['"Check battery" - shows the wear (40%+ = replace).', 'With "Plugged in, not charging": shut down, unplug, hold power for 1 minute, start again.',
+     'Use battery saver and lower brightness.']),
+  [{'t': 'tg', 'id': 'batteryinfoview'}, {'t': 'settings', 'id': 'ms-settings:batterysaver'}])
+
+# ---------------------------------------------------------------- windows / updates
+p('windows-update',
+  ['update', 'अपडेट', 'windows update', 'update atakla', 'update अडकले', 'update error', 'update fail', 'updates install hot nahi', '0x80', 'pending'],
+  T('Windows Update अडकले / error येतो', 'खराब update cache, जागा कमी, खराब system files.',
+    ['C: वर किमान 20 GB जागा मोकळी ठेवा (One-Click Optimize).', '"Windows Update दुरुस्ती" - update components reset.',
+     'तरीही न झाल्यास "Windows system files दुरुस्ती" (DISM + SFC).']),
+  T('Windows Update stuck / failing', 'A broken update cache, low disk space, damaged system files.',
+    ['Keep at least 20 GB free on C: (One-Click Optimize).', '"Windows Update repair" - resets the update components.',
+     'If it still fails, "Windows system files repair" (DISM + SFC).']),
+  [{'t': 'repair', 'id': 'wu'}, {'t': 'optimize'}, {'t': 'repair', 'id': 'os'}])
+p('corrupt-windows',
+  ['corrupt', 'करप्ट', 'system file', 'sfc', 'dism', 'dll missing', 'dll error', '.dll', 'error yeto', 'error येतो', 'application error', 'programs band padtat', 'apps crash', 'program crash'],
+  T('Windows / programs मध्ये errors, DLL missing, apps बंद पडतात', 'खराब system files, अर्धवट update, virus, disk errors.',
+    ['"Windows system files दुरुस्ती" (DISM + SFC) - 15-40 मिनिटे.', 'Disk errors तपासा.', 'Virus scan.']),
+  T('Windows / program errors, missing DLLs, apps crash', 'Damaged system files, a half-installed update, malware, disk errors.',
+    ['"Windows system files repair" (DISM + SFC) - 15-40 minutes.', 'Check the disk for errors.', 'Virus scan.']),
+  [{'t': 'repair', 'id': 'os'}, {'t': 'repair', 'id': 'chkdsk'}, {'t': 'tg', 'id': 'msert'}])
+p('no-boot',
+  ['start hot nahi', 'सुरू होत नाही', 'सुरु होत नाही', 'boot hot nahi', 'windows start', 'black screen', 'काळी स्क्रीन', 'automatic repair', 'preparing automatic repair', 'boot loop', 'logo var atakto', 'logo वर अडकतो', 'no bootable', 'bootmgr', 'does not start', 'not starting', "won't start", 'stuck on logo', 'logo+stuck', 'logo+अडकतो', 'windows+सुरू होत नाही', 'chalu hot nahi', 'चालू होत नाही'],
+  T('Windows सुरूच होत नाही / logo वर अडकतो', 'Boot files बिघडले, खराब update, disk errors, खराब driver.',
+    ['Pendrive लावून Boot Menu key दाबा → "Hiren\'s BootCD PE" → PCDoctor-Rescue.cmd.', 'Rescue मध्ये: blue screen कारण, अडकलेले updates, SFC / DISM, chkdsk, boot repair, आणि data pendrive वर वाचवणे.',
+     'Disk खराब असेल तर आधी data वाचवा.']),
+  T('Windows will not start / stuck on the logo', 'Broken boot files, a bad update, disk errors, a bad driver.',
+    ['Plug in the USB, press the Boot Menu key → "Hiren\'s BootCD PE" → PCDoctor-Rescue.cmd.', 'In Rescue: blue-screen cause, stuck updates, SFC / DISM, chkdsk, boot repair, and saving data to the USB.',
+     'If the disk is failing, save the data first.']),
+  [{'t': 'repair', 'id': 'offline-info'}, {'t': 'tool', 'id': 'hbcd'}])
+p('activation',
+  ['activate', 'activation', 'ॲक्टिव्हेट', 'activate windows', 'watermark', 'product key', 'license', 'genuine'],
+  T('Windows activate नाही / product key', 'Reinstall नंतर activation, बदललेला motherboard, चुकीची edition.',
+    ['"Product key शोधा" - BIOS मधली Windows key सापडल्यास ती आपोआप वापरली जाते.', 'Settings → Activation मध्ये "Troubleshoot".',
+     'Key नसेल तर customer ला original license घ्यायला सांगा (crack / activator वापरू नका - त्यात virus असतो).']),
+  T('Windows not activated / product key', 'Activation after a reinstall, a changed motherboard, the wrong edition.',
+    ['"Find product keys" - a key stored in the BIOS is used automatically.', 'Settings → Activation → "Troubleshoot".',
+     'Without a key, the customer needs an original licence (never use cracks / activators - they carry malware).']),
+  [{'t': 'tg', 'id': 'produkey'}, {'t': 'settings', 'id': 'ms-settings:activation'}])
+p('password',
+  ['password', 'पासवर्ड', 'pin', 'पिन', 'password visarlo', 'पासवर्ड विसरलो', 'forgot password', 'login hot nahi', 'locked out', 'account lock'],
+  T('Windows चा password / PIN विसरला', 'Local account की Microsoft account (email) यावर उपाय अवलंबून.',
+    ['Microsoft account (email ने login): दुसऱ्या फोन/PC वरून account.live.com/password/reset.', 'Local account: pendrive वरून boot → Hiren\'s PE → NTPWEdit ने password काढा (मालकाच्या परवानगीनेच).',
+     'BitLocker चालू असल्यास recovery key लागेल (aka.ms/myrecoverykey).']),
+  T('Forgot the Windows password / PIN', 'The fix depends on a local account or a Microsoft account (email).',
+    ['Microsoft account (email login): from another phone/PC, account.live.com/password/reset.', 'Local account: boot the USB → Hiren\'s PE → NTPWEdit (only with the owner\'s permission).',
+     'With BitLocker on, the recovery key is needed (aka.ms/myrecoverykey).']),
+  [{'t': 'tool', 'id': 'ntpwedit'}])
+p('time',
+  ['time', 'वेळ चुकीची', 'वेळ चुकते', 'date', 'तारीख', 'clock', 'घड्याळ', 'time chukicha', 'wrong time', 'certificate error', 'your clock is ahead', 'your clock is behind'],
+  T('वेळ / तारीख चुकीची, website certificate error', 'Time sync बंद, चुकीचा time zone, CMOS battery संपलेली (desktop मध्ये गोल battery).',
+    ['"वेळ दुरुस्ती" - automatic time चालू करून internet वरून वेळ घेतो.', 'प्रत्येक वेळी PC बंद केल्यावर वेळ चुकत असेल तर motherboard ची CMOS battery (CR2032) बदला.']),
+  T('Wrong time / date, website certificate errors', 'Time sync off, wrong time zone, a dead CMOS battery (the coin cell on the motherboard).',
+    ['"Fix time" - turns automatic time on and syncs from the internet.', 'If the time is wrong after every shutdown, replace the CMOS battery (CR2032).']),
+  [{'t': 'quick', 'id': 'time'}, {'t': 'settings', 'id': 'ms-settings:dateandtime'}])
+p('taskbar',
+  ['taskbar', 'टास्कबार', 'start menu', 'स्टार्ट मेनू', 'start button', 'explorer', 'desktop icons', 'icons disat nahi', 'आयकॉन', 'file explorer', 'folder ughdat nahi', 'folder उघडत नाही', 'windows explorer'],
+  T('Taskbar / Start menu / File Explorer अडकले', 'Explorer process अडकला, खराब shell extension, खराब system files.',
+    ['"Explorer restart" - taskbar, desktop आणि folders परत चालू करतो (उघडी कामे राहतात).', 'वारंवार होत असेल तर "Windows system files दुरुस्ती".']),
+  T('Taskbar / Start menu / File Explorer frozen', 'The Explorer process hung, a bad shell extension, damaged system files.',
+    ['"Restart Explorer" - brings back the taskbar, desktop and folders (open work stays).', 'If it keeps happening, "Windows system files repair".']),
+  [{'t': 'quick', 'id': 'explorer'}, {'t': 'repair', 'id': 'os'}])
+p('search',
+  ['search', 'सर्च', 'शोध', 'search kaam karat nahi', 'search चालत नाही', 'start search', 'search bar'],
+  T('Windows Search चालत नाही', 'Search service अडकली किंवा index बिघडला.',
+    ['"Search दुरुस्ती" - Windows Search service restart करतो.', 'फाईल पटकन शोधायची असेल तर Tools मार्गदर्शक मधला "Everything" वापरा.']),
+  T('Windows Search not working', 'The search service hung or the index broke.',
+    ['"Fix search" - restarts the Windows Search service.', 'To find a file quickly, use "Everything" in the Tools guide.']),
+  [{'t': 'quick', 'id': 'search'}, {'t': 'tool', 'id': 'everything'}])
+
+# ---------------------------------------------------------------- devices
+p('printer',
+  ['printer', 'प्रिंटर', 'print', 'printer+not', 'printer+नाही', 'प्रिंट', 'print hot nahi', 'प्रिंट होत नाही', 'printer offline', 'spooler', 'print queue', 'scanner', 'स्कॅनर'],
+  T('Printer print देत नाही / offline', 'Print queue मध्ये अडकलेले document, spooler service, printer driver, cable / WiFi.',
+    ['Printer चालू, कागद आणि cable / WiFi तपासा.', '"Printer दुरुस्ती" - अडकलेले print jobs काढून print service restart करतो.',
+     'तरीही न झाल्यास printer काढून कंपनीच्या website वरून driver install करा.']),
+  T('Printer not printing / offline', 'A stuck document in the print queue, the spooler service, the printer driver, cable / WiFi.',
+    ['Check power, paper and cable / WiFi.', '"Fix printer" - clears stuck print jobs and restarts the print service.',
+     'If it still fails, remove the printer and install the driver from the maker\'s website.']),
+  [{'t': 'quick', 'id': 'printer'}, {'t': 'settings', 'id': 'ms-settings:printers'}])
+p('sound',
+  ['sound', 'आवाज', 'awaj', 'no+sound', 'sound+not', 'aawaj', 'audio', 'ऑडिओ', 'speaker', 'स्पीकर', 'headphone', 'हेडफोन', 'earphone', 'no sound', 'आवाज येत नाही', 'mic', 'माईक', 'microphone', 'मायक्रोफोन'],
+  T('आवाज येत नाही / mic चालत नाही', 'Mute / चुकीचे output device, audio service, audio driver, mic ची privacy setting.',
+    ['Taskbar वर speaker icon → योग्य device (Speakers / Headphones) निवडा, mute नाही ना ते पाहा.', '"आवाज दुरुस्ती" - Windows audio services restart करतो.',
+     'Mic साठी: Settings → Privacy → Microphone चालू करा.', 'तरीही न झाल्यास "Drivers तपासा" (Realtek / Intel audio).']),
+  T('No sound / microphone not working', 'Muted / wrong output device, the audio service, the audio driver, microphone privacy setting.',
+    ['Taskbar speaker icon → pick the right device (Speakers / Headphones), make sure it is not muted.', '"Fix sound" - restarts the Windows audio services.',
+     'For the mic: Settings → Privacy → Microphone on.', 'If it still fails, "Check drivers" (Realtek / Intel audio).']),
+  [{'t': 'quick', 'id': 'audio'}, {'t': 'settings', 'id': 'ms-settings:sound'}, {'t': 'repair', 'id': 'drivers'}, {'t': 'settings', 'id': 'ms-settings:privacy-microphone'}])
+p('display',
+  ['display', 'डिस्प्ले', 'screen', 'स्क्रीन', 'resolution', 'रिझोल्युशन', 'flicker', 'फ्लिकर', 'brightness', 'ब्राइटनेस', 'lines', 'रेषा', 'monitor', 'मॉनिटर', 'hdmi', 'projector', 'graphics', 'ग्राफिक्स', 'blur', 'मोठे दिसते'],
+  T('Display / screen समस्या (resolution, flicker, brightness, HDMI)', 'Display driver नाही (Basic Display Adapter), cable, screen hardware.',
+    ['"Drivers तपासा" - display driver नसेल तर resolution आणि brightness चालत नाही.', 'HDMI / projector: Win + P दाबून "Duplicate / Extend" निवडा.',
+     'Screen वर रेषा / ठिपके: Tools मार्गदर्शक → "Screen test" ने dead pixel / panel दोष तपासा.']),
+  T('Display problems (resolution, flicker, brightness, HDMI)', 'No display driver (Basic Display Adapter), the cable, screen hardware.',
+    ['"Check drivers" - without a display driver, resolution and brightness do not work.', 'HDMI / projector: press Win + P and choose "Duplicate / Extend".',
+     'Lines / dots on the screen: Tools guide → "Screen test" for dead pixels / panel faults.']),
+  [{'t': 'repair', 'id': 'drivers'}, {'t': 'settings', 'id': 'ms-settings:display'}, {'t': 'page', 'id': 'toolbox'}])
+p('keyboard',
+  ['keyboard', 'कीबोर्ड', 'key', 'keys', 'typing', 'टायपिंग', 'touchpad', 'टचपॅड', 'mouse', 'माउस', 'cursor', 'कर्सर', 'click hot nahi', 'scroll'],
+  T('Keyboard / touchpad / mouse चालत नाही', 'Touchpad बंद (Fn key), driver, USB port, keyboard hardware.',
+    ['Touchpad: Fn + F6/F7 (touchpad key) किंवा Settings → Touchpad चालू.', 'Keyboard test: Tools मार्गदर्शक → "Keyboard test" ने कोणत्या keys चालत नाहीत ते पाहा.',
+     '"Drivers तपासा" (touchpad / HID).', 'USB mouse / keyboard दुसऱ्या port मध्ये लावा.']),
+  T('Keyboard / touchpad / mouse not working', 'Touchpad turned off (Fn key), the driver, the USB port, keyboard hardware.',
+    ['Touchpad: Fn + F6/F7 (touchpad key) or Settings → Touchpad on.', 'Keyboard test: Tools guide → "Keyboard test" shows which keys fail.',
+     '"Check drivers" (touchpad / HID).', 'Try a USB mouse / keyboard in another port.']),
+  [{'t': 'repair', 'id': 'drivers'}, {'t': 'settings', 'id': 'ms-settings:devices-touchpad'}, {'t': 'page', 'id': 'toolbox'}])
+p('usb',
+  ['usb', 'यूएसबी', 'pendrive', 'पेनड्राइव्ह', 'pen drive', 'hard disk detect', 'external', 'detect', 'not recognized', 'ओळखत नाही', 'mobile connect', 'phone connect'],
+  T('USB / pendrive / external disk / mobile दिसत नाही', 'Device ओळखला गेला नाही, driver, power कमी, खराब cable / port.',
+    ['दुसरा USB port / cable वापरून पाहा (मागचे ports desktop वर चांगले).', '"USB दुरुस्ती" - devices पुन्हा शोधतो.',
+     'Disk दिसते पण drive letter नाही: Disk Management मध्ये letter द्या.', 'Mobile: फोनवर "File transfer (MTP)" निवडा.']),
+  T('USB drive / external disk / phone not detected', 'Device not recognised, the driver, low power, a bad cable / port.',
+    ['Try another USB port / cable (rear ports on desktops).', '"Fix USB" - scans for devices again.',
+     'Disk shows but no drive letter: assign one in Disk Management.', 'Phone: choose "File transfer (MTP)" on the phone.']),
+  [{'t': 'quick', 'id': 'usb'}, {'t': 'repair', 'id': 'drivers'}])
+p('bluetooth',
+  ['bluetooth', 'ब्लूटूथ', 'bt', 'earbuds', 'इअरबड', 'bluetooth speaker', 'pair', 'पेअर'],
+  T('Bluetooth चालत नाही / pair होत नाही', 'Bluetooth service, driver, airplane mode, device आधीच दुसऱ्या फोनशी जोडलेले.',
+    ['"Bluetooth दुरुस्ती" - Bluetooth service restart करतो.', 'Device "Remove" करून पुन्हा pair करा; earbuds फोनपासून disconnect करा.',
+     'Bluetooth पर्यायच नसेल तर "Drivers तपासा".']),
+  T('Bluetooth not working / will not pair', 'Bluetooth service, driver, airplane mode, the device still paired to a phone.',
+    ['"Fix Bluetooth" - restarts the Bluetooth service.', '"Remove" the device and pair again; disconnect earbuds from the phone.',
+     'No Bluetooth option at all: "Check drivers".']),
+  [{'t': 'quick', 'id': 'bluetooth'}, {'t': 'settings', 'id': 'ms-settings:bluetooth'}, {'t': 'repair', 'id': 'drivers'}])
+p('camera',
+  ['camera', 'कॅमेरा', 'कॅमेरा', 'webcam', 'वेबकॅम', 'video call', 'zoom', 'meet', 'teams camera'],
+  T('Camera चालत नाही', 'Privacy setting बंद, laptop चा camera switch / shutter, driver, दुसरे app camera वापरत आहे.',
+    ['Settings → Privacy → Camera चालू करा.', 'Laptop वरचे camera shutter / Fn camera key तपासा.', 'Camera वापरणारे दुसरे apps बंद करा.', '"Drivers तपासा".']),
+  T('Camera not working', 'Privacy setting off, the laptop camera switch / shutter, the driver, another app using the camera.',
+    ['Settings → Privacy → Camera on.', 'Check the laptop camera shutter / Fn camera key.', 'Close other apps using the camera.', '"Check drivers".']),
+  [{'t': 'settings', 'id': 'ms-settings:privacy-webcam'}, {'t': 'repair', 'id': 'drivers'}])
+p('drivers',
+  ['driver', 'ड्रायव्हर', 'drivers', 'yellow mark', 'पिवळे', 'device manager', 'unknown device', 'code 43', 'code 10', 'driver install'],
+  T('Driver नाही / Device Manager मध्ये पिवळे चिन्ह', 'नवीन Windows नंतर drivers नाहीत, खराब driver.',
+    ['"Drivers तपासा" - कोणते नाहीत ते सांगतो आणि pendrive वरच्या packs मधून internet शिवाय install करता येतात.', 'Windows reinstall करण्याआधी "Drivers backup" घ्या.']),
+  T('Missing driver / yellow mark in Device Manager', 'No drivers after a new Windows, a broken driver.',
+    ['"Check drivers" - lists what is missing; installs from the USB packs without internet.', 'Take a "Drivers backup" before reinstalling Windows.']),
+  [{'t': 'repair', 'id': 'drivers'}, {'t': 'repair', 'id': 'drvbackup'}])
+p('disk-failing',
+  ['hard disk', 'हार्ड डिस्क', 'ssd', 'hdd', 'disk awaj', 'click awaj', 'टक टक', 'tak tak', 'bad sector', 'files khrab', 'files खराब', 'smart', 'disk error', 'disk khrab', 'disk खराब'],
+  T('Hard disk / SSD खराब होत आहे का?', 'Bad sectors, जुनी disk, SMART errors.',
+    ['"Disk ची तब्येत तपासा" - Good / Caution / Bad सांगतो.', 'Caution / Bad: लगेच महत्त्वाचा data दुसरीकडे copy करा, मग disk बदला.', 'Disk errors (file system) तपासा.']),
+  T('Is the hard disk / SSD failing?', 'Bad sectors, an old disk, SMART errors.',
+    ['"Check disk health" - Good / Caution / Bad.', 'Caution / Bad: copy important data elsewhere now, then replace the disk.', 'Check the disk for file-system errors.']),
+  [{'t': 'tg', 'id': 'crystaldiskinfo'}, {'t': 'repair', 'id': 'chkdsk'}, {'t': 'tool', 'id': 'victoria'}])
+p('ram',
+  ['ram', 'रॅम', 'memory', 'मेमरी', 'ram kami', 'ram upgrade', 'ram वाढवा', 'out of memory', 'ram test'],
+  T('RAM कमी / RAM खराब?', 'कमी RAM मुळे PC हळू; खराब RAM मुळे blue screen आणि crashes.',
+    ['"PC माहिती" - किती RAM, किती slots मोकळे आणि कोणती RAM घ्यायची ते सांगतो.', 'Blue screen / crash असतील तर RAM test करा.']),
+  T('Low RAM / faulty RAM?', 'Little RAM makes the PC slow; faulty RAM causes blue screens and crashes.',
+    ['"PC details" - how much RAM, free slots and which RAM to buy.', 'With blue screens / crashes, test the RAM.']),
+  [{'t': 'tg', 'id': 'cpuz'}, {'t': 'tg', 'id': 'win-memdiag'}])
+
+# ---------------------------------------------------------------- malware / browser
+p('virus',
+  ['virus', 'व्हायरस', 'वायरस', 'malware', 'मालवेअर', 'popup', 'पॉपअप', 'ads', 'जाहिरात', 'jahirat', 'adware', 'hack', 'हॅक', 'ransomware', 'files encrypted', 'trojan', 'suspicious'],
+  T('Virus / popups / जाहिराती', 'Malware, adware, browser hijacker; virus ने Task Manager / Defender बंद केलेले असू शकते.',
+    ['"Virus scan" (Microsoft Safety Scanner) - फक्त तपासतो, सापडल्यास काढण्याचा मार्ग सांगतो.', '"Registry तपासणी" - virus ने बंद केलेले Task Manager, Defender, बदललेले settings परत.',
+     'Antivirus (Defender) चालू करा.', 'Windows मध्येच virus अडवत असेल तर pendrive वरून boot → Kaspersky Rescue Disk.']),
+  T('Virus / pop-ups / ads', 'Malware, adware, a browser hijacker; malware may have disabled Task Manager / Defender.',
+    ['"Virus scan" (Microsoft Safety Scanner) - detection only, explains how to remove what it finds.', '"Registry check" - restores Task Manager, Defender and settings malware changed.',
+     'Turn the antivirus (Defender) on.', 'If malware blocks scanning inside Windows, boot the USB → Kaspersky Rescue Disk.']),
+  [{'t': 'tg', 'id': 'msert'}, {'t': 'fix', 'id': 'registry'}, {'t': 'repair', 'id': 'defender'}, {'t': 'tool', 'id': 'adwcleaner'}])
+p('browser',
+  ['browser', 'ब्राउझर', 'chrome', 'क्रोम', 'edge', 'firefox', 'homepage', 'search engine', 'browser slow', 'redirect', 'extensions', 'google ऐवजी'],
+  T('Browser विचित्र (homepage बदलले, redirect, ads)', 'Adware / नको ते extensions, proxy setting.',
+    ['AdwCleaner ने adware काढा.', 'Browser मध्ये extensions तपासा, नको ते काढा; settings reset करा.', 'Registry तपासणीत proxy दिसल्यास बंद करा.']),
+  T('Browser acting strange (homepage changed, redirects, ads)', 'Adware / unwanted extensions, a proxy setting.',
+    ['Remove adware with AdwCleaner.', 'Check the browser extensions, remove unwanted ones; reset settings.', 'If the registry check finds a proxy, switch it off.']),
+  [{'t': 'tool', 'id': 'adwcleaner'}, {'t': 'fix', 'id': 'registry'}, {'t': 'tg', 'id': 'msert'}])
+p('task-manager',
+  ['task manager', 'टास्क मॅनेजर', 'regedit', 'registry editor', 'cmd band', 'command prompt disabled', 'disabled by administrator', 'administrator ne band'],
+  T('Task Manager / Regedit / CMD "administrator ने बंद केले"', 'बहुतेक virus ने केलेले policy बदल.',
+    ['"Registry तपासणी" - हे बदल शोधून सुरक्षितपणे परत करतो (backup + Undo).', 'नंतर virus scan करा.']),
+  T('Task Manager / Regedit / CMD "disabled by your administrator"', 'Usually policy changes made by malware.',
+    ['"Registry check" - finds and safely reverts these changes (backup + Undo).', 'Then run a virus scan.']),
+  [{'t': 'fix', 'id': 'registry'}, {'t': 'tg', 'id': 'msert'}])
+
+# ---------------------------------------------------------------- apps / data
+p('apps-install',
+  ['install hot nahi', 'install होत नाही', 'install error', 'setup error', 'app install', 'software install', 'installer', '.net', 'visual c++', 'store', 'स्टोअर', 'microsoft store', 'app ughdat nahi', 'app उघडत नाही'],
+  T('Software install होत नाही / app उघडत नाही', 'खराब system files, जागा कमी, Store cache, antivirus अडवतो.',
+    ['C: वर जागा तपासा.', 'Microsoft Store apps: "Store दुरुस्ती" (cache reset).', '"Windows system files दुरुस्ती".']),
+  T('Software will not install / app will not open', 'Damaged system files, low disk space, the Store cache, antivirus blocking.',
+    ['Check free space on C:.', 'Microsoft Store apps: "Fix Store" (cache reset).', '"Windows system files repair".']),
+  [{'t': 'quick', 'id': 'store'}, {'t': 'repair', 'id': 'os'}, {'t': 'fix', 'id': 'storage'}])
+p('data-recovery',
+  ['delete', 'डिलीट', 'recover', 'रिकव्हर', 'files gele', 'files गेल्या', 'data gela', 'डेटा गेला', 'format', 'फॉरमॅट', 'photo gele', 'फोटो गेले', 'recycle bin', 'chukun delete', 'चुकून'],
+  T('चुकून delete / format झालेल्या files परत हव्यात', 'Delete झालेल्या files नवीन data लिहिला जाईपर्यंत disk वर असतात.',
+    ['त्या drive वर लगेच काहीही save / install करणे थांबवा.', 'Recycle Bin तपासा.', 'Tools मार्गदर्शक → PhotoRec / DMDE ने recover करा; recovered files नेहमी दुसऱ्या drive वर save करा.']),
+  T('Recover deleted / formatted files', 'Deleted files stay on the disk until new data overwrites them.',
+    ['Stop saving / installing anything on that drive right away.', 'Check the Recycle Bin.', 'Tools guide → PhotoRec / DMDE; always save recovered files to another drive.']),
+  [{'t': 'tool', 'id': 'testdisk'}, {'t': 'tool', 'id': 'dmde'}, {'t': 'tool', 'id': 'recuva'}])
+p('reinstall',
+  ['format karaycha', 'reinstall', 'रीइन्स्टॉल', 'new windows', 'नवीन windows', 'windows install', 'clean install', 'windows 11 install', 'windows 10 install', 'upgrade windows'],
+  T('Windows नवीन install / upgrade करायचे आहे', 'Reinstall आधी data, drivers आणि key वाचवणे महत्त्वाचे.',
+    ['"Drivers backup" घ्या (pendrive वर).', 'Product key नोंद करा.', 'Data दुसरीकडे copy करा.', '"OS / Apps सल्ला" - या PC ला Windows 11 चालेल की 10 / हलके OS ते सांगतो.',
+     'मग pendrive वरून boot → Windows 11 install.']),
+  T('Reinstall / upgrade Windows', 'Save data, drivers and the key before a reinstall.',
+    ['Take a "Drivers backup" (to the USB).', 'Note the product key.', 'Copy the data elsewhere.', '"OS / Apps advice" - whether Windows 11, 10 or a light OS suits this PC.',
+     'Then boot the USB → Windows 11 install.']),
+  [{'t': 'repair', 'id': 'drvbackup'}, {'t': 'tg', 'id': 'produkey'}, {'t': 'fix', 'id': 'advisor'}])
+p('old-pc',
+  ['juna pc', 'जुना pc', 'जुना laptop', 'old pc', 'old laptop', 'windows 11 chalel ka', 'windows 11 चालेल', 'kontya os', 'कोणते os', 'light os', 'हलके', 'linux'],
+  T('जुना PC - कोणते OS / apps योग्य?', 'कमी RAM / जुना CPU / HDD असलेल्या PC ला हलके पर्याय.',
+    ['"OS / Apps सल्ला" - Windows 11 / 10 / Linux Mint सुचवतो आणि जड apps चे हलके पर्याय सांगतो.', '"PC माहिती" - RAM / SSD upgrade सल्ला.']),
+  T('Old PC - which OS / apps fit?', 'Lighter options for PCs with little RAM, an old CPU or an HDD.',
+    ['"OS / Apps advice" - suggests Windows 11 / 10 / Linux Mint and lighter alternatives to heavy apps.', '"PC details" - RAM / SSD upgrade advice.']),
+  [{'t': 'fix', 'id': 'advisor'}, {'t': 'tg', 'id': 'cpuz'}])
+p('remote',
+  ['remote', 'रिमोट', 'anydesk', 'teamviewer', 'दूरून', 'durun', 'remote help', 'support'],
+  T('दूरून मदत करायची (remote support)', '',
+    ['Tools मार्गदर्शक → RustDesk उघडा, दिसणारा ID आणि password मदत करणाऱ्याला द्या.', 'फोनवरून मागणाऱ्या अनोळखी लोकांना ID कधीही देऊ नका (fraud).']),
+  T('Remote help', '',
+    ['Tools guide → open RustDesk and give the shown ID and password to the helper.', 'Never give the ID to strangers who call you (fraud).']),
+  [{'t': 'tool', 'id': 'rustdesk'}])
+
+doc = {'_comment': 'Generated by build/make_problems.py - edit there.', 'problems': P}
+with open(OUT, 'w', encoding='utf-8') as f:
+    f.write(json.dumps(doc, ensure_ascii=False, indent=1))
+print('wrote', OUT, len(P), 'problems')

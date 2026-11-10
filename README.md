@@ -23,6 +23,7 @@ PC तपासणी, दुरुस्ती आणि वेग वाढव
 | Boot menu | Hiren's BootCD PE, SystemRescue, MemTest86+/MemTest86, GParted, Clonezilla, Rescuezilla, Super Grub2, Boot-Repair, Kaspersky Rescue Disk, ShredOS, Windows 11, Linux Mint XFCE |
 | PC Doctor (`START-Sanjeevani.cmd`) | Scan आणि health score, One-Click Optimize, DISM/SFC repair, startup/bloatware/visual tweaks (सगळ्यांना Undo), C: drive वरचे files दुसऱ्या drive वर हलवणे, OS आणि apps सल्ला, HTML report |
 | Offline repair | Hiren's PE मधून `Sanjeevani\PCDoctor\Offline-Repair.cmd` चालवा: offline SFC/DISM, bcdboot, अडकलेले updates revert करणे |
+| 🗣 समस्या सांगा (PC Doctor मध्ये) | समस्या मराठी, English किंवा Roman मराठीत लिहा (उदा. "net chalat nahi", "laptop खूप गरम होतो"). PC Doctor internet शिवाय 38 सामान्य समस्यांपैकी योग्य समस्या ओळखतो आणि तपासणी व दुरुस्तीची buttons देतो. Internet असल्यास तुमच्या स्वतःच्या key ने AI ला पण विचारता येतं (Google Gemini ची key मोफत मिळते, किंवा Claude). AI काहीही स्वतः चालवत नाही, फक्त PC Doctor च्या दुरुस्त्या सुचवतो. |
 | Tools मार्गदर्शक (PC Doctor मध्ये) | HWiNFO, CPU-Z, CrystalDiskInfo, Prime95, BlueScreenView, MSERT, WizTree, ProduKey, SDIO, RustDesk आणि इतर 60+ tools. प्रत्येक tool चं मराठी / English स्पष्टीकरण आणि इशारे. 11 तपासण्या tool स्वतः चालवून निकाल सोप्या भाषेत सांगतात. Pendrive वरचे `Tools` / `Installers` folders लपवलेले असतात. |
 
 ## Repository रचना

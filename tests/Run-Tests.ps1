@@ -149,7 +149,7 @@ Test-Case 'PC Doctor window (XAML) loads' {
     Assert $m.Success 'XAML block not found'
     [xml]$x = $m.Groups[1].Value
     $win = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $x))
-    foreach ($n in 'FindingsList', 'StartupList', 'BloatList', 'FolderList', 'LogBox', 'Progress', 'TargetCombo', 'Win11List', 'AppList', 'TgList', 'TgDetail', 'TgSearch', 'StopBtn', 'LangMr', 'LangEn', 'RegList', 'RegInfo', 'OptCard', 'OptPanel') {
+    foreach ($n in 'FindingsList', 'StartupList', 'BloatList', 'FolderList', 'LogBox', 'Progress', 'TargetCombo', 'Win11List', 'AppList', 'TgList', 'TgDetail', 'TgSearch', 'StopBtn', 'LangMr', 'LangEn', 'RegList', 'RegInfo', 'OptCard', 'OptPanel', 'AskBox', 'AskResults', 'AiSettings', 'AiKey', 'AiProvider') {
         Assert ($null -ne $win.FindName($n)) "element $n missing"
     }
     $win.Close()
@@ -163,7 +163,7 @@ Copy-Item (Join-Path $Kit '*') $fakeUsb -Recurse -Force
 $DataDir = Join-Path $fakeUsb 'Sanjeevani\PCDoctor\data'
 
 Test-Case 'Modules import' {
-    foreach ($m in 'Common', 'Diagnostics', 'Repair', 'Speed', 'Storage', 'Advisor', 'Report', 'ToolGuide', 'Integrity', 'Registry') {
+    foreach ($m in 'Common', 'Diagnostics', 'Repair', 'Speed', 'Storage', 'Advisor', 'Report', 'ToolGuide', 'Integrity', 'Registry', 'Ask') {
         Import-Module (Join-Path $fakeUsb "Sanjeevani\PCDoctor\lib\$m.psm1") -Force -DisableNameChecking
     }
     $ctx = Initialize-PDContext -UsbRoot $fakeUsb
@@ -464,6 +464,103 @@ Test-Case 'Registry check finds virus-style and broken entries, fixes them and U
         Remove-Item $tmpRoot -Recurse -Force -ErrorAction SilentlyContinue
     }
     $true
+}
+
+Test-Case 'Problem finder: Marathi / English / Roman Marathi sentences find the right problem' {
+    $probs = Get-PDProblems $DataDir
+    $cases = [ordered]@{
+        'net chalat nahi' = 'no-internet'; 'इंटरनेट चालत नाही' = 'no-internet'; 'माझ्या laptop मध्ये wifi दिसत नाही' = 'wifi'
+        'लॅपटॉप खूप गरम होतो आणि fan जोरात फिरतो' = 'overheat'; 'printer print देत नाही' = 'printer'; 'आवाज येत नाही' = 'sound'
+        'pc khup halu chalto' = 'slow-pc'; 'C drive full zala' = 'disk-full'; 'blue screen yeto' = 'bsod'; 'PC अचानक बंद पडतो' = 'shutdown'
+        'battery lavkar sampte' = 'battery'; 'windows update atakla' = 'windows-update'; 'password visarlo' = 'password'
+        'वेळ चुकीची दाखवतो' = 'time'; 'taskbar kaam karat nahi' = 'taskbar'; 'pendrive detect hot nahi' = 'usb'
+        'virus aala ani popup yetat' = 'virus'; 'chukun photo delete zale' = 'data-recovery'; 'internet is very slow' = 'slow-internet'
+        'My laptop does not start, stuck on logo' = 'no-boot'; 'touchpad not working' = 'keyboard'; 'screen flicker karto' = 'display'
+        'bluetooth earbuds connect hot nahi' = 'bluetooth'; 'task manager disabled by administrator' = 'task-manager'
+        'hotspot connect hot nahi' = 'wifi'; 'mic चालत नाही' = 'sound'; 'camera chalat nahi zoom madhe' = 'camera'
+    }
+    $bad = @()
+    foreach ($k in $cases.Keys) {
+        $m = @(Find-PDProblem -Text $k -Problems $probs)
+        $got = if ($m.Count) { $m[0].Problem.id } else { '(none)' }
+        if ($got -ne $cases[$k]) { $bad += "'$k' -> $got (expected $($cases[$k]))" }
+    }
+    Assert (-not $bad.Count) ($bad -join '; ')
+    Assert (-not @(Find-PDProblem -Text 'hello how are you' -Problems $probs).Count) 'unrelated text matched a problem'
+}
+
+Test-Case 'Problem catalog: every button leads to a real PC Doctor action' {
+    $probs = Get-PDProblems $DataDir
+    $gui = Get-Content (Join-Path $fakeUsb 'Sanjeevani\PCDoctor\PCDoctor.ps1') -Raw
+    $ask = Get-Content (Join-Path $fakeUsb 'Sanjeevani\PCDoctor\lib\Ask.psm1') -Raw
+    $guide = Get-Content (Join-Path $DataDir 'toolguide.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+    $repairs = [regex]::Matches($gui, "'repair:([a-z0-9-]+)'") | ForEach-Object { $_.Groups[1].Value }
+    $quick = [regex]::Matches($ask, "(?m)^\s+'([a-z]+)' \{") | ForEach-Object { $_.Groups[1].Value }
+    $bad = @()
+    foreach ($p in $probs) {
+        foreach ($l in 'mr', 'en') { if (-not $p.$l.title -or -not @($p.$l.steps).Count) { $bad += "$($p.id): $l text" } }
+        if (-not @($p.actions).Count) { $bad += "$($p.id): no actions" }
+        foreach ($a in $p.actions) {
+            $ok = switch ($a.t) {
+                'scan' { $true } 'optimize' { $true }
+                'repair' { $a.id -in $repairs }
+                'quick' { $a.id -in $quick }
+                'tg' { $guide.tools.($a.id) -and $guide.tools.($a.id).auto -and $guide.tools.($a.id).auto -notlike 'pd:*' }
+                'tool' { [bool]$guide.tools.($a.id) }
+                'page' { $a.id -in 'speed', 'storage', 'advisor', 'repair', 'toolbox' }
+                'fix' { $a.id -in 'registry', 'storage', 'advisor' }
+                'settings' { $a.id -like 'ms-settings:*' }
+                default { $false }
+            }
+            if (-not $ok) { $bad += "$($p.id): $($a.t):$($a.id)" }
+        }
+    }
+    Assert (-not $bad.Count) ($bad -join '; ')
+}
+
+Test-Case 'AI answer: request is built correctly and only known problems are accepted (Gemini + Claude, mocked)' {
+    $probs = Get-PDProblems $DataDir
+    $script:sent = @()
+    $gem = {
+        param($u, $h, $b, $m)
+        $script:sent += [pscustomobject]@{ Url = $u; Headers = $h; Body = $b }
+        if ($m -eq 'GET') { return '{"models":[{"name":"models/gemini-3.5-flash","supportedGenerationMethods":["generateContent"]},{"name":"models/gemini-3.8-flash","supportedGenerationMethods":["generateContent"]},{"name":"models/gemini-3.8-flash-lite","supportedGenerationMethods":["generateContent"]}]}' }
+        $inner = '{"understood_mr":"WiFi जोडले जात नाही","understood_en":"WiFi will not connect","problem_ids":["wifi","made-up-id","no-internet"],"steps_mr":["Airplane mode बंद करा"],"steps_en":["Turn off airplane mode"],"hardware_likely":false,"note_mr":"","note_en":""}'
+        return (ConvertTo-Json -Depth 8 -Compress @{ candidates = @(@{ content = @{ parts = @(@{ text = $inner }) } }) })
+    }
+    $r = Invoke-PDAiAsk -Text 'wifi connect होत नाही' -Config ([pscustomobject]@{ provider = 'gemini'; key = 'k1'; model = '' }) -Problems $probs -PcInfo 'HP 15; Windows 11' -Transport $gem
+    Assert ($r.Model -eq 'gemini-3.8-flash') "newest flash model not picked: $($r.Model)"
+    Assert (($r.ProblemIds -join ',') -eq 'wifi,no-internet') "unknown ids must be dropped: $($r.ProblemIds -join ',')"
+    Assert ($r.UnderstoodMr -eq 'WiFi जोडले जात नाही') 'Marathi text damaged'
+    $req = $script:sent[-1]
+    Assert ($req.Url -like '*/models/gemini-3.8-flash:generateContent' -and $req.Headers['x-goog-api-key'] -eq 'k1') 'wrong Gemini request'
+    $body = $req.Body | ConvertFrom-Json
+    Assert ($body.contents[0].parts[0].text -match 'wifi connect होत नाही' -and $body.contents[0].parts[0].text -match 'HP 15') 'problem / PC info not sent'
+    Assert ($body.systemInstruction.parts[0].text -match '- wifi: ') 'catalog not in the prompt'
+    $cl = {
+        param($u, $h, $b, $m)
+        $script:sent += [pscustomobject]@{ Url = $u; Headers = $h; Body = $b }
+        return '{"content":[{"type":"text","text":"```json\n{\"understood_mr\":\"printer\",\"problem_ids\":[\"printer\"],\"steps_mr\":[\"a\"],\"steps_en\":[\"a\"]}\n```"}]}'
+    }
+    $r = Invoke-PDAiAsk -Text 'printer' -Config ([pscustomobject]@{ provider = 'anthropic'; key = 'k2'; model = '' }) -Problems $probs -Transport $cl
+    Assert (($r.ProblemIds -join ',') -eq 'printer') 'Claude answer (in a code fence) not parsed'
+    Assert ($script:sent[-1].Headers['x-api-key'] -eq 'k2' -and $script:sent[-1].Url -eq 'https://api.anthropic.com/v1/messages') 'wrong Claude request'
+}
+
+Test-Case 'AI: a wrong key gives a clear message (real Gemini server)' {
+    $msg = ''
+    try { [void](Invoke-PDAiAsk -Text 'net chalat nahi' -Config ([pscustomobject]@{ provider = 'gemini'; key = 'not-a-real-key'; model = '' }) -Problems (Get-PDProblems $DataDir)) } catch { $msg = $_.Exception.Message }
+    Write-Host "      message: $msg" -ForegroundColor DarkGray
+    Assert ($msg -match 'API key|internet|connection|पोहोचता') "unexpected: $msg"
+}
+
+Test-Case 'Quick fixes run (DNS, printer queue, USB rescan, time, search)' {
+    foreach ($id in 'dns', 'printer', 'usb', 'time', 'search') {
+        $r = Invoke-PDQuickFix -Id $id
+        Assert ($r -and $r.Mr -and $r.En) "$id gave no result"
+        Write-Host ("      {0,-8} ok={1} {2}" -f $id, $r.Ok, $r.En) -ForegroundColor DarkGray
+    }
+    Assert ((Get-Service Spooler).Status -eq 'Running') 'print service not running after the printer fix'
 }
 
 Test-Case 'Undo journal keeps every entry' {
