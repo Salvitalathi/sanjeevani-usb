@@ -280,7 +280,67 @@ $script:D['slow-pc'] = @{
     }
     NoVerify = $true
 }
-$script:D['slow-boot'] = $script:D['slow-pc']
+# slow start-up: measured boot times (Windows' own boot-performance log), programs that start with Windows, Fast Startup
+function Get-TSBootSeconds {
+    $t = @()
+    try {
+        foreach ($e in @(Get-WinEvent -FilterHashtable @{ LogName = 'Microsoft-Windows-Diagnostics-Performance/Operational'; Id = 100 } -MaxEvents 5 -ErrorAction Stop)) {
+            $d = ([xml]$e.ToXml()).Event.EventData.Data | Where-Object { $_.Name -eq 'BootTime' } | Select-Object -First 1
+            if ($d -and [double]$d.'#text' -gt 0) { $t += [math]::Round([double]$d.'#text' / 1000) }
+        }
+    } catch { }
+    if (-not $t.Count) { return $null }
+    return [int](@($t | Sort-Object)[[int][math]::Floor($t.Count / 2)])      # median of the last boots
+}
+function Get-TSFastStartup {
+    $hib = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power' -Name HiberbootEnabled -ErrorAction SilentlyContinue).HiberbootEnabled
+    return ($hib -eq 1)
+}
+$script:D['slow-boot'] = @{
+    Check = {
+        Step 'Measuring how long Windows takes to start' 'Windows सुरू व्हायला किती वेळ लागतो ते मोजत आहे' 'Windows शुरू होने में कितना समय लगता है, माप रहे हैं'
+        $sec = Get-TSBootSeconds
+        $ram = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 1)
+        $items = @(Get-PDStartupItems)
+        $on = @($items | Where-Object Enabled)
+        $safe = @(Get-PDSafeStartupToDisable -Items $items -DataDir (Get-TSDataDir) -RamGB $ram)
+        $fast = Get-TSFastStartup
+        $why = @()
+        if ($null -ne $sec -and $sec -gt 60) { $why += TT "Windows takes about $sec seconds to start" "Windows सुरू व्हायला सुमारे $sec सेकंद लागतात" "Windows शुरू होने में लगभग $sec सेकंड लगते हैं" }
+        if ($safe.Count) { $n = ($safe | Select-Object -First 4 | ForEach-Object Name) -join ', '; $why += TT "$($safe.Count) unneeded programs start with Windows ($n)" "$($safe.Count) अनावश्यक programs Windows सोबत सुरू होतात ($n)" "$($safe.Count) बेकार programs Windows के साथ शुरू होते हैं ($n)" }
+        if (-not $fast) { $why += TT 'Fast Startup is off' 'Fast Startup बंद आहे' 'Fast Startup बंद है' }
+        $data = @{ Sec = $sec; Safe = $safe; Fast = $fast; On = $on.Count }
+        if ($why.Count -and (($null -ne $sec -and $sec -gt 60) -or $safe.Count -ge 2 -or -not $fast)) { return (New-TSCheck $true (Add-TT (TT 'Found:' 'सापडले:' 'मिला:') (Join-TT $why '; ')) $data) }
+        $bt = if ($null -ne $sec) { TT "Windows starts in about $sec seconds" "Windows सुमारे $sec सेकंदात सुरू होते" "Windows लगभग $sec सेकंड में शुरू होता है" } else { TT 'The boot time is not recorded on this PC' 'या PC वर boot चा वेळ नोंदलेला नाही' 'इस PC पर boot का समय दर्ज नहीं है' }
+        return (New-TSCheck $false (Add-TT $bt (TT "; $($on.Count) programs start with it, none unneeded; Fast Startup is on." "; त्यासोबत $($on.Count) programs सुरू होतात, त्यात अनावश्यक नाहीत; Fast Startup चालू आहे." "; उसके साथ $($on.Count) programs शुरू होते हैं, कोई बेकार नहीं; Fast Startup चालू है।") '') $data)
+    }
+    Fix = {
+        param($chk)
+        New-TSRestorePointOnce
+        $did = @()
+        if (@($chk.Data.Safe).Count) {
+            Step 'Turning off unneeded startup programs' 'अनावश्यक startup programs बंद करत आहे' 'बेकार startup programs बंद कर रहे हैं'
+            foreach ($it in $chk.Data.Safe) { Set-PDStartupState -Item $it -Enabled $false }
+            $n = @($chk.Data.Safe).Count
+            $did += TT "turned off $n startup programs (they still work when you open them)" "$n startup programs बंद केले (उघडल्यावर ते नेहमीसारखे चालतात)" "$n startup programs बंद किए (खोलने पर वे पहले जैसे चलते हैं)"
+        }
+        if (-not $chk.Data.Fast) {
+            Step 'Turning on Fast Startup' 'Fast Startup चालू करत आहे' 'Fast Startup चालू कर रहे हैं'
+            $k = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power'
+            try {
+                $null = & powercfg.exe /hibernate on 2>&1
+                $bak = Save-PDRegTree -Key $k -Name 'fast-startup'; Add-PDUndo @{ Type = 'RegTree'; File = $bak; Label = 'Fast Startup' }
+                Set-ItemProperty -Path $k -Name HiberbootEnabled -Value 1 -Type DWord -ErrorAction Stop
+                $did += TT 'turned on Fast Startup' 'Fast Startup चालू केले' 'Fast Startup चालू किया'
+            } catch { }
+        }
+        $sd = Get-PhysicalDisk -ErrorAction SilentlyContinue | Where-Object { $_.MediaType -eq 'HDD' } | Select-Object -First 1
+        $man = if ($sd) { TT 'Windows is on an old hard disk (HDD): an SSD makes it start 3-5 times faster.' 'Windows जुन्या hard disk (HDD) वर आहे: SSD लावल्यास PC 3-5 पट लवकर सुरू होतो.' 'Windows पुरानी hard disk (HDD) पर है: SSD लगाने से PC 3-5 गुना जल्दी शुरू होता है।' } else { $null }
+        if (-not $did.Count) { return (New-TSFix $false (TT 'Nothing could be changed automatically.' 'आपोआप काहीही बदलता आले नाही.' 'अपने आप कुछ नहीं बदला जा सका।') -Manual $(if ($man) { $man } else { TT 'Check the startup list on the Speed page.' 'वेग वाढवा page वर startup यादी तपासा.' 'स्पीड page पर startup सूची देखें।' })) }
+        return (New-TSFix $true (Add-TT (TT 'I' 'मी' 'मैंने') (Add-TT (Join-TT $did ', ') (TT '. The difference shows from the next start.' '. पुढच्या वेळी PC सुरू करताना फरक दिसेल.' '. अगली बार PC शुरू करने पर फ़र्क दिखेगा।') '')) -Restart -Manual $man)
+    }
+    NoVerify = $true
+}
 $script:D['disk-100'] = $script:D['slow-pc']
 
 $script:D['disk-full'] = @{

@@ -226,8 +226,11 @@ function Invoke-PDProcess {
     return $p.ExitCode
 }
 
+# Windows sometimes takes very long (or hangs) creating a restore point - shadow copies busy, System Protection
+# half off. It runs in its own process and PC Doctor waits at most $TimeoutSec, then carries on (Windows may still
+# finish it in the background); the repairs themselves keep their own backups / Undo either way.
 function New-PDRestorePoint {
-    param([string]$Description = 'Sanjeevani PC Doctor')
+    param([string]$Description = 'Sanjeevani PC Doctor', [int]$TimeoutSec = 90)
     Write-PDLog 'Creating a System Restore point ...' 'STEP'
     $key = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore'
     $old = $null
@@ -235,7 +238,22 @@ function New-PDRestorePoint {
         $old = (Get-ItemProperty -Path $key -Name SystemRestorePointCreationFrequency -ErrorAction SilentlyContinue).SystemRestorePointCreationFrequency
         Set-ItemProperty -Path $key -Name SystemRestorePointCreationFrequency -Value 0 -Type DWord -ErrorAction SilentlyContinue
         Enable-ComputerRestore -Drive ($env:SystemDrive + '\') -ErrorAction SilentlyContinue
-        Checkpoint-Computer -Description $Description -RestorePointType MODIFY_SETTINGS -ErrorAction Stop
+        $cmd = "try { Checkpoint-Computer -Description '" + ($Description -replace "'", "''") + "' -RestorePointType MODIFY_SETTINGS -ErrorAction Stop; exit 0 } catch { [Console]::Error.WriteLine(`$_.Exception.Message); exit 1 }"
+        $psi = New-Object Diagnostics.ProcessStartInfo "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe"
+        $psi.Arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand ' + [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($cmd))
+        $psi.UseShellExecute = $false; $psi.CreateNoWindow = $true; $psi.RedirectStandardError = $true
+        $p = [Diagnostics.Process]::Start($psi)
+        $errTask = $p.StandardError.ReadToEndAsync()
+        $t0 = Get-Date
+        while (-not $p.WaitForExit(1000)) {
+            if ($global:PDState -and $global:PDState.Cancel) { break }
+            if (((Get-Date) - $t0).TotalSeconds -ge $TimeoutSec) { break }
+        }
+        if (-not $p.HasExited) {
+            Write-PDLog "Restore point: Windows did not finish within $TimeoutSec s - continuing without waiting (backups and Undo still protect every change)." 'WARN'
+            return $false
+        }
+        if ($p.ExitCode -ne 0) { throw ([string]$errTask.Result).Trim() }
         Write-PDLog 'Restore point created.' 'OK'
         return $true
     } catch {

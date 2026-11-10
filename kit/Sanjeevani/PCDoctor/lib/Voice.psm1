@@ -611,6 +611,7 @@ function Install-PDVoicePack {
     param([string]$UsbRoot, [string]$Lang = 'mr')
     $a = Get-PDVoiceAssets $UsbRoot
     if ($a.Piper -and $a.Voices[$Lang]) { return 'present' }
+    $ProgressPreference = 'SilentlyContinue'      # Windows PowerShell downloads very slowly while drawing a progress bar
     [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
     $dest = $null
     foreach ($d in (Get-PDVoiceDirs $UsbRoot)) {

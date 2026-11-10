@@ -664,6 +664,30 @@ Test-Case 'Assistant: finds a real fault, fixes it, confirms it, and skips candi
     foreach ($c in $r.Checked) { Assert ($c.Check.Text.mr -ne $c.Check.Text.en -or $c.Check.Text.en -notmatch '\b(the|is|was|and)\b') "English text inside Marathi: $($c.Check.Text.mr)" }
 }
 
+Test-Case 'Assistant end to end: a typed problem is understood, checked and handled in reasonable time' {
+    $null = Initialize-PDContext -UsbRoot $fakeUsb
+    $global:PDState = [hashtable]::Synchronized(@{ Progress = -1; Status = ''; Cancel = $false; Events = (New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]') })
+    $probs = Get-PDProblems $DataDir
+    # a restore point never blocks the repair for long
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    $rp = New-PDRestorePoint 'Sanjeevani test' -TimeoutSec 20
+    Write-Host ("      restore point: {0} in {1:0} s" -f $rp, $sw.Elapsed.TotalSeconds) -ForegroundColor DarkGray
+    Assert ($sw.Elapsed.TotalSeconds -lt 40) "restore point blocked for $($sw.Elapsed.TotalSeconds) s"
+    $sw.Restart()
+    $u = Resolve-PDProblemIds -Text 'माझा pc slow boot होत आहे' -Problems $probs -UsbRoot $fakeUsb -Mode 'basic'
+    Assert ($u.Ids[0] -eq 'slow-boot') "understood as: $($u.Ids -join ',')"
+    $r = Invoke-PDTroubleshoot -Ids $u.Ids -Problems $probs
+    $sec = $sw.Elapsed.TotalSeconds
+    foreach ($l in (Format-PDTroubleshoot $r 'mr')) { Write-Host "      $l" -ForegroundColor DarkGray }
+    Write-Host ("      outcome {0} in {1:0} s; spoken: {2}" -f $r.Outcome, $sec, (Get-PDTroubleshootSpeech $r 'mr')) -ForegroundColor DarkGray
+    Assert ($sec -lt 300) "the typed problem took $([int]$sec) s"
+    Assert ($r.Outcome -in 'fixed', 'restart', 'manual', 'failed', 'notfound') "no outcome: $($r.Outcome)"
+    Assert (@($r.Checked | Where-Object { $_.Id -eq 'slow-boot' }).Count -eq 1) 'slow-boot was not checked'
+    $ev = @(); $x = $null; while ($global:PDState.Events.TryDequeue([ref]$x)) { $ev += $x.Kind }
+    Assert ($ev -contains 'check') "no progress events for the voice: $($ev -join ',')"
+    foreach ($l in 'en', 'mr', 'hi') { Assert ((Get-PDTroubleshootSpeech $r $l).Length -gt 20) "no spoken answer in $l" }
+}
+
 Test-Case 'Voice: lines in 3 languages, language detection, goodbye, microphone helper compiles' {
     foreach ($k in Get-PDVoiceKeys) {
         foreach ($l in 'en', 'mr', 'hi') { Assert ((Get-PDVoiceLine $k $l 'x').Length -gt 5) "voice line $k missing in $l" }
