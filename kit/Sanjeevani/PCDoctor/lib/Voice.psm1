@@ -24,6 +24,10 @@ $script:Lines = @{
     refresh  = @{ en = 'Nothing wrong here, I am only refreshing the service as a precaution.'; mr = 'इथे काही चूक नाही, खबरदारी म्हणून फक्त service पुन्हा सुरू करते.'; hi = 'यहाँ कोई गड़बड़ी नहीं, सावधानी के लिए सिर्फ़ service फिर से शुरू कर रही हूँ।' }
     more     = @{ en = 'Do you need any other help?'; mr = 'आपल्याला अजून काही मदत हवी आहे का?'; hi = 'क्या आपको और कोई मदद चाहिए?' }
     bye      = @{ en = 'Thank you! Take care.'; mr = 'धन्यवाद! काळजी घ्या.'; hi = 'धन्यवाद! ध्यान रखिए।' }
+    aierr_key   = @{ en = 'There is a problem with the Gemini key, so I could not understand you. Please check the key in AI settings, or type below.'; mr = 'Gemini key मध्ये अडचण आहे, त्यामुळे मला तुमचे बोलणे समजू शकले नाही. कृपया AI settings मध्ये key तपासा, किंवा खाली लिहून सांगा.'; hi = 'Gemini key में दिक्कत है, इसलिए मैं आपकी बात नहीं समझ पाई। कृपया AI settings में key जाँचें, या नीचे लिखकर बताएँ।' }
+    aierr_quota = @{ en = 'The free Gemini limit is used up for now. Please speak again in a minute, or type below.'; mr = 'Gemini ची मोफत मर्यादा सध्या संपली आहे. कृपया एका मिनिटाने पुन्हा बोला, किंवा खाली लिहून सांगा.'; hi = 'Gemini की मुफ़्त सीमा अभी खत्म हो गई है। कृपया एक मिनट बाद फिर बोलिए, या नीचे लिखकर बताइए।' }
+    aierr_net   = @{ en = 'I cannot reach the internet, so I could not understand your voice. Please check the internet, or type below.'; mr = 'Internet शी जोडणी होत नाही, त्यामुळे मला तुमचा आवाज समजू शकला नाही. कृपया internet तपासा, किंवा खाली लिहून सांगा.'; hi = 'Internet से जुड़ नहीं पा रही, इसलिए आपकी आवाज़ समझ नहीं पाई। कृपया internet जाँचें, या नीचे लिखकर बताइए।' }
+    aierr_other = @{ en = 'Gemini did not answer this time. Please say it again.'; mr = 'या वेळी Gemini कडून उत्तर आले नाही. कृपया पुन्हा बोला.'; hi = 'इस बार Gemini से जवाब नहीं आया। कृपया फिर से बोलिए।' }
     nohear   = @{ en = 'I could not hear you. Please say it again.'; mr = 'मला नीट ऐकू आले नाही. कृपया पुन्हा सांगा.'; hi = 'मुझे ठीक से सुनाई नहीं दिया। कृपया फिर से बोलिए।' }
     pressmic = @{ en = 'I did not hear your voice. Please press the mic button and speak.'; mr = 'तुमचा आवाज मला आला नाही. कृपया mic चे button दाबून बोला.'; hi = 'आपकी आवाज़ मुझे नहीं आई। कृपया mic का button दबाकर बोलिए।' }
     thinking = @{ en = 'One moment, let me understand that.'; mr = 'एक क्षण, मी समजून घेते.'; hi = 'एक पल, मैं समझ लेती हूँ।' }
@@ -492,7 +496,8 @@ function ConvertFrom-PDSpeech {
             if ($Problems) {
                 $list = ($Problems | ForEach-Object { "$($_.id): $($_.en.title)" }) -join '; '
                 $prompt += " Then, if it describes a PC problem, pick up to 3 matching ids from this list, most likely first: $list. " +
-                           'Answer as JSON: {"text": "<the words>", "language": "mr|hi|en", "clear": true|false, "problem_ids": ["..."], "sure": true|false, "understood_en": "<one short sentence>"} - ' +
+                           ' If the person is NOT describing a PC problem (a greeting, "how are you", "who are you", small talk or a general question), leave problem_ids empty and put in "reply" a short, warm spoken answer as Sanjeevani (a friendly female assistant), in the SAME language the person used (Marathi / Hindi in Devanagari), max 2 short sentences, ending by offering help with their computer. Otherwise "reply" is empty. ' +
+                           'Answer as JSON: {"text": "<the words>", "language": "mr|hi|en", "clear": true|false, "problem_ids": ["..."], "sure": true|false, "understood_en": "<one short sentence>", "reply": ""} - ' +
                            '"clear" is false when the speech could not be made out; "sure" is false when you are guessing the problem; problem_ids is empty for yes / no / thanks.'
             } else {
                 $prompt += ' Answer as JSON: {"text": "<the words>", "language": "mr|hi|en", "clear": true|false} - "clear" is false when the speech could not be made out.'
@@ -508,7 +513,8 @@ function ConvertFrom-PDSpeech {
                 $ids = @(@($jj.problem_ids) | Where-Object { $_ -in $known } | Select-Object -First 3)
                 $kw = @(Find-PDProblem -Text $said -Problems $Problems -Max 3 | ForEach-Object { $_.Problem.id })
                 $res.U = [pscustomobject]@{ Ids = @($ids + $kw | Select-Object -Unique | Select-Object -First 4); Source = $(if ($ids.Count) { 'online' } else { 'basic' }); Model = $model
-                    UnderstoodEn = [string]$jj.understood_en; Corrected = $said; Sure = [bool]($ids.Count -and $jj.sure -ne $false -and $jj.clear -ne $false); Notes = @() }
+                    UnderstoodEn = [string]$jj.understood_en; Corrected = $said; Sure = [bool]($ids.Count -and $jj.sure -ne $false -and $jj.clear -ne $false); Notes = @()
+                    Reply = $(if ($ids.Count) { '' } else { [string]$jj.reply }) }
             }
             $said = ($said -replace '\s+', ' ').Trim()
             # a usable transcript has letters; "????" / "..." means the words could not be made out (or were broken on the way)

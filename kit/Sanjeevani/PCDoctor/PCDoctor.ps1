@@ -2171,7 +2171,9 @@ function Show-AskResult($o) {
         [void]$head.Children.Add((New-Badge $bd[0] $bd[1]))
     }
     [void]$sp.Children.Add($head)
-    if (-not $o.R) {
+    if (-not $o.R -and $o.U.PSObject.Properties['Reply'] -and $o.U.Reply) {
+        Add-BubbleText $sp ([string]$o.U.Reply) 15
+    } elseif (-not $o.R) {
         Add-BubbleText $sp (L 'I could not understand this problem well. Describe it in other words (which part: internet, printer, sound, screen, battery ... and what happens), or run a Quick Scan for a full check.' 'ही समस्या मला नीट समजली नाही. थोडे वेगळ्या शब्दांत लिहा (कोणता भाग: internet, printer, आवाज, screen, battery... आणि काय होते), किंवा पूर्ण तपासणीसाठी Quick Scan करा.' 'यह समस्या मुझे ठीक से समझ नहीं आई। दूसरे शब्दों में लिखें (कौन सा हिस्सा: internet, printer, आवाज़, screen, battery... और क्या होता है), या पूरी जाँच के लिए Quick Scan करें।') 14
         $b = New-Button 'Quick Scan' 'scan:quick'; $b.HorizontalAlignment = 'Left'; $b.Margin = '0,6,0,0'; [void]$sp.Children.Add($b)
     } else {
@@ -2443,13 +2445,17 @@ function Complete-VRecord([string]$r, $c) {
     if (-not $script:V.Open) { Remove-Item -LiteralPath $c.Wav -Force -ErrorAction SilentlyContinue; return }
     if ($r -eq 'ok') {
         Set-VState 'think'
-        if ('SJVoice.Mic' -as [type]) { $global:PDLogQueue.Enqueue(("[INFO] voice: recorded {0:0.0} s, loudest {1} (speech is usually 1500+)" -f ([SJVoice.Mic]::LastMs / 1000), [SJVoice.Mic]::LastPeak)) }
+        if ('SJVoice.Mic' -as [type]) {
+            $global:PDLogQueue.Enqueue(("[INFO] voice: recorded {0:0.0} s, loudest {1} (speech is usually 1500+)" -f ([SJVoice.Mic]::LastMs / 1000), [SJVoice.Mic]::LastPeak))
+            Add-VStep ("heard {0:0.0} s · level {1}" -f ([SJVoice.Mic]::LastMs / 1000), [SJVoice.Mic]::LastPeak) '#67E8F9'
+        }
         $probs = if ($script:V.Confirm) { $null } else { @(Get-PDProblems $DataDir) }     # "did you mean" answers are just yes / no
         Start-VTask -Pool 'audio' { param($P) ConvertFrom-PDSpeech -Wav $P.Wav -Lang $P.Lang -UsbRoot $P.Root -Mode $P.Mode -Problems $P.Probs } @{ Wav = $c.Wav; Lang = $script:V.Lang; Root = $UsbRoot; Mode = $script:AiMode; Probs = $probs } {
             param($t, $c) Remove-Item -LiteralPath $c.Wav -Force -ErrorAction SilentlyContinue
             if ($t -and $t.Error -and -not $t.Text) { $global:PDLogQueue.Enqueue('[WARN] voice: ' + $t.Error) }
             $script:V.SttSource = $(if ($t) { $t.Source } else { '' })
             $script:V.PreU = $(if ($t -and $t.U) { $t.U } else { $null })
+            $script:V.LastErr = $(if ($t -and -not $t.Text) { [string]$t.Error } else { $null })
             Invoke-VHeard $(if ($t) { [string]$t.Text } else { '' }) $true
         } $c
         return
@@ -2465,6 +2471,14 @@ function Invoke-VHeard([string]$text, [bool]$spoken) {
     $text = ($text -replace '\s+', ' ').Trim()
     if (([regex]::Matches($text, '\p{L}')).Count -lt 2) { $text = '' }      # "????" / "..." is not something the user said
     if ($text.Length -lt 2) {
+        # the voice was recorded but the AI could not be asked: say exactly why (key / limit / internet)
+        $e = $script:V.LastErr; $script:V.LastErr = $null
+        if ($spoken -and $e -and $e -notmatch 'gave no words') {
+            $k = if ($e -match '\[(400|401|403)\]') { 'aierr_key' } elseif ($e -match '\[429\]') { 'aierr_quota' } elseif ($e -match '\[5\d\d\]') { 'aierr_other' } elseif ($e -match 'no speech recognition') { 'nostt' } else { 'aierr_net' }
+            Add-VStep ('AI error · ' + $(if ($e.Length -gt 60) { $e.Substring(0, 60) + '…' } else { $e })) '#F87171'
+            Say-V (VL $k) -Then { Set-VState 'idle'; Set-VMicWait $true }
+            return
+        }
         $script:V.Tries++
         if ($spoken -and $script:V.Tries -le 1) { Say-V (VL 'nohear') -Then { Start-VListen } }
         else { Say-V (VL 'pressmic') -Then { Set-VState 'idle'; Set-VMicWait $true } }
@@ -2484,7 +2498,6 @@ function Start-VoiceFix([string]$text, [bool]$spoken = $true) {
     if ($script:Job) { Say-V (VL 'busy'); Set-VState 'idle'; return }
     $mode = $script:AiMode; $cfg = Get-PDAiConfig $UsbRoot
     $online = ($mode -in 'auto', 'online') -and $cfg.key
-    if (-not (Confirm-AskConsent $online $cfg -Remember)) { Say-V (VL 'more') -Then { Start-VListen }; return }
     $script:V.Text = $text
     Set-VState 'think'
     Add-VStep 'understanding the problem' '#A78BFA'
@@ -2506,6 +2519,13 @@ function Get-VTitle([string]$id) {
 }
 function Complete-VUnderstand($u) {
     if (-not $script:V.Open) { return }
+    # small talk ("how are you", "who are you" ...): Sanjeevani simply answers, then listens again
+    if ($u -and -not @($u.Ids).Count -and $u.PSObject.Properties['Reply'] -and $u.Reply) {
+        Add-VStep 'conversation' '#67E8F9'
+        Set-VState 'speak'
+        Say-V ([string]$u.Reply) -Then { Start-VListen }
+        return
+    }
     if (-not $u -or -not @($u.Ids).Count) {
         Add-VStep 'not understood' '#FBBF24'
         Say-V (VL 'unclear') -Then { Start-VListen }
@@ -2541,6 +2561,8 @@ function Resolve-VConfirm([string]$text, [bool]$spoken) {
 function Start-VRepair {
     if ($script:Job) { Say-V (VL 'busy'); Set-VState 'idle'; return }
     $mode = $script:AiMode; $cfg = Get-PDAiConfig $UsbRoot
+    # the one consent (asked once, remembered) comes before the first change - not before a chat
+    if (-not (Confirm-AskConsent (($mode -in 'auto', 'online') -and [bool]$cfg.key) $cfg -Remember)) { Say-V (VL 'more') -Then { Start-VListen }; return }
     $ui.VSteps.Children.Clear()
     $global:PDState.Events = New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]'
     $script:V.Fixing = $true

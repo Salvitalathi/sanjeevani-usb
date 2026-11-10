@@ -713,6 +713,10 @@ Test-Case 'Voice: speech is written with a Windows voice; speech-to-text request
         $mockQ = { param($u, $h, $b, $m) '{"candidates":[{"content":{"parts":[{"text":"??????"}]}}]}' }
         $r3 = ConvertFrom-PDSpeech -Wav $wav -Lang 'mr' -UsbRoot $root -Transport $mockQ
         Assert (-not $r3.Text) "'??????' was taken as speech: $($r3.Text)"
+        # small talk: no problem ids, a spoken reply instead
+        $mockR = { param($u, $h, $b, $m) '{"candidates":[{"content":{"parts":[{"text":"{\"text\":\"तू कशी आहेस?\",\"language\":\"mr\",\"clear\":true,\"problem_ids\":[],\"sure\":true,\"reply\":\"मी छान आहे!\"}"}]}}]}' }
+        $r4 = ConvertFrom-PDSpeech -Wav $wav -Lang 'mr' -UsbRoot $root -Transport $mockR -Problems (Get-PDProblems $DataDir)
+        Assert ($r4.Text -eq 'तू कशी आहेस?' -and $r4.U -and -not @($r4.U.Ids).Count -and $r4.U.Reply -eq 'मी छान आहे!') "small talk: $($r4.Text) / ids $(@($r4.U.Ids) -join ',') / reply $($r4.U.Reply)"
         # one online call both hears and understands (faster)
         $mockU = { param($u, $h, $b, $m) $script:sentU = $b; '{"candidates":[{"content":{"parts":[{"text":"{\"text\":\"माझा PC मधेच बंद पडतो\",\"clear\":true,\"problem_ids\":[\"shutdown\",\"made-up\"],\"sure\":true}"}]}}]}' }
         $r4 = ConvertFrom-PDSpeech -Wav $wav -Lang 'mr' -UsbRoot $root -Transport $mockU -Problems (Get-PDProblems $DataDir)

@@ -168,9 +168,10 @@ expect wrong spellings, Hindi-looking spellings of Marathi words, missing or wro
 1. Understand the problem. 2. Pick up to 3 problem ids from the list below that PC Doctor can check or fix (most likely first).
 3. Give short practical steps for a non-expert (max 6), in Marathi (Devanagari) and in English.
 Set "sure" to false when the text is too garbled or vague to be confident.
+If the person is NOT describing a PC problem (a greeting, "how are you", "who are you", small talk or a general question), leave problem_ids empty and put in "reply" a short, warm spoken answer as Sanjeevani (a friendly female assistant), in the SAME language the person used (Marathi / Hindi in Devanagari), max 2 short sentences, ending by offering help with their computer. Otherwise "reply" is empty.
 Rules: never give commands to type, registry edits, cracks, activators or downloads from unofficial sites; say when a technician / hardware repair is needed.
 Reply with ONLY this JSON (no markdown):
-{"understood_mr":"...","understood_en":"...","corrected_text":"the user's sentence as they most likely said it, in their language","sure":true,"problem_ids":["..."],"steps_mr":["..."],"steps_en":["..."],"hardware_likely":false,"note_mr":"","note_en":""}
+{"understood_mr":"...","understood_en":"...","corrected_text":"the user's sentence as they most likely said it, in their language","sure":true,"problem_ids":["..."],"steps_mr":["..."],"steps_en":["..."],"hardware_likely":false,"note_mr":"","note_en":"","reply":""}
 Problem ids PC Doctor knows:
 $list
 "@
@@ -238,7 +239,7 @@ function ConvertFrom-PDAiAnswer([string]$Text, [object[]]$Problems) {
     $known = @($Problems | ForEach-Object { $_.id })
     [pscustomobject]@{
         UnderstoodMr = [string]$j.understood_mr; UnderstoodEn = [string]$j.understood_en; Corrected = [string]$j.corrected_text
-        Sure = $(if ($null -eq $j.sure) { $true } else { [bool]$j.sure })
+        Sure = $(if ($null -eq $j.sure) { $true } else { [bool]$j.sure }); Reply = [string]$j.reply
         ProblemIds = @(@($j.problem_ids) | Where-Object { $_ -in $known } | Select-Object -First 3)    # only ids PC Doctor knows
         StepsMr = @($j.steps_mr | Where-Object { $_ } | Select-Object -First 8); StepsEn = @($j.steps_en | Where-Object { $_ } | Select-Object -First 8)
         Hardware = [bool]$j.hardware_likely; NoteMr = [string]$j.note_mr; NoteEn = [string]$j.note_en
@@ -277,14 +278,14 @@ function Invoke-PDAiAsk {
 function Resolve-PDProblemIds {
     param([Parameter(Mandatory)][string]$Text, [Parameter(Mandatory)][object[]]$Problems, [Parameter(Mandatory)][string]$UsbRoot,
         [string]$Mode = 'auto', [string]$PcInfo, $Config)
-    $notes = @(); $ids = @(); $source = 'basic'; $model = $null; $und = $null; $sure = $false; $cor = ''
+    $notes = @(); $ids = @(); $source = 'basic'; $model = $null; $und = $null; $sure = $false; $cor = ''; $reply = ''
 
     if (-not $Config) { $Config = Get-PDAiConfig $UsbRoot }
     if ($Mode -in 'auto', 'online' -and $Config.key) {
         try {
             Write-PDLog 'Asking the online AI ...' 'STEP'
             $r = Invoke-PDAiAsk -Text $Text -Config $Config -Problems $Problems -PcInfo $PcInfo
-            $ids = @($r.ProblemIds); $source = 'online'; $model = $r.Model; $und = $r.UnderstoodEn; $sure = $r.Sure; $cor = $r.Corrected
+            $ids = @($r.ProblemIds); $source = 'online'; $model = $r.Model; $und = $r.UnderstoodEn; $sure = $r.Sure; $cor = $r.Corrected; $reply = $r.Reply
         } catch { $notes += "online AI: $($_.Exception.Message)" }
     }
     if (-not $ids.Count -and $Mode -in 'auto', 'offline' -and (Get-Command Find-PDLocalAI -ErrorAction SilentlyContinue)) {
@@ -307,7 +308,7 @@ function Resolve-PDProblemIds {
     $all = @($ids + $kw | Select-Object -Unique | Select-Object -First 4)
     foreach ($n in $notes) { Write-PDLog $n 'WARN' }
     # Sure: an AI understood it with confidence (keyword matches alone are never "sure" - the voice asks "did you mean ...?")
-    return [pscustomobject]@{ Ids = $all; Source = $source; Model = $model; UnderstoodEn = $und; Corrected = $cor; Sure = [bool]($ids.Count -and $sure); Notes = $notes }
+    return [pscustomobject]@{ Ids = $all; Source = $source; Model = $model; UnderstoodEn = $und; Corrected = $cor; Sure = [bool]($ids.Count -and $sure); Reply = $(if ($ids.Count) { '' } else { $reply }); Notes = $notes }
 }
 
 Export-ModuleMember -Function Resolve-PDProblemIds, Get-PDProblems, Test-PDKeyword, ConvertTo-PDLoose, Find-PDProblem, Invoke-PDQuickFix, Get-PDAiConfig, Save-PDAiConfig,
