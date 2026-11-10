@@ -2206,19 +2206,24 @@ $VLangNames = @{ en = 'English'; mr = 'मराठी'; hi = 'हिन्द�
 
 function VL([string]$key, [object[]]$a) { Get-PDVoiceLine $key $script:V.Lang $a }
 
-# background work for the voice (speech synthesis, recording, recognition) - its own small pool, separate from repair jobs
+# background work for the voice, separate from repair jobs, in three pools so slow work never blocks the microphone:
+#   audio  - microphone check, recording, speech-to-text (always free when the user speaks)
+#   speech - turning sentences into voice (online voice can take a few seconds each; three at a time)
+#   bg     - downloads (voice pack) and fetching the usual sentences in the online voice
 function Initialize-VoicePool {
-    if ($script:VPool) { return }
+    if ($script:VPools) { return }
     $iss = [initialsessionstate]::CreateDefault()
     $iss.ImportPSModule([string[]]@($Modules | Where-Object { $_ -match '\\(Common|Ask|Voice)\.psm1$' }))
     foreach ($n in 'PDLogQueue', 'PDCtx', 'PDState') { $iss.Variables.Add((New-Object Management.Automation.Runspaces.SessionStateVariableEntry $n, (Get-Variable -Name $n -Scope Global -ValueOnly), '')) }
     $iss.Variables.Add((New-Object Management.Automation.Runspaces.SessionStateVariableEntry 'PDLang', $Lang, ''))
-    $script:VPool = [runspacefactory]::CreateRunspacePool(1, 3, $iss, $Host)
-    $script:VPool.Open()
+    $script:VPools = @{}
+    foreach ($pp in @(@('audio', 2), @('speech', 3), @('bg', 2))) {
+        $pool = [runspacefactory]::CreateRunspacePool(1, $pp[1], $iss, $Host); $pool.Open(); $script:VPools[$pp[0]] = $pool
+    }
 }
-function Start-VTask([scriptblock]$Work, [hashtable]$P, [scriptblock]$OnDone, $Ctx = $null) {
+function Start-VTask([scriptblock]$Work, [hashtable]$P, [scriptblock]$OnDone, $Ctx = $null, [string]$Pool = 'speech') {
     Initialize-VoicePool
-    $ps = [powershell]::Create(); $ps.RunspacePool = $script:VPool
+    $ps = [powershell]::Create(); $ps.RunspacePool = $script:VPools[$Pool]
     [void]$ps.AddScript($Work.ToString()).AddArgument($P)
     [void]$script:V.Tasks.Add(@{ PS = $ps; H = $ps.BeginInvoke(); OnDone = $OnDone; Ctx = $Ctx })
 }
@@ -2381,7 +2386,7 @@ function Open-Voice {
     Set-VState 'speak'
     Add-VStep 'voice link online' '#2DD4BF'
     # microphone (turned on if muted / blocked) - checked while Sanjeevani greets
-    Start-VTask { param($P) $m = Enable-PDMicrophone; [pscustomobject]@{ Has = $m.Has; Fixed = $m.Fixed; CanHear = (Test-PDCanListen -UsbRoot $P.Root -Mode $P.Mode) } } @{ Root = $UsbRoot; Mode = $script:AiMode } {
+    Start-VTask -Pool 'audio' { param($P) $m = Enable-PDMicrophone; [pscustomobject]@{ Has = $m.Has; Fixed = $m.Fixed; CanHear = (Test-PDCanListen -UsbRoot $P.Root -Mode $P.Mode) } } @{ Root = $UsbRoot; Mode = $script:AiMode } {
         param($r) $script:V.Mic = $(if ($r) { $r } else { [pscustomobject]@{ Has = $false; Fixed = $false; CanHear = $false } })
         Add-VStep $(if ($script:V.Mic.Has) { 'microphone ready' } else { 'no microphone' }) $(if ($script:V.Mic.Has) { '#2DD4BF' } else { '#FBBF24' })
         if ($script:V.GreetDone) { Invoke-VAfterGreet }
@@ -2395,7 +2400,8 @@ function Request-VVoicePack([string]$l) {
     if (-not $script:V.PackTried) { $script:V.PackTried = @{} }
     if ($script:V.PackTried[$l]) { return }
     $script:V.PackTried[$l] = $true
-    Start-VTask { param($P) Install-PDVoicePack -UsbRoot $P.Root -Lang $P.Lang } @{ Root = $UsbRoot; Lang = $l } { param($r, $c) if ($r -eq 'installed') { Add-VStep "voice $($c) installed" '#2DD4BF' } } $l
+    Start-VTask -Pool 'bg' { param($P) Install-PDVoicePack -UsbRoot $P.Root -Lang $P.Lang } @{ Root = $UsbRoot; Lang = $l } { param($r, $c) if ($r -eq 'installed') { Add-VStep "voice $($c) installed" '#2DD4BF' } } $l
+    Start-VTask -Pool 'bg' { param($P) Invoke-PDVoicePrefetch -UsbRoot $P.Root -Lang $P.Lang } @{ Root = $UsbRoot; Lang = $l } { param($r, $c) if ($r) { $global:PDLogQueue.Enqueue("[INFO] voice: $r sentences saved in the online voice") } } $l
 }
 function Invoke-VAfterGreet {
     $m = $script:V.Mic
@@ -2430,17 +2436,20 @@ function Start-VListen {
     Set-VState 'listen'
     New-Item -ItemType Directory -Path $VoiceTemp -Force -ErrorAction SilentlyContinue | Out-Null
     $wav = Join-Path $VoiceTemp ('r' + [guid]::NewGuid().ToString('N').Substring(0, 10) + '.wav')
-    Start-VTask { param($P) Invoke-PDRecord -Path $P.Out -MaxMs 25000 -SilenceMs 1300 -NoSpeechMs 15000 } @{ Out = $wav } { param($r, $c) Complete-VRecord $r $c } @{ Wav = $wav }
+    Start-VTask -Pool 'audio' { param($P) Invoke-PDRecord -Path $P.Out -MaxMs 25000 -SilenceMs 1300 -NoSpeechMs 15000 } @{ Out = $wav } { param($r, $c) Complete-VRecord $r $c } @{ Wav = $wav }
 }
 function Complete-VRecord([string]$r, $c) {
     $script:V.Listening = $false
     if (-not $script:V.Open) { Remove-Item -LiteralPath $c.Wav -Force -ErrorAction SilentlyContinue; return }
     if ($r -eq 'ok') {
         Set-VState 'think'
-        Start-VTask { param($P) ConvertFrom-PDSpeech -Wav $P.Wav -Lang $P.Lang -UsbRoot $P.Root -Mode $P.Mode } @{ Wav = $c.Wav; Lang = $script:V.Lang; Root = $UsbRoot; Mode = $script:AiMode } {
+        if ('SJVoice.Mic' -as [type]) { $global:PDLogQueue.Enqueue(("[INFO] voice: recorded {0:0.0} s, loudest {1} (speech is usually 1500+)" -f ([SJVoice.Mic]::LastMs / 1000), [SJVoice.Mic]::LastPeak)) }
+        $probs = if ($script:V.Confirm) { $null } else { @(Get-PDProblems $DataDir) }     # "did you mean" answers are just yes / no
+        Start-VTask -Pool 'audio' { param($P) ConvertFrom-PDSpeech -Wav $P.Wav -Lang $P.Lang -UsbRoot $P.Root -Mode $P.Mode -Problems $P.Probs } @{ Wav = $c.Wav; Lang = $script:V.Lang; Root = $UsbRoot; Mode = $script:AiMode; Probs = $probs } {
             param($t, $c) Remove-Item -LiteralPath $c.Wav -Force -ErrorAction SilentlyContinue
             if ($t -and $t.Error -and -not $t.Text) { $global:PDLogQueue.Enqueue('[WARN] voice: ' + $t.Error) }
             $script:V.SttSource = $(if ($t) { $t.Source } else { '' })
+            $script:V.PreU = $(if ($t -and $t.U) { $t.U } else { $null })
             Invoke-VHeard $(if ($t) { [string]$t.Text } else { '' }) $true
         } $c
         return
@@ -2479,6 +2488,10 @@ function Start-VoiceFix([string]$text, [bool]$spoken = $true) {
     $script:V.Text = $text
     Set-VState 'think'
     Add-VStep 'understanding the problem' '#A78BFA'
+    $script:V.Spoken = $spoken
+    # heard online: the same call already understood the problem - no second round trip
+    if ($spoken -and $script:V.PreU) { $u = $script:V.PreU; $script:V.PreU = $null; Complete-VUnderstand $u; return }
+    $script:V.PreU = $null
     Say-V (VL 'thinking')
     $pc = if ($online -and $cfg.sendPcInfo) { Get-AskPcInfo } else { '' }
     Start-PDJob -Title (L 'Understanding the problem' 'समस्या समजून घेत आहे' 'समस्या समझ रहे हैं') -Work {
@@ -2950,7 +2963,7 @@ $win.Add_Closing({
     $timer.Stop(); $vtimer.Stop()
     if ('SJVoice.Mic' -as [type]) { [SJVoice.Mic]::StopNow = $true }
     try { Stop-VSpeech; if ($script:VMusic) { $script:VMusic.Stop() } } catch { }
-    try { if ($script:VPool) { $script:VPool.Close() } } catch { }
+    try { if ($script:VPools) { foreach ($pl in $script:VPools.Values) { $pl.Close() } } } catch { }
     Remove-Item -LiteralPath $VoiceTemp -Recurse -Force -ErrorAction SilentlyContinue
     try { Stop-PDLocalAI } catch { }      # the offline AI server must not keep running after PC Doctor closes
 })

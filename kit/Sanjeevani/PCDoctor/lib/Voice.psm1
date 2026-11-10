@@ -138,12 +138,13 @@ public static class Mic {
     public static volatile float Level;      // 0..1 for the orb animation
     public static volatile bool StopNow;     // the user pressed stop / closed the screen
     public static volatile bool Speaking;    // speech detected in the current recording
+    public static int LastPeak, LastMs;      // loudest level and length of the last recording (for the activity log)
     public static int Devices { get { try { return (int)waveInGetNumDevs(); } catch { return 0; } } }
 
     // Records 16 kHz mono 16-bit into a .wav until the user stops talking.
     // returns "ok", "nospeech", "stopped" or "error:<code>"
     public static string Record(string path, int maxMs, int silenceMs, int noSpeechMs) {
-        Level = 0; StopNow = false; Speaking = false;
+        Level = 0; StopNow = false; Speaking = false; LastPeak = 0; LastMs = 0;
         const int SR = 16000, BUFMS = 100, NBUF = 8;
         int bufBytes = SR * 2 * BUFMS / 1000;
         WAVEFORMATEX f = new WAVEFORMATEX();
@@ -187,6 +188,7 @@ public static class Mic {
                 else if (!Speaking || rms < floor * 2) floor = floor * 0.985 + rms * 0.015;
                 double thr = Math.Max(380, floor * 2.4);
                 if (rms > peak) peak = rms;
+                LastPeak = (int)peak; LastMs = elapsed;
                 Level = (float)Math.Min(1.0, rms / (thr * 3));
                 if (elapsed > 300) {
                     // end of speech: back near the room level, or far below the loudest part of what was said
@@ -375,24 +377,35 @@ function New-PDSpeechGemini([string]$Text, [string]$Out, $Cfg) {
         $bw.Write([Text.Encoding]::ASCII.GetBytes('data')); $bw.Write([int]$pcm.Length); $bw.Write($pcm); $bw.Close()
         return ((Get-Item -LiteralPath $Out).Length -gt 2000)
     } catch {
-        Write-PDLog "voice: online voice not available: $($_.Exception.Message)" 'WARN'
-        [AppDomain]::CurrentDomain.SetData('SJTtsOff', (Get-Date).AddMinutes(10))      # quota / no internet: offline voices for a while
+        $msg = "$($_.Exception.Message)"
+        Write-PDLog "voice: online voice not available: $msg" 'WARN'
+        # free keys allow only a few voice requests (per minute and per day): when used up, the offline voice speaks for the rest of the session instead of switching back and forth
+        [AppDomain]::CurrentDomain.SetData('SJTtsOff', (Get-Date).AddSeconds($(if ($msg -match '\[429\]') { 1200 } else { 300 })))
         return $false
     }
 }
 
 # Writes the sentence as a .wav. Returns the engine used, or $null. Good recordings are cached on this PC, so a sentence
 # said once with the online voice is said the same way later, even offline.
+# Sentences said once with the online (Gemini) voice are kept on the pendrive (else on this PC), so they are said in
+# the same natural voice later - on any PC, even offline, without using the key's small free limit again.
+function Get-PDVoiceCachePath([string]$UsbRoot, [string]$Lang, [string]$Text) {
+    $sha = [Security.Cryptography.SHA1]::Create()
+    $key = -join ($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes("v3|$Lang|$Text")) | ForEach-Object { $_.ToString('x2') })
+    foreach ($d in @((Join-Path $UsbRoot 'Sanjeevani\voice-cache'), (Join-Path $env:LOCALAPPDATA 'Sanjeevani\voice-cache'))) {
+        if (Test-Path -LiteralPath (Join-Path $d "$key.wav")) { return (Join-Path $d "$key.wav") }
+    }
+    $d = Join-Path $UsbRoot 'Sanjeevani\voice-cache'
+    try { New-Item -ItemType Directory -Path $d -Force -ErrorAction Stop | Out-Null; $t = Join-Path $d '.w'; [IO.File]::WriteAllText($t, 'x'); Remove-Item -LiteralPath $t -Force } catch { $d = Join-Path $env:LOCALAPPDATA 'Sanjeevani\voice-cache' }
+    return (Join-Path $d "$key.wav")
+}
 function New-PDSpeech {
     param([string]$Text, [string]$Lang = 'mr', [string]$Out, [string]$UsbRoot, [string]$Mode = 'auto')
     $Text = ConvertTo-PDSpeakable $Text
     if (-not $Text) { return $null }
-    $cacheDir = Join-Path $env:LOCALAPPDATA 'Sanjeevani\voice-cache'
-    $sha = [Security.Cryptography.SHA1]::Create()
-    $key = -join ($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes("v3|$Lang|$Text")) | ForEach-Object { $_.ToString('x2') })
-    $cached = Join-Path $cacheDir "$key.wav"
+    $cached = Get-PDVoiceCachePath $UsbRoot $Lang $Text
     if (Test-Path -LiteralPath $cached) { try { Copy-Item -LiteralPath $cached -Destination $Out -Force; return 'cache' } catch { } }
-    $keep = { try { New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null; Copy-Item -LiteralPath $Out -Destination $cached -Force } catch { } }
+    $keep = { try { New-Item -ItemType Directory -Path (Split-Path $cached) -Force | Out-Null; Copy-Item -LiteralPath $Out -Destination $cached -Force } catch { } }
     $cfg = Get-PDAiConfig $UsbRoot
     if ($Mode -in 'auto', 'online' -and $cfg.key -and $cfg.provider -ne 'claude') {
         if (New-PDSpeechGemini $Text $Out $cfg) { & $keep; return 'online' }
@@ -410,7 +423,7 @@ function New-PDSpeech {
             $p.StandardInput.BaseStream.Write($b, 0, $b.Length); $p.StandardInput.Close()
             $null = $p.StandardError.ReadToEnd()
             if (-not $p.WaitForExit(30000)) { try { $p.Kill() } catch { } }
-            if ((Test-Path -LiteralPath $Out) -and (Get-Item -LiteralPath $Out).Length -gt 2000) { & $keep; return 'piper' }
+            if ((Test-Path -LiteralPath $Out) -and (Get-Item -LiteralPath $Out).Length -gt 2000) { return 'piper' }
         } catch { Write-PDLog "voice: piper failed: $($_.Exception.Message)" 'WARN' }
     }
     if (New-PDSpeechWinRT $Text $Lang $Out) { return 'windows' }
@@ -463,8 +476,9 @@ function New-PDSpeechSapi([string]$Text, [string]$Lang, [string]$Out) {
 # ------------------------------------------------------------------ listening: speech -> text
 # Online (Gemini, the user's own key) when allowed; otherwise whisper.cpp on the USB. Returns @{ Text; Source; Error }
 function ConvertFrom-PDSpeech {
-    param([string]$Wav, [string]$Lang = 'mr', [string]$UsbRoot, [string]$Mode = 'auto', [scriptblock]$Transport)
-    $res = [pscustomobject]@{ Text = ''; Source = ''; Error = '' }
+    param([string]$Wav, [string]$Lang = 'mr', [string]$UsbRoot, [string]$Mode = 'auto', [scriptblock]$Transport, [object[]]$Problems)
+    # U: when the problem list is given, the same online call also understands the problem (one round trip instead of two)
+    $res = [pscustomobject]@{ Text = ''; Source = ''; Error = ''; U = $null }
     $cfg = Get-PDAiConfig $UsbRoot
     if ($Mode -in 'auto', 'online' -and $cfg.key -and $cfg.provider -ne 'claude') {
         try {
@@ -475,13 +489,27 @@ function ConvertFrom-PDSpeech {
                       'The language is Marathi, Hindi or English, often mixed with English computer words (PC, laptop, internet, WiFi, printer, screen, battery, virus). ' +
                       'The speaker may have a strong rural accent or unclear pronunciation: write what they most likely meant, in correct spelling. ' +
                       'Write Marathi and Hindi in Devanagari, English words in English letters. Reply with only the words that were spoken; reply with nothing if nobody speaks.'
-            $prompt += ' Answer as JSON: {"text": "<the words>", "language": "mr|hi|en", "clear": true|false} - "clear" is false when the speech could not be made out.'
-            $body = ConvertTo-Json -Depth 8 -Compress -InputObject @{ contents = @(@{ parts = @(@{ text = $prompt }, @{ inline_data = @{ mime_type = 'audio/wav'; data = $b64 } }) }); generationConfig = @{ temperature = 0; responseMimeType = 'application/json' } }
-            $txt = & $Transport "https://generativelanguage.googleapis.com/v1beta/models/$($model):generateContent" @{ 'x-goog-api-key' = $cfg.key } $body 'POST'
+            if ($Problems) {
+                $list = ($Problems | ForEach-Object { "$($_.id): $($_.en.title)" }) -join '; '
+                $prompt += " Then, if it describes a PC problem, pick up to 3 matching ids from this list, most likely first: $list. " +
+                           'Answer as JSON: {"text": "<the words>", "language": "mr|hi|en", "clear": true|false, "problem_ids": ["..."], "sure": true|false, "understood_en": "<one short sentence>"} - ' +
+                           '"clear" is false when the speech could not be made out; "sure" is false when you are guessing the problem; problem_ids is empty for yes / no / thanks.'
+            } else {
+                $prompt += ' Answer as JSON: {"text": "<the words>", "language": "mr|hi|en", "clear": true|false} - "clear" is false when the speech could not be made out.'
+            }
+            $txt = Invoke-PDGemini $cfg $model @{ contents = @(@{ parts = @(@{ text = $prompt }, @{ inline_data = @{ mime_type = 'audio/wav'; data = $b64 } }) }); generationConfig = @{ temperature = 0; responseMimeType = 'application/json' } } $Transport
             $j = ConvertFrom-Json $txt
             $out = (@(@($j.candidates)[0].content.parts | Where-Object { -not $_.thought }) | ForEach-Object { $_.text }) -join ' '
             $said = $out
+            $jj = $null
             try { $a2 = $out.Trim() -replace '^```(?:json)?\s*', '' -replace '\s*```$', ''; $jj = ConvertFrom-Json $a2; $said = [string]$jj.text; if ($jj.clear -eq $false -and $said.Length -lt 4) { $said = '' } } catch { }
+            if ($Problems -and $jj -and $jj.PSObject.Properties['problem_ids']) {
+                $known = @($Problems | ForEach-Object { $_.id })
+                $ids = @(@($jj.problem_ids) | Where-Object { $_ -in $known } | Select-Object -First 3)
+                $kw = @(Find-PDProblem -Text $said -Problems $Problems -Max 3 | ForEach-Object { $_.Problem.id })
+                $res.U = [pscustomobject]@{ Ids = @($ids + $kw | Select-Object -Unique | Select-Object -First 4); Source = $(if ($ids.Count) { 'online' } else { 'basic' }); Model = $model
+                    UnderstoodEn = [string]$jj.understood_en; Corrected = $said; Sure = [bool]($ids.Count -and $jj.sure -ne $false -and $jj.clear -ne $false); Notes = @() }
+            }
             $said = ($said -replace '\s+', ' ').Trim()
             # a usable transcript has letters; "????" / "..." means the words could not be made out (or were broken on the way)
             if (([regex]::Matches($said, '[\p{L}]')).Count -ge 2) { $res.Text = $said; $res.Source = 'online'; return $res }
@@ -514,6 +542,31 @@ function ConvertFrom-PDSpeech {
     }
     if (-not $res.Error) { $res.Error = 'no speech recognition available (no AI key and no offline voice on the USB)' }
     return $res
+}
+
+# With an online key: Sanjeevani's usual sentences are fetched once in the online voice, slowly (free keys allow only a
+# few voice requests a minute), and kept - after that every usual sentence is in the same natural voice.
+function Invoke-PDVoicePrefetch {
+    param([string]$UsbRoot, [string]$Lang = 'mr')
+    $cfg = Get-PDAiConfig $UsbRoot
+    if (-not $cfg.key -or $cfg.provider -eq 'anthropic') { return 0 }
+    $done = 0; $fails = 0
+    Start-Sleep -Seconds 40          # the live conversation goes first
+    foreach ($k in @($script:Lines.Keys | Sort-Object { $_ -notin 'greet', 'ack', 'thinking', 'more', 'bye', 'working', 'pressmic', 'nohear', 'sayagain', 'yesno' })) {
+        $text = Get-PDVoiceLine $k $(if ($k -eq 'welcome') { 'en' } else { $Lang })
+        if ($text -match '\{0\}') { continue }
+        $l = if ($k -eq 'welcome') { 'en' } else { $Lang }
+        $t = ConvertTo-PDSpeakable $text
+        $c = Get-PDVoiceCachePath $UsbRoot $l $t
+        if (Test-Path -LiteralPath $c) { continue }
+        $off = [AppDomain]::CurrentDomain.GetData('SJTtsOff')
+        if ($off -and ([datetime]$off) -gt (Get-Date)) { break }          # the key's voice limit is reached: try again next time
+        $tmp = [IO.Path]::GetTempFileName()
+        if (New-PDSpeechGemini $t $tmp $cfg) { try { New-Item -ItemType Directory -Path (Split-Path $c) -Force | Out-Null; Move-Item -LiteralPath $tmp -Destination $c -Force; $done++ } catch { } }
+        else { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue; break }
+        Start-Sleep -Seconds 25
+    }
+    return $done
 }
 
 function Install-PDVoicePack {
@@ -566,4 +619,4 @@ function Test-PDCanListen([string]$UsbRoot, [string]$Mode = 'auto') {
     return [bool]($a.Whisper -and $a.WhisperModel -and $Mode -ne 'online')
 }
 
-Export-ModuleMember -Function Test-PDYes, Test-PDNo, ConvertTo-PDRoman, Install-PDVoicePack, New-PDSpeechGemini, Get-PDVoiceLine, Get-PDVoiceKeys, Get-PDTextLang, Test-PDGoodbye, Get-PDVoiceAssets, Initialize-PDVoiceNative, Enable-PDMicrophone, Invoke-PDRecord, ConvertTo-PDSpeakable, New-PDSpeech, ConvertFrom-PDSpeech, Test-PDCanListen
+Export-ModuleMember -Function Invoke-PDVoicePrefetch, Get-PDVoiceCachePath, Test-PDYes, Test-PDNo, ConvertTo-PDRoman, Install-PDVoicePack, New-PDSpeechGemini, Get-PDVoiceLine, Get-PDVoiceKeys, Get-PDTextLang, Test-PDGoodbye, Get-PDVoiceAssets, Initialize-PDVoiceNative, Enable-PDMicrophone, Invoke-PDRecord, ConvertTo-PDSpeakable, New-PDSpeech, ConvertFrom-PDSpeech, Test-PDCanListen

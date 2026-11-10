@@ -202,13 +202,31 @@ function Invoke-PDHttpJson {
 
 function Resolve-PDGeminiModel($Config, [scriptblock]$Transport) {
     if ($Config.model) { return $Config.model }
+    # remembered for this PC Doctor session (every runspace), so each question does not first list the models
+    $memo = [string][AppDomain]::CurrentDomain.GetData('SJGeminiModel')
+    if ($memo -and $memo.StartsWith($Config.key + '|')) { return $memo.Substring($Config.key.Length + 1) }
     $txt = & $Transport "https://generativelanguage.googleapis.com/v1beta/models?pageSize=200" @{ 'x-goog-api-key' = $Config.key } $null 'GET'
     $models = @((ConvertFrom-Json $txt).models | Where-Object { $_.supportedGenerationMethods -contains 'generateContent' } | ForEach-Object { $_.name -replace '^models/', '' })
     # newest stable "gemini-<version>-flash" (not lite / preview / image)
     $best = $models | Where-Object { $_ -match '^gemini-(\d+(?:\.\d+)?)-flash$' } | Sort-Object { [double]($_ -replace '^gemini-(\d+(?:\.\d+)?)-flash$', '$1') } -Descending | Select-Object -First 1
     if (-not $best) { $best = $models | Where-Object { $_ -match '^gemini-flash-latest$|flash' -and $_ -notmatch 'lite|image|tts|audio|live' } | Select-Object -First 1 }
     if (-not $best) { throw (L 'No Gemini Flash model is available for this key' 'या key ला कोणतेही Gemini Flash model उपलब्ध नाही' 'इस key के लिए कोई Gemini Flash model उपलब्ध नहीं') }
+    [AppDomain]::CurrentDomain.SetData('SJGeminiModel', $Config.key + '|' + $best)
     return $best
+}
+# Gemini generateContent, fast: "thinking" off (these are short classification / transcription jobs). Models that do not
+# accept that setting are asked again without it, and remembered.
+function Invoke-PDGemini($Config, [string]$Model, [hashtable]$Body, [scriptblock]$Transport) {
+    $url = "https://generativelanguage.googleapis.com/v1beta/models/$($Model):generateContent"
+    $h = @{ 'x-goog-api-key' = $Config.key }
+    if (-not [AppDomain]::CurrentDomain.GetData('SJNoThinkCfg')) {
+        $b2 = @{}; foreach ($k in $Body.Keys) { $b2[$k] = $Body[$k] }
+        $gc = @{}; if ($Body.generationConfig) { foreach ($k in $Body.generationConfig.Keys) { $gc[$k] = $Body.generationConfig[$k] } }
+        $gc.thinkingConfig = @{ thinkingBudget = 0 }; $b2.generationConfig = $gc
+        try { return (& $Transport $url $h (ConvertTo-Json -Depth 10 -Compress -InputObject $b2) 'POST') }
+        catch { if ("$($_.Exception.Message)" -notmatch '\[400\]') { throw }; [AppDomain]::CurrentDomain.SetData('SJNoThinkCfg', $true) }
+    }
+    return (& $Transport $url $h (ConvertTo-Json -Depth 10 -Compress -InputObject $Body) 'POST')
 }
 
 function ConvertFrom-PDAiAnswer([string]$Text, [object[]]$Problems) {
@@ -241,12 +259,11 @@ function Invoke-PDAiAsk {
         $ans = ((ConvertFrom-Json $txt).content | Where-Object { $_.type -eq 'text' } | ForEach-Object { $_.text }) -join ''
     } else {
         $model = Resolve-PDGeminiModel $Config $Transport
-        $body = ConvertTo-Json -Depth 8 -Compress -InputObject @{
+        $txt = Invoke-PDGemini $Config $model @{
             systemInstruction = @{ parts = @(@{ text = $pr.System }) }
             contents = @(@{ role = 'user'; parts = @(@{ text = $userText }) })
             generationConfig = @{ temperature = 0.2; responseMimeType = 'application/json' }
-        }
-        $txt = & $Transport "https://generativelanguage.googleapis.com/v1beta/models/$($model):generateContent" @{ 'x-goog-api-key' = $Config.key } $body 'POST'
+        } $Transport
         $ans = ((ConvertFrom-Json $txt).candidates[0].content.parts | ForEach-Object { $_.text }) -join ''
     }
     $r = ConvertFrom-PDAiAnswer $ans $Problems
@@ -294,4 +311,4 @@ function Resolve-PDProblemIds {
 }
 
 Export-ModuleMember -Function Resolve-PDProblemIds, Get-PDProblems, Test-PDKeyword, ConvertTo-PDLoose, Find-PDProblem, Invoke-PDQuickFix, Get-PDAiConfig, Save-PDAiConfig,
-    New-PDAiPrompt, ConvertFrom-PDAiAnswer, Invoke-PDAiAsk, Invoke-PDHttpJson, Resolve-PDGeminiModel
+    New-PDAiPrompt, ConvertFrom-PDAiAnswer, Invoke-PDAiAsk, Invoke-PDHttpJson, Resolve-PDGeminiModel, Invoke-PDGemini

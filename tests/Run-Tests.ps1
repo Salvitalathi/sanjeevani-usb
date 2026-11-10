@@ -713,6 +713,11 @@ Test-Case 'Voice: speech is written with a Windows voice; speech-to-text request
         $mockQ = { param($u, $h, $b, $m) '{"candidates":[{"content":{"parts":[{"text":"??????"}]}}]}' }
         $r3 = ConvertFrom-PDSpeech -Wav $wav -Lang 'mr' -UsbRoot $root -Transport $mockQ
         Assert (-not $r3.Text) "'??????' was taken as speech: $($r3.Text)"
+        # one online call both hears and understands (faster)
+        $mockU = { param($u, $h, $b, $m) $script:sentU = $b; '{"candidates":[{"content":{"parts":[{"text":"{\"text\":\"माझा PC मधेच बंद पडतो\",\"clear\":true,\"problem_ids\":[\"shutdown\",\"made-up\"],\"sure\":true}"}]}}]}' }
+        $r4 = ConvertFrom-PDSpeech -Wav $wav -Lang 'mr' -UsbRoot $root -Transport $mockU -Problems (Get-PDProblems $DataDir)
+        Assert ($r4.U -and $r4.U.Ids[0] -eq 'shutdown' -and $r4.U.Sure -and $r4.U.Source -eq 'online' -and 'made-up' -notin $r4.U.Ids) "understanding with the transcript: $($r4.U.Ids -join ',') sure=$($r4.U.Sure)"
+        Assert ($script:sentU -match 'problem_ids' -and $script:sentU -match 'shutdown') 'problem list not sent with the audio'
         $j = $script:sent.Body | ConvertFrom-Json
         Assert ($j.contents[0].parts[1].inline_data.mime_type -eq 'audio/wav' -and $j.contents[0].parts[1].inline_data.data.Length -gt 40) 'audio not attached'
         Assert ($script:sent.Body -notmatch '@') 'the request must not contain an e-mail address'
