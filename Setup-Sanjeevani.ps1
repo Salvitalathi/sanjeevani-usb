@@ -20,6 +20,8 @@ param(
     [switch]$WithMint,            # also download Linux Mint XFCE (~3 GB)
     [switch]$WithDrivers,         # also download ALL Snappy Driver Installer driver packs (~70 GB, offline drivers)
     [switch]$WithAI,              # also download the offline AI for PC Doctor's Assistant (llama.cpp + Gemma 4 E2B, ~3.2 GB)
+    [switch]$WithVoice,           # also download the voice of the Assistant (Piper female voices + whisper.cpp speech recognition, ~450 MB)
+    [switch]$NoVoice,             # never ask about the voice
     [ValidateSet('', 'en', 'mr', 'hi')][string]$Lang = '',   # language of PC Doctor, the guides and (in Windows Terminal) these messages
     [switch]$SkipDownloads,
     [string[]]$Only,              # only these ids, e.g. -Only hbcd,cpuz
@@ -246,6 +248,22 @@ function Resolve-Source($e) {
         'url' {
             $leaf = if ($e.file) { $e.file } else { [IO.Path]::GetFileName(([Uri]$s.url).AbsolutePath) }
             return @{ Url = $s.url; Name = $leaf }
+        }
+        'piper-voice' {
+            # Piper voice for a language: picked from the official voices.json (female / preferred names first, medium quality)
+            $j = Get-WebText 'https://huggingface.co/rhasspy/piper-voices/resolve/main/voices.json' | ConvertFrom-Json
+            $all = @($j.PSObject.Properties | ForEach-Object { $_.Value } | Where-Object { $_.language.family -eq $s.lang -or $_.language.code -like "$($s.lang)_*" })
+            if (-not $all.Count) { throw "no Piper voice for language '$($s.lang)'" }
+            $rank = {
+                param($v) $score = 0
+                for ($i = 0; $i -lt @($s.prefer).Count; $i++) { if ($v.key -match $s.prefer[$i]) { $score += 100 - $i * 10 } }
+                $score += @{ medium = 5; high = 4; low = 2; x_low = 1 }[[string]$v.quality]
+                if ([int]$v.num_speakers -gt 1) { $score -= 3 }
+                return $score
+            }
+            $best = $all | Sort-Object { & $rank $_ } -Descending | Select-Object -First 1
+            $path = @($best.files.PSObject.Properties.Name | Where-Object { $_ -match '\.onnx$' })[0]
+            return @{ Url = "https://huggingface.co/rhasspy/piper-voices/resolve/main/$path"; Name = [IO.Path]::GetFileName($path) }
         }
         'github' {
             try {
@@ -621,6 +639,10 @@ if (-not $SkipDownloads -and -not $Only) {
         $c = Read-Host ("    " + (T 'Also download the offline AI for PC Doctor''s Assistant - understands problems in Marathi / Hindi / English without internet (~3.2 GB, needs a PC with 6 GB+ RAM)? Y/N' 'PC Doctor Assistant साठी offline AI download करायचा? Internet शिवाय मराठी / हिंदी / English समस्या समजतो (~3.2 GB, 6 GB+ RAM असलेला PC लागतो). Y/N' 'PC Doctor Assistant के लिए offline AI download करें? बिना internet के हिंदी / मराठी / English समस्या समझता है (~3.2 GB, 6 GB+ RAM वाला PC चाहिए)। Y/N'))
         $WithAI = $c -match '^[Yy]'
     }
+    if (-not $WithVoice -and -not $NoVoice -and -not ($installed['piper'])) {
+        $c = Read-Host ("    " + (T 'Also download the voice of the Assistant (Sanjeevani speaks and listens in Marathi / Hindi / English, works offline, ~450 MB)? Y/N' 'Assistant चा आवाज download करायचा? (संजीवनी मराठी / हिंदी / English मध्ये बोलते आणि ऐकते, internet शिवाय, ~450 MB) Y/N' 'Assistant की आवाज़ download करें? (संजीवनी हिंदी / मराठी / English में बोलती और सुनती है, बिना internet, ~450 MB) Y/N'))
+        $WithVoice = $c -notmatch '^[Nn]'
+    }
     $sdioDrv = Join-Path $UsbRoot 'Tools\Drivers\Snappy Driver Installer Origin\drivers'
     if (-not $WithDrivers -and -not (Test-Path $sdioDrv)) {
         $c = Read-Host ("    " + (T 'Also download ALL offline driver packs for any PC (~70 GB; needs ~145 GB free while downloading, so a 256 GB pendrive; takes hours)? Y/N' 'कोणत्याही PC साठी सगळे offline driver packs download करायचे? (~70 GB; download करताना ~145 GB मोकळी जागा, म्हणजे 256 GB pendrive; काही तास लागतात) Y/N' 'किसी भी PC के लिए सारे offline driver packs download करें? (~70 GB; download के समय ~145 GB खाली जगह, यानी 256 GB pendrive; कुछ घंटे लगेंगे) Y/N'))
@@ -633,6 +655,7 @@ function Test-Wanted($e) {
     if ($e.id -eq 'win11') { return ($WithWindows -or [bool]$installed['win11']) }
     if ($e.id -eq 'mint-xfce') { return ($WithMint -or [bool]$installed['mint-xfce']) }
     if ($e.id -in 'llamacpp', 'ai-model') { return ($WithAI -or [bool]$installed[$e.id]) }
+    if ($e.category -eq 'Voice') { return ($WithVoice -or [bool]$installed[$e.id]) }
     return $true
 }
 
@@ -792,7 +815,9 @@ function Install-Item($e, [string]$Kind) {
                 Remove-Item $zipTmp -Force
             } else {
                 $name = if ($e.file) { $e.file } else { $r.Name }
+                if ($e.source.kind -eq 'piper-voice') { Get-ChildItem $folder -File -Filter '*.onnx*' -ErrorAction SilentlyContinue | Remove-Item -Force }   # one voice per language
                 Move-Item -LiteralPath $tmp -Destination (Join-Path $folder $name) -Force
+                if ($e.source.kind -eq 'piper-voice') { Save-Url ($r.Url + '.json') (Join-Path $folder ($name + '.json')) $e.page }   # its config
             }
             $exe = Get-ChildItem $folder -Recurse -File | Where-Object { $_.Name -match $e.exe } | Sort-Object { $_.FullName.Length } | Select-Object -First 1
             $rel = if ($exe) { Get-UsbRelPath $exe.FullName } else { $folderRel }

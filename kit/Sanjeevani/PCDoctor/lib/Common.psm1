@@ -63,6 +63,28 @@ function Set-PDLangSetting {
     if ($global:PDCtx) { $global:PDCtx.Lang = $Lang }
     return $saved
 }
+# any other value in settings.json (e.g. voice = $false, assistConsent = $true)
+function Get-PDSetting {
+    param([string]$UsbRoot, [string]$Name, $Default = $null)
+    foreach ($f in (Get-PDSettingsFiles $UsbRoot)) {
+        try { if (Test-Path -LiteralPath $f) { $j = Get-Content -LiteralPath $f -Raw -Encoding UTF8 | ConvertFrom-Json; if ($j.PSObject.Properties[$Name]) { return $j.$Name } } } catch { }
+    }
+    return $Default
+}
+function Set-PDSetting {
+    param([string]$UsbRoot, [string]$Name, $Value)
+    $saved = 0
+    foreach ($f in (Get-PDSettingsFiles $UsbRoot)) {
+        try {
+            $o = [ordered]@{}
+            if (Test-Path -LiteralPath $f) { (Get-Content -LiteralPath $f -Raw -Encoding UTF8 | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $o[$_.Name] = $_.Value } }
+            $o[$Name] = $Value
+            New-Item -ItemType Directory -Path (Split-Path $f) -Force -ErrorAction Stop | Out-Null
+            [IO.File]::WriteAllText($f, ($o | ConvertTo-Json), (New-Object Text.UTF8Encoding $false)); $saved++
+        } catch { }
+    }
+    return $saved
+}
 function Get-PDLang {
     $l = if ($global:PDCtx -and $global:PDCtx.Lang) { [string]$global:PDCtx.Lang } else { [string]$global:PDLang }
     if ($script:LangNames.Contains($l)) { return $l }

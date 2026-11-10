@@ -143,7 +143,7 @@ function New-PDAiPrompt {
     $list = ($Problems | ForEach-Object { "- $($_.id): $($_.en.title)" }) -join "`n"
     $sys = @"
 You are the assistant inside "Sanjeevani PC Doctor", a free Windows repair tool used by computer technicians and ordinary users in Maharashtra, India.
-The user describes a PC / laptop problem in Marathi (Devanagari), English or Roman Marathi.
+The user describes a PC / laptop problem in Marathi or Hindi (Devanagari or Roman letters) or English, sometimes spoken and transcribed (expect small speech-to-text errors).
 1. Understand the problem. 2. Pick up to 3 problem ids from the list below that PC Doctor can check or fix (most likely first).
 3. Give short practical steps for a non-expert (max 6), in Marathi (Devanagari) and in English.
 Rules: never give commands to type, registry edits, cracks, activators or downloads from unofficial sites; say when a technician / hardware repair is needed.

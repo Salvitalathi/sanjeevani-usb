@@ -31,7 +31,7 @@ $Here    = $PSScriptRoot
 $UsbRoot = (Resolve-Path (Join-Path $Here '..\..')).Path
 $DataDir = Join-Path $Here 'data'
 $Assets  = Join-Path $Here 'assets'
-$Modules = @('Common', 'Diagnostics', 'Repair', 'Speed', 'Storage', 'Advisor', 'Report', 'ToolGuide', 'Integrity', 'Registry', 'Ask', 'LocalAI', 'Troubleshoot') | ForEach-Object { Join-Path $Here "lib\$_.psm1" }
+$Modules = @('Common', 'Diagnostics', 'Repair', 'Speed', 'Storage', 'Advisor', 'Report', 'ToolGuide', 'Integrity', 'Registry', 'Ask', 'LocalAI', 'Troubleshoot', 'Voice') | ForEach-Object { Join-Path $Here "lib\$_.psm1" }
 
 try {
     foreach ($m in $Modules) { Import-Module $m -Force -DisableNameChecking -ErrorAction Stop }
@@ -43,7 +43,7 @@ try {
 }
 
 $global:PDLogQueue = New-Object 'System.Collections.Concurrent.ConcurrentQueue[string]'
-$global:PDState = [hashtable]::Synchronized(@{ Progress = -1; Status = ''; Cancel = $false })
+$global:PDState = [hashtable]::Synchronized(@{ Progress = -1; Status = ''; Cancel = $false; Events = (New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]') })
 
 # ---------------------------------------------------------------- language
 # first start without a saved language: small picker (same as Setup)
@@ -188,6 +188,13 @@ $UiText = @{
     'ask.mode.basic' = @('Basic', 'Basic', 'Basic')
     'ask.settings'   = @('AI settings', 'AI settings', 'AI settings')
     'ask.go'         = @('Fix it', 'दुरुस्त करा', 'ठीक करें')
+    'ask.talk'       = @('Talk to Sanjeevani', 'संजीवनीशी बोला', 'संजीवनी से बात करें')
+    'v.open.tip'     = @('Tell the problem by voice - Sanjeevani listens, checks and fixes', 'समस्या बोलून सांगा - संजीवनी ऐकते, तपासते आणि दुरुस्त करते', 'समस्या बोलकर बताएँ - संजीवनी सुनती है, जाँचती है और ठीक करती है')
+    'v.auto'         = @('Start when PC Doctor opens', 'PC Doctor उघडताच सुरू करा', 'PC Doctor खुलते ही शुरू करें')
+    'v.close'        = @('Close (back to the dashboard)', 'बंद करा (dashboard वर परत)', 'बंद करें (dashboard पर वापस)')
+    'v.mic'          = @('Speak', 'बोला', 'बोलें')
+    'v.send'         = @('Send', 'पाठवा', 'भेजें')
+    'v.hint'         = @('Speak, or type the problem here ...', 'बोला, किंवा समस्या इथे लिहा...', 'बोलें, या समस्या यहाँ लिखें...')
     'ask.hint'       = @('e.g. "internet not working", "laptop gets very hot", "printer not printing"', 'उदा. "net chalat nahi", "laptop खूप गरम होतो", "printer print देत नाही"', 'उदा. "net nahi chal raha", "laptop बहुत गर्म होता है", "printer print नहीं कर रहा"')
     'ai.sub'         = @('Offline AI (Gemma, on the USB) works without internet. Online AI is optional and uses your own API key - Google Gemini keys are free. The AI only understands the problem; every check and repair is done by PC Doctor''s own tested actions.',
                          'Offline AI (Gemma, USB वर) internet शिवाय चालतो. Online AI optional आहे आणि तुमची स्वतःची API key वापरतो - Google Gemini ची key मोफत आहे. AI फक्त समस्या समजून घेतो; प्रत्येक तपासणी आणि दुरुस्ती PC Doctor च्या स्वतःच्या तपासलेल्या actions ने होते.',
@@ -646,6 +653,7 @@ $xamlText = @'
                   <TextBlock Style="{StaticResource Sub}" Name="ModelText" Text="{{dash.sub}}"/>
                 </StackPanel>
                 <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                  <Button Style="{StaticResource Btn}" Tag="voice:open" Margin="0,0,0,8" Padding="20,10" BorderBrush="#2DD4BF" ToolTip="{{v.open.tip}}"><StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE720;" FontSize="14" Foreground="#2DD4BF" Margin="0,0,8,0"/><TextBlock Text="{{ask.talk}}"/></StackPanel></Button>
                   <Button Style="{StaticResource Primary}" Tag="scan:quick" Margin="0,0,0,8" Padding="20,10" ToolTip="{{dash.quick.tip}}"><StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE721;" FontSize="14" Margin="0,0,8,0"/><TextBlock Text="{{dash.quick}}"/></StackPanel></Button>
                   <Button Style="{StaticResource Btn}" Tag="scan:deep" Margin="0" Padding="20,10" ToolTip="{{dash.deep.tip}}"><StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE9D9;" FontSize="14" Margin="0,0,8,0"/><TextBlock Text="{{dash.deep}}"/></StackPanel></Button>
                 </StackPanel>
@@ -853,6 +861,7 @@ $xamlText = @'
                   <Button Style="{StaticResource Seg}" Tag="aimode:basic" Content="{{ask.mode.basic}}"/>
                 </StackPanel>
               </Border>
+              <Button Style="{StaticResource Btn}" Tag="voice:open" Margin="0,0,8,0" VerticalAlignment="Center" BorderBrush="#2DD4BF"><StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE720;" FontSize="13" Foreground="#2DD4BF" Margin="0,0,8,0"/><TextBlock Text="{{ask.talk}}"/></StackPanel></Button>
               <Button Style="{StaticResource Btn}" Tag="ask:settings" Margin="0" VerticalAlignment="Center"><StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE713;" FontSize="13" Margin="0,0,8,0"/><TextBlock Text="{{ask.settings}}"/></StackPanel></Button>
             </StackPanel>
             <StackPanel>
@@ -966,6 +975,108 @@ $xamlText = @'
                    FontFamily="Consolas, Nirmala UI" FontSize="12" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
         </DockPanel>
       </Border>
+    </Grid>
+
+    <!-- VOICE ASSISTANT: full-window sci-fi screen - Sanjeevani speaks, listens and works -->
+    <Grid Name="VoiceOverlay" Grid.ColumnSpan="2" Visibility="Collapsed" ClipToBounds="True">
+      <Grid.Background>
+        <RadialGradientBrush Center="0.5,0.42" GradientOrigin="0.5,0.42" RadiusX="0.8" RadiusY="0.9">
+          <GradientStop Color="#0B2236" Offset="0"/><GradientStop Color="#071121" Offset="0.5"/><GradientStop Color="#03060C" Offset="1"/>
+        </RadialGradientBrush>
+      </Grid.Background>
+      <Rectangle IsHitTestVisible="False" Opacity="0.55">
+        <Rectangle.Fill>
+          <DrawingBrush TileMode="Tile" Viewport="0,0,44,44" ViewportUnits="Absolute">
+            <DrawingBrush.Drawing><GeometryDrawing Geometry="M0,0 L44,0 M0,0 L0,44"><GeometryDrawing.Pen><Pen Brush="#0D2537" Thickness="1"/></GeometryDrawing.Pen></GeometryDrawing></DrawingBrush.Drawing>
+          </DrawingBrush>
+        </Rectangle.Fill>
+      </Rectangle>
+      <Rectangle Name="VScan" Height="160" VerticalAlignment="Top" IsHitTestVisible="False">
+        <Rectangle.RenderTransform><TranslateTransform Y="-200"/></Rectangle.RenderTransform>
+        <Rectangle.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#002DD4BF" Offset="0"/><GradientStop Color="#162DD4BF" Offset="0.85"/><GradientStop Color="#552DD4BF" Offset="0.99"/><GradientStop Color="#002DD4BF" Offset="1"/></LinearGradientBrush></Rectangle.Fill>
+      </Rectangle>
+      <!-- HUD corners -->
+      <Path Data="M0,40 L0,0 L40,0" Stroke="#2DD4BF" StrokeThickness="2" Opacity="0.7" Margin="16" HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False"/>
+      <Path Data="M0,0 L40,0 L40,40" Stroke="#2DD4BF" StrokeThickness="2" Opacity="0.7" Margin="16" HorizontalAlignment="Right" VerticalAlignment="Top" IsHitTestVisible="False"/>
+      <Path Data="M0,0 L0,40 L40,40" Stroke="#2DD4BF" StrokeThickness="2" Opacity="0.7" Margin="16" HorizontalAlignment="Left" VerticalAlignment="Bottom" IsHitTestVisible="False"/>
+      <Path Data="M40,0 L40,40 L0,40" Stroke="#2DD4BF" StrokeThickness="2" Opacity="0.7" Margin="16" HorizontalAlignment="Right" VerticalAlignment="Bottom" IsHitTestVisible="False"/>
+
+      <Grid Margin="44,30,44,34">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <!-- header -->
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+            <CheckBox Name="VAuto" Content="{{v.auto}}" Foreground="#7DD3C8" FontSize="12" VerticalAlignment="Center" Margin="0,0,18,0" WindowChrome.IsHitTestVisibleInChrome="True"/>
+            <Border CornerRadius="6" BorderBrush="#1E4A5C" BorderThickness="1" Padding="10,4" Margin="0,0,12,0" VerticalAlignment="Center">
+              <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Icon}" Text="&#xE774;" FontSize="12" Foreground="#2DD4BF" Margin="0,0,6,0" VerticalAlignment="Center"/><TextBlock Name="VLangText" Text="मराठी" FontSize="12" Foreground="#A5F3FC" FontFamily="Consolas, Nirmala UI"/></StackPanel>
+            </Border>
+            <Button Style="{StaticResource WinBtn}" Tag="voice:close" Content="&#xE8BB;" ToolTip="{{v.close}}" WindowChrome.IsHitTestVisibleInChrome="True"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <Viewbox Width="26" Height="28" Margin="0,0,12,0">
+              <Canvas Width="120" Height="128"><Path Data="M60,0 L116,20 L110,84 L60,128 L10,84 L4,20 Z" Fill="#2DD4BF"/><Polyline Points="18,62 42,62 52,38 66,88 78,52 86,62 104,62" Stroke="#071121" StrokeThickness="10" StrokeLineJoin="Round"/></Canvas>
+            </Viewbox>
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="S A N J E E V A N I   ·   A I" FontFamily="Consolas" FontSize="15" FontWeight="Bold" Foreground="#E6FFFB"/>
+              <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                <Ellipse Name="VDot" Width="8" Height="8" Fill="#2DD4BF" Margin="0,0,7,0" VerticalAlignment="Center"/>
+                <TextBlock Name="VState" Text="ONLINE" FontFamily="Consolas, Nirmala UI" FontSize="12" Foreground="#7DD3C8"/>
+              </StackPanel>
+            </StackPanel>
+          </StackPanel>
+        </DockPanel>
+
+        <!-- centre: system readout | orb | live log -->
+        <Grid Grid.Row="1" Margin="0,10,0,6">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="250"/><ColumnDefinition Width="*"/><ColumnDefinition Width="300"/></Grid.ColumnDefinitions>
+          <Border VerticalAlignment="Center" BorderBrush="#163A4C" BorderThickness="1,0,0,0" Padding="14,4,0,4">
+            <StackPanel>
+              <TextBlock Text="// SYSTEM" FontFamily="Consolas" FontSize="11" Foreground="#2DD4BF" Margin="0,0,0,8"/>
+              <TextBlock Name="VSys" Text="--" FontFamily="Consolas, Nirmala UI" FontSize="12" Foreground="#8FB3C4" LineHeight="20" TextWrapping="Wrap"/>
+            </StackPanel>
+          </Border>
+          <Grid Grid.Column="1" Width="340" Height="340" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Canvas Name="VBars" Width="340" Height="340"/>
+            <Ellipse Name="VRing1" Width="300" Height="300" Stroke="#2DD4BF" StrokeThickness="1.5" StrokeDashArray="1 5" Opacity="0.6" RenderTransformOrigin="0.5,0.5"><Ellipse.RenderTransform><RotateTransform/></Ellipse.RenderTransform></Ellipse>
+            <Ellipse Name="VRing2" Width="262" Height="262" Stroke="#38BDF8" StrokeThickness="3" StrokeDashArray="22 9 4 9" Opacity="0.75" RenderTransformOrigin="0.5,0.5"><Ellipse.RenderTransform><RotateTransform/></Ellipse.RenderTransform></Ellipse>
+            <Ellipse Name="VRing3" Width="226" Height="226" Stroke="#2DD4BF" StrokeThickness="1" Opacity="0.35" StrokeDashArray="60 6" RenderTransformOrigin="0.5,0.5"><Ellipse.RenderTransform><RotateTransform/></Ellipse.RenderTransform></Ellipse>
+            <Ellipse Name="VCore" Width="170" Height="170" RenderTransformOrigin="0.5,0.5">
+              <Ellipse.RenderTransform><ScaleTransform/></Ellipse.RenderTransform>
+              <Ellipse.Fill>
+                <RadialGradientBrush GradientOrigin="0.42,0.36">
+                  <GradientStop Color="#B5FFF3" Offset="0"/><GradientStop Color="#14B8A6" Offset="0.42"/><GradientStop Color="#0B3B4A" Offset="0.82"/><GradientStop Color="#000B3B4A" Offset="1"/>
+                </RadialGradientBrush>
+              </Ellipse.Fill>
+              <Ellipse.Effect><DropShadowEffect Color="#2DD4BF" BlurRadius="70" ShadowDepth="0" Opacity="0.9"/></Ellipse.Effect>
+            </Ellipse>
+            <TextBlock Name="VCoreIcon" Style="{StaticResource Icon}" Text="&#xE720;" FontSize="38" Foreground="#E6FFFB" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.9"/>
+          </Grid>
+          <Border Grid.Column="2" VerticalAlignment="Center" BorderBrush="#163A4C" BorderThickness="0,0,1,0" Padding="0,4,14,4">
+            <StackPanel>
+              <TextBlock Text="// LIVE LOG" FontFamily="Consolas" FontSize="11" Foreground="#2DD4BF" Margin="0,0,0,8" HorizontalAlignment="Right"/>
+              <StackPanel Name="VSteps"/>
+            </StackPanel>
+          </Border>
+        </Grid>
+
+        <!-- subtitles -->
+        <StackPanel Grid.Row="2" HorizontalAlignment="Center" MaxWidth="980" Margin="0,0,0,16">
+          <TextBlock Name="VUser" FontSize="15" FontStyle="Italic" Foreground="#67E8F9" TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,8"/>
+          <TextBlock Name="VSay" FontSize="23" Foreground="#E6FFFB" TextAlignment="Center" TextWrapping="Wrap" LineHeight="34" MinHeight="34"/>
+        </StackPanel>
+
+        <!-- typing / mic -->
+        <Border Grid.Row="3" HorizontalAlignment="Center" Width="760" Background="#990A1626" BorderBrush="#1E4A5C" BorderThickness="1" CornerRadius="26" Padding="6">
+          <DockPanel>
+            <Button Name="VMicBtn" DockPanel.Dock="Left" Style="{StaticResource Btn}" Tag="voice:mic" Margin="0,0,6,0" Padding="14,9" ToolTip="{{v.mic}}"><TextBlock Style="{StaticResource Icon}" Text="&#xE720;" FontSize="16"/></Button>
+            <Button DockPanel.Dock="Right" Style="{StaticResource Primary}" Tag="voice:send" Margin="6,0,0,0" Padding="18,9"><StackPanel Orientation="Horizontal"><TextBlock Text="{{v.send}}"/><TextBlock Style="{StaticResource Icon}" Text="&#xE724;" FontSize="13" Margin="8,0,0,0"/></StackPanel></Button>
+            <Grid>
+              <TextBlock Name="VHint" Text="{{v.hint}}" Foreground="#3E6A7C" FontSize="14.5" Margin="10,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" TextTrimming="CharacterEllipsis"/>
+              <TextBox Name="VInput" BorderThickness="0" Background="Transparent" Foreground="#E6FFFB" CaretBrush="#2DD4BF" FontSize="15" Padding="4,6" VerticalContentAlignment="Center"/>
+            </Grid>
+          </DockPanel>
+        </Border>
+      </Grid>
     </Grid>
 
     <!-- splash: shield grows in, the heartbeat line draws itself, a ring pulses out, then everything fades -->
@@ -1345,17 +1456,25 @@ function Set-ScoreRing([int]$score) {
     $script:CountTimer.Start()
 }
 
+# CPU / RAM / disk / Windows tiles - filled at startup (before any scan) and again after every scan
+function Show-SysInfo($i, $load, $time) {
+    if (-not $i) { return }
+    $script:SysInfo = $i
+    $ld = if ($load) { " · $(L 'load' 'वापर' 'उपयोग') $($load.CPUPct)%" } else { '' }
+    $ui.CpuText.Text = "$($i.CPU)`n$($i.CPUCores) $(L 'cores' 'cores' 'cores')$ld"
+    $ui.RamText.Text = "$($i.RAMGB) GB $($i.RAMType)" + $(if ($load) { "`n$(L 'in use' 'वापर' 'उपयोग') $($load.RAMPct)%" } else { '' })
+    $sd = @($i.Disks | Where-Object { $_.IsSystem })[0]
+    $ui.DiskText.Text = "$(if ($sd) { $sd.MediaType } else { '?' }) · $($i.SysFreeGB) GB $(L 'free' 'मोकळे' 'खाली')`n($($i.SysFreePct)% / $($i.SysSizeGB) GB)"
+    $ui.OsText.Text = "$($i.OSCaption -replace 'Microsoft ', '')`n$($i.DisplayVer) build $($i.OSBuild)"
+    $mdl = if ($i.Model -like "$($i.Manufacturer)*") { $i.Model } else { "$($i.Manufacturer) $($i.Model)" }
+    $ui.ModelText.Text = "$mdl · $($i.ComputerName)" + $(if ($time) { " · scan: $(Get-Date $time -Format 'HH:mm')" } else { '' })
+    foreach ($t in $ui.CpuText, $ui.RamText, $ui.DiskText, $ui.OsText) { if (-not $script:NoAnim) { $t.BeginAnimation([Windows.UIElement]::OpacityProperty, (New-Anim 0 1 400)) } }
+}
 function Show-Scan($s) {
     $script:Scan = $s
     $i = $s.Info
     Set-ScoreRing ([int]$s.Score)
-    $ui.CpuText.Text = "$($i.CPU)`n$($i.CPUCores) cores · load $($s.Load.CPUPct)%"
-    $ui.RamText.Text = "$($i.RAMGB) GB $($i.RAMType)`n$(L 'in use' 'वापर' 'उपयोग') $($s.Load.RAMPct)%"
-    $sd = @($i.Disks | Where-Object { $_.IsSystem })[0]
-    $ui.DiskText.Text = "$(if ($sd) { $sd.MediaType } else { '?' }) · $($i.SysFreeGB) GB free`n($($i.SysFreePct)% of $($i.SysSizeGB) GB)"
-    $ui.OsText.Text = "$($i.OSCaption -replace 'Microsoft ', '')`n$($i.DisplayVer) build $($i.OSBuild)"
-    $mdl = if ($i.Model -like "$($i.Manufacturer)*") { $i.Model } else { "$($i.Manufacturer) $($i.Model)" }
-    $ui.ModelText.Text = "$mdl · $($i.ComputerName) · scan: $(Get-Date $s.Time -Format 'HH:mm')"
+    Show-SysInfo $i $s.Load $s.Time
     $rows = foreach ($f in $s.Findings) {
         $r = [FindingRow]::new()
         $r.Title = $f.Title; $r.Detail = $f.Detail; $r.Color = $SevColor[$f.Severity]; $r.SevText = $SevText[$f.Severity] + $(if ($f.Points -gt 0) { "  −$($f.Points)" } else { '' })
@@ -1996,9 +2115,21 @@ function Invoke-AskGo([string]$text) {
     $mode = $script:AiMode
     $cfg = Get-PDAiConfig $UsbRoot
     $online = ($mode -in 'auto', 'online') -and $cfg.key
+    if (-not (Confirm-AskConsent $online $cfg)) { return }
+    Start-AssistJob $text $mode $cfg
+}
+# the one consent before the Assistant changes anything (voice: asked once and remembered)
+function Confirm-AskConsent([bool]$online, $cfg, [switch]$Remember) {
+    if ($Remember -and (Get-PDSetting $UsbRoot 'assistConsent' $false) -eq $true) { return $true }
     $send = if ($online) { if ($cfg.sendPcInfo) { L ' (the problem description and the PC''s hardware details go to the online AI - no names or files)' ' (online AI ला समस्येचे वर्णन आणि PC ची hardware माहिती पाठवली जाईल - नावे / files नाहीत)' ' (online AI को समस्या का विवरण और PC की hardware जानकारी जाएगी - नाम / files नहीं)' } else { L ' (the problem description goes to the online AI)' ' (online AI ला समस्येचे वर्णन पाठवले जाईल)' ' (online AI को समस्या का विवरण जाएगा)' } } else { L ' (without internet)' ' (internet शिवाय)' ' (बिना internet के)' }
     $msg = (L "The Assistant will now:`n`n1.  understand the problem{0}`n2.  check whether it really exists on this PC`n3.  if it does, fix it automatically - a restore point first; big repairs (e.g. system files) can take 15-40 minutes`n`nEvery change can be undone. Start?" "Assistant आता:`n`n1.  समस्या समजून घेईल{0}`n2.  ती समस्या या PC वर खरंच आहे का ते तपासेल`n3.  असल्यास आपोआप दुरुस्त करेल - आधी restore point; मोठ्या दुरुस्त्यांना (उदा. system files) 15-40 मिनिटे लागू शकतात`n`nसगळे बदल Undo करता येतात. सुरू करायचे?" "Assistant अब:`n`n1.  समस्या समझेगा{0}`n2.  जाँचेगा कि वह इस PC पर सच में है या नहीं`n3.  है तो अपने आप ठीक करेगा - पहले restore point; बड़ी मरम्मत (जैसे system files) में 15-40 मिनट लग सकते हैं`n`nसभी बदलाव Undo हो सकते हैं। शुरू करें?") -f $send
-    if (-not (Ask $msg 'Sanjeevani Assistant')) { return }
+    $ok = Ask $msg 'Sanjeevani Assistant'
+    if ($ok -and $Remember) { [void](Set-PDSetting $UsbRoot 'assistConsent' $true) }
+    return $ok
+}
+# understand -> check -> fix, in the background; the chat page always gets the result, the voice screen too when open
+function Start-AssistJob([string]$text, [string]$mode, $cfg) {
+    $online = ($mode -in 'auto', 'online') -and $cfg.key
     $ui.AskBox.Text = ''
     $me = New-Bubble $true; Add-BubbleText $me $text 15 '#FFFFFF'
     $script:AskWork = New-Bubble $false
@@ -2011,7 +2142,7 @@ function Invoke-AskGo([string]$text) {
         $u = Resolve-PDProblemIds -Text $P.Text -Problems $probs -UsbRoot $P.UsbRoot -Mode $P.Mode -PcInfo $P.Pc
         $r = if ($u.Ids.Count) { Invoke-PDTroubleshoot -Ids $u.Ids -Problems $probs } else { $null }
         [pscustomobject]@{ U = $u; R = $r; mr = $(if ($r) { Format-PDTroubleshoot $r 'mr' }); en = $(if ($r) { Format-PDTroubleshoot $r 'en' }); hi = $(if ($r) { Format-PDTroubleshoot $r 'hi' }) }
-    } -Params @{ Text = $text; Mode = $mode; Pc = $pc; DataDir = $DataDir; UsbRoot = $UsbRoot } -OnDone { param($o) Show-AskResult $o }
+    } -Params @{ Text = $text; Mode = $mode; Pc = $pc; DataDir = $DataDir; UsbRoot = $UsbRoot } -OnDone { param($o) Show-AskResult $o; if ($script:V.Fixing) { Complete-VoiceFix $o } }
 }
 
 function Show-AskResult($o) {
@@ -2046,6 +2177,330 @@ function Show-AskResult($o) {
     foreach ($n in $o.U.Notes) { Add-BubbleText $sp ("ℹ " + $n) 11 '#64748B' }
     $ui.ChatScroll.ScrollToEnd()
     Update-AiStatus
+}
+
+# ---------------------------------------------------------------- voice assistant: Sanjeevani speaks, listens and works
+# Flow: welcome -> "how can I help?" -> microphone on -> the user speaks (or types) -> "okay, I will check ..." -> calm music
+# while checking / fixing, with spoken progress -> what the problem was and what was done -> "any other help?" ->
+# "no / thanks" -> "thank you" -> back to the dashboard. The conversation follows the language the user speaks.
+$script:V = @{ Open = $false; Lang = $Lang; State = 'idle'; Mic = $null; GreetDone = $false; Queue = (New-Object System.Collections.ArrayList); Speaking = $false
+    Cur = $null; SpeakUntil = $null; Tasks = (New-Object System.Collections.ArrayList); Tries = 0; Fixing = $false; Level = 0.0; T = 0.0; Bars = @(); MusicTarget = 0.0; Listening = $false }
+$VoiceTemp = Join-Path $env:TEMP 'Sanjeevani-voice'
+$VStateText = @{
+    listen = @{ en = 'LISTENING ...'; mr = 'ऐकत आहे ...'; hi = 'सुन रही हूँ ...' }
+    think  = @{ en = 'UNDERSTANDING ...'; mr = 'समजून घेत आहे ...'; hi = 'समझ रही हूँ ...' }
+    work   = @{ en = 'CHECKING AND REPAIRING ...'; mr = 'तपासणी आणि दुरुस्ती चालू ...'; hi = 'जाँच और मरम्मत चल रही है ...' }
+    speak  = @{ en = 'SPEAKING'; mr = 'बोलत आहे'; hi = 'बोल रही हूँ' }
+    idle   = @{ en = 'READY'; mr = 'तयार'; hi = 'तैयार' }
+}
+$VStateColor = @{ listen = '#22D3EE'; think = '#A78BFA'; work = '#A78BFA'; speak = '#2DD4BF'; idle = '#475569' }
+$VLangNames = @{ en = 'English'; mr = 'मराठी'; hi = 'हिन्दी' }
+
+function VL([string]$key, [object[]]$a) { Get-PDVoiceLine $key $script:V.Lang $a }
+
+# background work for the voice (speech synthesis, recording, recognition) - its own small pool, separate from repair jobs
+function Initialize-VoicePool {
+    if ($script:VPool) { return }
+    $iss = [initialsessionstate]::CreateDefault()
+    $iss.ImportPSModule([string[]]@($Modules | Where-Object { $_ -match '\\(Common|Ask|Voice)\.psm1$' }))
+    foreach ($n in 'PDLogQueue', 'PDCtx', 'PDState') { $iss.Variables.Add((New-Object Management.Automation.Runspaces.SessionStateVariableEntry $n, (Get-Variable -Name $n -Scope Global -ValueOnly), '')) }
+    $iss.Variables.Add((New-Object Management.Automation.Runspaces.SessionStateVariableEntry 'PDLang', $Lang, ''))
+    $script:VPool = [runspacefactory]::CreateRunspacePool(1, 3, $iss, $Host)
+    $script:VPool.Open()
+}
+function Start-VTask([scriptblock]$Work, [hashtable]$P, [scriptblock]$OnDone, $Ctx = $null) {
+    Initialize-VoicePool
+    $ps = [powershell]::Create(); $ps.RunspacePool = $script:VPool
+    [void]$ps.AddScript($Work.ToString()).AddArgument($P)
+    [void]$script:V.Tasks.Add(@{ PS = $ps; H = $ps.BeginInvoke(); OnDone = $OnDone; Ctx = $Ctx })
+}
+function Update-VTasks {
+    foreach ($t in @($script:V.Tasks)) {
+        if (-not $t.H.IsCompleted) { continue }
+        $script:V.Tasks.Remove($t)
+        $res = $null
+        try { $out = $t.PS.EndInvoke($t.H); if ($out -and $out.Count) { $res = $out[$out.Count - 1] } } catch { $global:PDLogQueue.Enqueue('[WARN] voice: ' + $_.Exception.Message) }
+        foreach ($e in $t.PS.Streams.Error) { $global:PDLogQueue.Enqueue('[WARN] voice: ' + $e.ToString()) }
+        $t.PS.Dispose()
+        if ($t.OnDone) { try { & $t.OnDone $res $t.Ctx } catch { $global:PDLogQueue.Enqueue('[WARN] voice: ' + $_.Exception.Message) } }
+    }
+}
+
+# ---- speaking: every sentence is synthesised as soon as it is queued and played in order
+function Say-V([string]$text, [scriptblock]$Then, [string]$lang) {
+    if (-not $script:V.Open) { return }
+    if (-not $lang) { $lang = $script:V.Lang }
+    New-Item -ItemType Directory -Path $VoiceTemp -Force -ErrorAction SilentlyContinue | Out-Null
+    $it = @{ Text = $text; Lang = $lang; Then = $Then; Ready = $false; Wav = (Join-Path $VoiceTemp ('s' + [guid]::NewGuid().ToString('N').Substring(0, 10) + '.wav')); Engine = $null }
+    [void]$script:V.Queue.Add($it)
+    Start-VTask { param($P) New-PDSpeech -Text $P.Text -Lang $P.Lang -Out $P.Out -UsbRoot $P.Root } @{ Text = $text; Lang = $lang; Out = $it.Wav; Root = $UsbRoot } { param($r, $c) $c.Engine = $r; $c.Ready = $true; Step-VSpeech } $it
+}
+function Step-VSpeech {
+    if (-not $script:V.Open -or $script:V.Speaking -or -not $script:V.Queue.Count) { return }
+    $it = $script:V.Queue[0]
+    if (-not $it.Ready) { return }
+    $script:V.Queue.RemoveAt(0)
+    $script:V.Speaking = $true; $script:V.Cur = $it
+    if (-not $script:V.Fixing) { Set-VState 'speak' }
+    $ui.VSay.Text = $it.Text
+    if (-not $script:NoAnim) { $ui.VSay.BeginAnimation([Windows.UIElement]::OpacityProperty, (New-Anim 0.2 1 260)) }
+    $script:V.MusicTarget = [math]::Min($script:V.MusicTarget, 0.05)
+    if ($it.Engine -and (Test-Path -LiteralPath $it.Wav)) {
+        try { $script:VPlayer.Open((New-Object Uri $it.Wav)); $script:VPlayer.Volume = 1.0; $script:VPlayer.Play(); return } catch { }
+    }
+    # no voice available: the subtitle stays on screen for a reading time
+    $script:V.SpeakUntil = (Get-Date).AddMilliseconds([math]::Min(9000, [math]::Max(1800, $it.Text.Length * 60)))
+}
+function End-VSpeech {
+    $it = $script:V.Cur
+    $script:V.Speaking = $false; $script:V.SpeakUntil = $null; $script:V.Cur = $null
+    try { $script:VPlayer.Close() } catch { }
+    if ($it -and $it.Wav) { Remove-Item -LiteralPath $it.Wav -Force -ErrorAction SilentlyContinue }
+    if ($script:V.Fixing) { $script:V.MusicTarget = 0.16 } elseif ($script:V.MusicTarget -gt 0) { $script:V.MusicTarget = 0.16 }
+    if (-not $script:V.Queue.Count -and -not $script:V.Fixing -and $script:V.State -eq 'speak') { Set-VState 'idle' }
+    if ($it -and $it.Then) { & $it.Then }
+    Step-VSpeech
+}
+function Stop-VSpeech {
+    foreach ($q in @($script:V.Queue)) { Remove-Item -LiteralPath $q.Wav -Force -ErrorAction SilentlyContinue }
+    $script:V.Queue.Clear()
+    try { $script:VPlayer.Stop(); $script:VPlayer.Close() } catch { }
+    if ($script:V.Cur -and $script:V.Cur.Wav) { Remove-Item -LiteralPath $script:V.Cur.Wav -Force -ErrorAction SilentlyContinue }
+    $script:V.Speaking = $false; $script:V.Cur = $null; $script:V.SpeakUntil = $null
+}
+
+# ---- look
+function Set-VState([string]$s) {
+    $script:V.State = $s
+    $t = $VStateText[$s]; $ui.VState.Text = $(if ($t[$script:V.Lang]) { $t[$script:V.Lang] } else { $t.en })
+    $c = [Windows.Media.ColorConverter]::ConvertFromString($VStateColor[$s])
+    $ui.VDot.Fill = Brush $VStateColor[$s]
+    try { $ui.VCore.Effect.Color = $c; $ui.VCore.Fill.GradientStops[1].Color = $c } catch { }
+    foreach ($b in $script:V.Bars) { $b.Stroke = Brush $VStateColor[$s] }
+    $ui.VCoreIcon.Text = [string][char]$(switch ($s) { 'listen' { 0xE720 } 'think' { 0xE9F5 } 'work' { 0xE90F } 'speak' { 0xE767 } default { 0xE720 } })
+    $ui.VMicBtn.IsEnabled = ($s -ne 'work')
+}
+function Set-VLang([string]$l) {
+    $script:V.Lang = $l
+    $ui.VLangText.Text = $VLangNames[$l]
+    Set-VState $script:V.State
+}
+function Add-VStep([string]$text, [string]$color = '#8FB3C4') {
+    $tb = New-Object Windows.Controls.TextBlock
+    $tb.Text = '▸ ' + $text; $tb.FontFamily = 'Consolas, Nirmala UI'; $tb.FontSize = 12; $tb.Foreground = Brush $color
+    $tb.TextWrapping = 'Wrap'; $tb.TextAlignment = 'Right'; $tb.Margin = '0,0,0,5'
+    [void]$ui.VSteps.Children.Add($tb)
+    while ($ui.VSteps.Children.Count -gt 9) { $ui.VSteps.Children.RemoveAt(0) }
+    if (-not $script:NoAnim) { $tb.BeginAnimation([Windows.UIElement]::OpacityProperty, (New-Anim 0 1 300)) }
+}
+function Initialize-VBars {
+    if ($script:V.Bars.Count) { return }
+    $n = 72
+    $script:V.Bars = for ($i = 0; $i -lt $n; $i++) {
+        $l = New-Object Windows.Shapes.Line
+        $l.StrokeThickness = 3; $l.StrokeStartLineCap = 'Round'; $l.StrokeEndLineCap = 'Round'; $l.Stroke = Brush '#2DD4BF'; $l.Opacity = 0.85
+        $l.Tag = 2 * [math]::PI * $i / $n
+        [void]$ui.VBars.Children.Add($l); $l
+    }
+}
+function Update-VBars([double]$level) {
+    $t = $script:V.T
+    foreach ($b in $script:V.Bars) {
+        $a = [double]$b.Tag
+        $wob = 0.55 + 0.45 * [math]::Sin($a * 5 + $t * 3.1) * [math]::Cos($a * 3 - $t * 2.3)
+        $len = 4 + $level * 46 * [math]::Abs($wob) + 2 * [math]::Sin($t * 2 + $a * 9)
+        $r0 = 156; $r1 = $r0 + [math]::Max([double]3, [double]$len)
+        $cx = 170; $cy = 170
+        $b.X1 = $cx + $r0 * [math]::Cos($a); $b.Y1 = $cy + $r0 * [math]::Sin($a)
+        $b.X2 = $cx + $r1 * [math]::Cos($a); $b.Y2 = $cy + $r1 * [math]::Sin($a)
+    }
+    $s = 1 + $level * 0.12 + 0.02 * [math]::Sin($t * 1.6)
+    $ui.VCore.RenderTransform.ScaleX = $s; $ui.VCore.RenderTransform.ScaleY = $s
+}
+function Start-VAnimations([bool]$on) {
+    foreach ($p in @(@('VRing1', 26), @('VRing2', -18), @('VRing3', 40))) {
+        $rt = $ui[$p[0]].RenderTransform
+        if ($on -and -not $script:NoAnim) {
+            $a = New-Anim 0 (360 * [math]::Sign($p[1])) ([math]::Abs($p[1]) * 1000); $a.RepeatBehavior = [Windows.Media.Animation.RepeatBehavior]::Forever
+            $rt.BeginAnimation([Windows.Media.RotateTransform]::AngleProperty, $a)
+        } else { $rt.BeginAnimation([Windows.Media.RotateTransform]::AngleProperty, $null) }
+    }
+    $st = $ui.VScan.RenderTransform
+    if ($on -and -not $script:NoAnim) {
+        $a = New-Anim -200 ([math]::Max([double]900, [double]$win.ActualHeight) + 40) 5200; $a.RepeatBehavior = [Windows.Media.Animation.RepeatBehavior]::Forever
+        $st.BeginAnimation([Windows.Media.TranslateTransform]::YProperty, $a)
+    } else { $st.BeginAnimation([Windows.Media.TranslateTransform]::YProperty, $null) }
+}
+function Show-VSys {
+    $i = $script:SysInfo
+    if (-not $i) { $ui.VSys.Text = '--'; return }
+    $sd = @($i.Disks | Where-Object { $_.IsSystem })[0]
+    $dev = if ($i.IsLaptop) { 'LAPTOP' } else { 'DESKTOP' }
+    $ui.VSys.Text = "$dev  $($i.Manufacturer)`nCPU   $($i.CPU)`nRAM   $($i.RAMGB) GB $($i.RAMType)`nDISK  $(if ($sd) { $sd.MediaType } else { '?' }) · $($i.SysFreeGB) GB free`nOS    $($i.OSCaption -replace 'Microsoft ', '') $($i.DisplayVer)"
+}
+
+# ---- music while working (generated calm loop in assets\ambient.mp3)
+function Start-VMusic { $script:V.MusicTarget = 0.16; try { if (-not $script:VMusicOn) { $script:VMusic.Open((New-Object Uri (Join-Path $Assets 'ambient.mp3'))); $script:VMusic.Volume = 0; $script:VMusic.Play(); $script:VMusicOn = $true } } catch { } }
+function Stop-VMusic { $script:V.MusicTarget = 0.0 }
+
+# ---- open / close
+function Open-Voice {
+    if ($script:V.Open) { return }
+    if (-not $script:VPlayer) {
+        $script:VPlayer = New-Object Windows.Media.MediaPlayer
+        $script:VPlayer.Add_MediaEnded({ End-VSpeech })
+        $script:VPlayer.Add_MediaFailed({ $script:V.SpeakUntil = (Get-Date).AddMilliseconds(1500) })
+        $script:VMusic = New-Object Windows.Media.MediaPlayer
+        $script:VMusic.Add_MediaEnded({ $script:VMusic.Position = [TimeSpan]::Zero; $script:VMusic.Play() })
+    }
+    $script:V.Open = $true; $script:V.Tries = 0; $script:V.GreetDone = $false; $script:V.Mic = $null; $script:V.Fixing = $false
+    Set-VLang $Lang
+    $ui.VSay.Text = ''; $ui.VUser.Text = ''; $ui.VSteps.Children.Clear(); $ui.VInput.Text = ''
+    $ui.VAuto.IsChecked = ((Get-PDSetting $UsbRoot 'voice' $true) -ne $false)
+    Initialize-VBars; Show-VSys
+    $ui.VoiceOverlay.Visibility = 'Visible'
+    if (-not $script:NoAnim) { $ui.VoiceOverlay.BeginAnimation([Windows.UIElement]::OpacityProperty, (New-Anim 0 1 450)) }
+    Start-VAnimations $true
+    Set-VState 'speak'
+    Add-VStep 'voice link online' '#2DD4BF'
+    # microphone (turned on if muted / blocked) - checked while Sanjeevani greets
+    Start-VTask { param($P) $m = Enable-PDMicrophone; [pscustomobject]@{ Has = $m.Has; Fixed = $m.Fixed; CanHear = (Test-PDCanListen -UsbRoot $P.Root -Mode $P.Mode) } } @{ Root = $UsbRoot; Mode = $script:AiMode } {
+        param($r) $script:V.Mic = $(if ($r) { $r } else { [pscustomobject]@{ Has = $false; Fixed = $false; CanHear = $false } })
+        Add-VStep $(if ($script:V.Mic.Has) { 'microphone ready' } else { 'no microphone' }) $(if ($script:V.Mic.Has) { '#2DD4BF' } else { '#FBBF24' })
+        if ($script:V.GreetDone) { Invoke-VAfterGreet }
+    }
+    Say-V (Get-PDVoiceLine 'welcome' 'en') -lang 'en'
+    Say-V (VL 'greet') -Then { $script:V.GreetDone = $true; if ($script:V.Mic) { Invoke-VAfterGreet } }
+}
+function Invoke-VAfterGreet {
+    $m = $script:V.Mic
+    if ($m.Has -and $m.CanHear) {
+        if ($m.Fixed) { Say-V (VL 'micfixed') }
+        Start-VListen
+    } elseif ($m.Has) {
+        Say-V (VL 'nostt'); Set-VState 'idle'; $ui.VInput.Focus() | Out-Null
+    } else {
+        Say-V (VL 'nomic'); Set-VState 'idle'; $ui.VInput.Focus() | Out-Null
+    }
+}
+function Close-Voice {
+    if (-not $script:V.Open) { return }
+    $script:V.Open = $false; $script:V.Fixing = $false
+    if ('SJVoice.Mic' -as [type]) { [SJVoice.Mic]::StopNow = $true }
+    Stop-VSpeech
+    $script:V.MusicTarget = 0.0
+    try { $script:VMusic.Stop(); $script:VMusicOn = $false } catch { }
+    Start-VAnimations $false
+    $ui.VoiceOverlay.Visibility = 'Collapsed'
+    Show-Page 'dashboard'
+}
+
+# ---- listening
+function Start-VListen {
+    if (-not $script:V.Open -or $script:V.Fixing) { return }
+    if (-not $script:V.Mic -or -not $script:V.Mic.Has -or -not $script:V.Mic.CanHear) { $ui.VInput.Focus() | Out-Null; return }
+    if ($script:V.Listening) { return }
+    Stop-VSpeech
+    $script:V.Listening = $true
+    Set-VState 'listen'
+    New-Item -ItemType Directory -Path $VoiceTemp -Force -ErrorAction SilentlyContinue | Out-Null
+    $wav = Join-Path $VoiceTemp ('r' + [guid]::NewGuid().ToString('N').Substring(0, 10) + '.wav')
+    Start-VTask { param($P) Invoke-PDRecord -Path $P.Out } @{ Out = $wav } { param($r, $c) Complete-VRecord $r $c } @{ Wav = $wav }
+}
+function Complete-VRecord([string]$r, $c) {
+    $script:V.Listening = $false
+    if (-not $script:V.Open) { Remove-Item -LiteralPath $c.Wav -Force -ErrorAction SilentlyContinue; return }
+    if ($r -eq 'ok') {
+        Set-VState 'think'
+        Start-VTask { param($P) ConvertFrom-PDSpeech -Wav $P.Wav -Lang $P.Lang -UsbRoot $P.Root -Mode $P.Mode } @{ Wav = $c.Wav; Lang = $script:V.Lang; Root = $UsbRoot; Mode = $script:AiMode } {
+            param($t, $c) Remove-Item -LiteralPath $c.Wav -Force -ErrorAction SilentlyContinue
+            if ($t -and $t.Error -and -not $t.Text) { $global:PDLogQueue.Enqueue('[WARN] voice: ' + $t.Error) }
+            Invoke-VHeard $(if ($t) { [string]$t.Text } else { '' }) $true
+        } $c
+        return
+    }
+    Remove-Item -LiteralPath $c.Wav -Force -ErrorAction SilentlyContinue
+    if ($r -eq 'stopped') { Set-VState 'idle'; return }
+    if ($r -like 'error:*') { $global:PDLogQueue.Enqueue("[WARN] voice: microphone $r"); $script:V.Mic.Has = $false; Say-V (VL 'nomic'); Set-VState 'idle'; return }
+    Invoke-VHeard '' $true
+}
+# the user said (or typed) something
+function Invoke-VHeard([string]$text, [bool]$spoken) {
+    $text = ($text -replace '\s+', ' ').Trim()
+    if ($text.Length -lt 2) {
+        $script:V.Tries++
+        if ($spoken -and $script:V.Tries -le 2) { Say-V (VL 'nohear') -Then { Start-VListen } }
+        else { Say-V (VL 'typeit'); Set-VState 'idle'; $ui.VInput.Focus() | Out-Null }
+        return
+    }
+    $script:V.Tries = 0
+    $ui.VUser.Text = '› ' + $text
+    Add-VStep ('user: ' + $(if ($text.Length -gt 40) { $text.Substring(0, 40) + '…' } else { $text })) '#67E8F9'
+    $l = Get-PDTextLang $text
+    if ($l -and $l -ne $script:V.Lang) { Set-VLang $l; Add-VStep "language: $($VLangNames[$l])" '#67E8F9' }
+    if (Test-PDGoodbye $text) { Say-V (VL 'bye') -Then { Close-Voice }; return }
+    Start-VoiceFix $text
+}
+function Start-VoiceFix([string]$text) {
+    if ($script:Job) { Say-V (VL 'busy'); Set-VState 'idle'; return }
+    $mode = $script:AiMode; $cfg = Get-PDAiConfig $UsbRoot
+    $online = ($mode -in 'auto', 'online') -and $cfg.key
+    if (-not (Confirm-AskConsent $online $cfg -Remember)) { Say-V (VL 'more') -Then { Start-VListen }; return }
+    $ui.VSteps.Children.Clear()
+    $global:PDState.Events = New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]'
+    $script:V.Fixing = $true
+    Set-VState 'work'
+    Say-V (VL 'ack')
+    Say-V (VL 'working')
+    Start-VMusic
+    Add-VStep 'understanding the problem' '#A78BFA'
+    Start-AssistJob $text $mode $cfg
+}
+# spoken progress from the troubleshooter (check / probe / fix / verify)
+function Update-VEvents {
+    $q = $global:PDState.Events
+    if (-not $q -or -not $script:V.Fixing) { return }
+    $ev = $null
+    while ($q.TryDequeue([ref]$ev)) {
+        $title = if ($ev.Problem) { $t = $ev.Problem.($script:V.Lang).title; if ($t) { $t } else { $ev.Problem.en.title } } else { '' }
+        $quiet = ($script:V.Queue.Count -ge 2)
+        switch ($ev.Kind) {
+            'check' { Add-VStep ("check · " + $title) '#C4B5FD'; if (-not $quiet) { Say-V (VL 'checking' @($title)) } }
+            'probe' { Add-VStep ("deep check · " + $title) '#C4B5FD'; Say-V (VL 'probing') }
+            'fix' { Add-VStep ("repair · " + $title) '#FBBF24'; Say-V (VL 'fixing') }
+            'verify' { Add-VStep 'verifying' '#C4B5FD' }
+            'refresh' { Add-VStep ("refresh · " + $title) '#8FB3C4' }
+            'restorepoint' { Add-VStep 'restore point' '#8FB3C4'; if (-not $quiet) { Say-V (VL 'restorept') } }
+        }
+    }
+}
+# CI screenshot: the voice screen in the middle of a repair
+function Show-VoiceDemo {
+    Set-VLang $Lang; Initialize-VBars; Show-VSys
+    $ui.VoiceOverlay.Visibility = 'Visible'; $ui.VoiceOverlay.Opacity = 1
+    $ui.VSteps.Children.Clear()
+    $ui.VUser.Text = '› ' + @{ en = 'my laptop has no sound'; mr = 'माझ्या laptop चा आवाज येत नाही'; hi = 'मेरे laptop में आवाज़ नहीं आ रही' }[$Lang]
+    $ui.VSay.Text = VL 'ack'
+    foreach ($s in 'voice link online', 'microphone ready', 'understanding the problem') { Add-VStep $s '#2DD4BF' }
+    Add-VStep ('check · ' + @{ en = 'No sound'; mr = 'आवाज येत नाही'; hi = 'आवाज़ नहीं आ रही' }[$Lang]) '#C4B5FD'
+    Add-VStep 'restore point' '#8FB3C4'; Add-VStep 'repair · audio service' '#FBBF24'
+    Set-VState 'work'; $script:V.T = 1.3; Update-VBars 0.55
+}
+function Complete-VoiceFix($o) {
+    Update-VEvents
+    $script:V.Fixing = $false
+    Stop-VMusic
+    if (-not $script:V.Open) { return }
+    Set-VState 'speak'
+    if (-not $o -or -not $o.PSObject.Properties['R'] -or -not $o.R) {
+        Add-VStep 'not understood' '#FBBF24'
+        Say-V (VL 'unclear') -Then { Start-VListen }
+        return
+    }
+    $oc = $o.R.Outcome
+    Add-VStep ("result · " + $oc) $(switch ($oc) { 'fixed' { '#4ADE80' } 'restart' { '#38BDF8' } 'notfound' { '#94A3B8' } default { '#FBBF24' } })
+    Say-V (Get-PDTroubleshootSpeech $o.R $script:V.Lang)
+    Say-V (VL 'more') -Then { Start-VListen }
 }
 
 function Show-AiSettings {
@@ -2363,6 +2818,14 @@ $win.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, [Windows.R
             'tg'      { Invoke-ToolGuide $arg }
             'reg'     { if ($arg -eq 'fix') { Invoke-RegFix } else { Invoke-RegScan } }
             'aimode'  { $script:AiMode = $arg; Set-AiModeButtons }
+            'voice'   {
+                switch ($arg) {
+                    'open'  { Open-Voice }
+                    'close' { Close-Voice }
+                    'mic'   { if ($script:V.Listening) { [SJVoice.Mic]::StopNow = $true } elseif ($script:V.Mic -and -not $script:V.Mic.Has) { Say-V (VL 'nomic'); $ui.VInput.Focus() | Out-Null } else { $script:V.Tries = 0; Start-VListen } }
+                    'send'  { $t = $ui.VInput.Text; $ui.VInput.Text = ''; Invoke-VHeard $t $false }
+                }
+            }
             'ask'     {
                 switch -Regex ($arg) {
                     '^go$'      { Invoke-AskGo }
@@ -2402,10 +2865,43 @@ $win.Add_Closing({
         if (-not (Ask (L 'A task is still running. Closing now leaves it unfinished. Close anyway?' 'एक काम अजून चालू आहे. मध्येच बंद केल्यास अपूर्ण राहील. तरी बंद करायचे?' 'एक काम अभी चल रहा है। बीच में बंद करने से अधूरा रहेगा। फिर भी बंद करें?'))) { $e.Cancel = $true; return }
     }
     if ($script:Job) { try { $script:Job.PS.Stop() } catch { } }
-    $timer.Stop()
+    $timer.Stop(); $vtimer.Stop()
+    if ('SJVoice.Mic' -as [type]) { [SJVoice.Mic]::StopNow = $true }
+    try { Stop-VSpeech; if ($script:VMusic) { $script:VMusic.Stop() } } catch { }
+    try { if ($script:VPool) { $script:VPool.Close() } } catch { }
+    Remove-Item -LiteralPath $VoiceTemp -Recurse -Force -ErrorAction SilentlyContinue
     try { Stop-PDLocalAI } catch { }      # the offline AI server must not keep running after PC Doctor closes
 })
 $ui.AskBox.Add_KeyDown({ param($s, $e) if ($e.Key -eq 'Return') { $e.Handled = $true; Invoke-AskGo } })
+$ui.VInput.Add_KeyDown({ param($s, $e) if ($e.Key -eq 'Return') { $e.Handled = $true; $t = $ui.VInput.Text; $ui.VInput.Text = ''; Invoke-VHeard $t $false } elseif ($e.Key -eq 'Escape') { Close-Voice } })
+$ui.VInput.Add_TextChanged({ $ui.VHint.Visibility = if ($ui.VInput.Text) { 'Collapsed' } else { 'Visible' } })
+$ui.VAuto.Add_Click({ [void](Set-PDSetting $UsbRoot 'voice' ([bool]$ui.VAuto.IsChecked)) })
+# voice screen: tasks, spoken progress, orb animation, music fade
+$vtimer = New-Object System.Windows.Threading.DispatcherTimer
+$vtimer.Interval = [TimeSpan]::FromMilliseconds(50)
+$vtimer.Add_Tick({
+    try {
+        if ($script:V.Tasks.Count) { Update-VTasks }
+        if ($script:VMusic) {
+            $mv = $script:VMusic.Volume; $tg = $script:V.MusicTarget
+            if ([math]::Abs($mv - $tg) -gt 0.004) { $script:VMusic.Volume = $mv + [math]::Sign($tg - $mv) * 0.004 } elseif ($tg -eq 0 -and $script:VMusicOn) { $script:VMusic.Pause(); $script:VMusicOn = $false }
+        }
+        if (-not $script:V.Open) { return }
+        Update-VEvents
+        if ($script:V.SpeakUntil -and (Get-Date) -ge $script:V.SpeakUntil) { End-VSpeech }
+        $script:V.T += 0.05
+        $target = switch ($script:V.State) {
+            'listen' { if ('SJVoice.Mic' -as [type]) { 0.15 + [double][SJVoice.Mic]::Level } else { 0.2 } }
+            'speak' { if ($script:V.Speaking) { 0.35 + 0.35 * [math]::Abs([math]::Sin($script:V.T * 7.3) * [math]::Cos($script:V.T * 3.1)) } else { 0.12 } }
+            'work' { 0.22 + 0.1 * [math]::Sin($script:V.T * 2) }
+            'think' { 0.2 + 0.15 * [math]::Abs([math]::Sin($script:V.T * 4)) }
+            default { 0.06 }
+        }
+        $script:V.Level += ($target - $script:V.Level) * 0.35
+        Update-VBars $script:V.Level
+    } catch { }
+})
+$vtimer.Start()
 $ui.AskBox.Add_TextChanged({ $ui.AskHint.Visibility = if ($ui.AskBox.Text) { 'Collapsed' } else { 'Visible' } })
 
 $ui.AdminText.Text = (L 'Administrator' 'Administrator' 'Administrator') + " ✓`n" + (L 'Reports' 'Reports' 'Reports') + ": $($global:PDCtx.ReportDir)"
@@ -2413,7 +2909,29 @@ $ui.LockText.Text = L 'Checking the pendrive ...' 'Pendrive तपासत आ�
 Set-LangButtons
 
 # ---------------------------------------------------------------- splash: logo grows in, the heartbeat line draws itself, a ring pulses out, then it fades away
+# first job: this PC's CPU / RAM / disk / Windows for the dashboard tiles, then the quick USB check
+function Start-Startup {
+    Start-PDJob -Title (L 'Reading this PC' 'PC ची माहिती घेत आहे' 'PC की जानकारी ले रहे हैं') -Work {
+        param($P)
+        $i = Get-PDSystemInfo
+        $l = $null; try { $l = Get-PDLoadSnapshot -Samples 1 } catch { }
+        $u = $null; try { $u = Test-SJIntegrity -Root $P.Root } catch { }
+        [pscustomobject]@{ Info = $i; Load = $l; Usb = $u }
+    } -Params @{ Root = $UsbRoot } -OnDone {
+        param($r)
+        Show-SysInfo $r.Info $r.Load $null
+        if ($r.Usb) { Show-UsbCheck $r.Usb $true }
+        $script:StartupDone = $true; Invoke-AfterStartup
+    }
+}
+# when both the splash and the first read of the PC are done: Sanjeevani greets (unless switched off)
+function Invoke-AfterStartup {
+    if (-not $script:StartupDone -or -not $script:SplashDone -or $script:Greeted -or $Headless) { return }
+    $script:Greeted = $true
+    if ((Get-PDSetting $UsbRoot 'voice' $true) -ne $false) { Open-Voice }
+}
 function Start-Splash {
+    Start-Startup                     # reads the PC while the logo animates, so the tiles are filled when the dashboard appears
     $sc = $ui.SplashLogo.RenderTransform
     $back = New-Object Windows.Media.Animation.BackEase; $back.Amplitude = 0.45; $back.EasingMode = 'EaseOut'
     $ui.SplashLogo.BeginAnimation([Windows.UIElement]::OpacityProperty, (New-Anim 0 1 350))
@@ -2430,7 +2948,7 @@ function Start-Splash {
     $out.Add_Completed({
         $ui.Splash.Visibility = 'Collapsed'
         Show-Entrance $ui.Page_dashboard 14 320
-        Invoke-UsbCheck $false $true      # quick check of the USB itself (lock switch, changes made by viruses)
+        $script:SplashDone = $true; Invoke-AfterStartup
         if (-not (Test-PDSameUserAsDesktop)) {
             Say (L "Note: PC Doctor is running under another (admin) account. Startup, visual-effect and folder changes will apply to that admin account, not to this user.`n`nBetter: make the PC's own user an admin and run it from that login." "लक्ष द्या: PC Doctor दुसऱ्या (admin) account ने चालू आहे. Startup, visual effects आणि folders चे बदल त्या admin account ला लागतील, या user ला नाही.`n`nयोग्य मार्ग: ज्या user चा PC आहे त्यालाच admin बनवून / त्याच्या login मधून चालवा." "ध्यान दें: PC Doctor दूसरे (admin) account से चल रहा है। Startup, visual effects और folders के बदलाव उस admin account पर लागू होंगे, इस user पर नहीं।`n`nसही तरीका: जिस user का PC है उसी को admin बनाकर / उसके login से चलाएँ।") 'Warning'
         }
@@ -2461,7 +2979,7 @@ if ($Headless) {
     $code = 0
     try {
         $script:NoAnim = $true
-        foreach ($n in 'FindingsList', 'StartupList', 'BloatList', 'FolderList', 'LogBox', 'Progress', 'TargetCombo', 'Win11List', 'AppList', 'TgList', 'TgDetail', 'TgSearch', 'StopBtn', 'RegList', 'RegInfo', 'OptCard', 'OptPanel', 'AskBox', 'ChatPanel', 'ChatScroll', 'AskGoBtn', 'AiModePanel', 'AiStatus', 'AiSettings', 'AiKey', 'AiProvider', 'Splash', 'ScoreArc', 'LangPanel') {
+        foreach ($n in 'FindingsList', 'StartupList', 'BloatList', 'FolderList', 'LogBox', 'Progress', 'TargetCombo', 'Win11List', 'AppList', 'TgList', 'TgDetail', 'TgSearch', 'StopBtn', 'RegList', 'RegInfo', 'OptCard', 'OptPanel', 'AskBox', 'ChatPanel', 'ChatScroll', 'AskGoBtn', 'AiModePanel', 'AiStatus', 'AiSettings', 'AiKey', 'AiProvider', 'Splash', 'ScoreArc', 'LangPanel', 'VoiceOverlay', 'VBars', 'VSay', 'VUser', 'VSteps', 'VInput', 'VMicBtn', 'VAuto', 'VCore', 'VSys') {
             if (-not $ui[$n]) { throw "element $n missing" }
         }
         $win.Left = 20; $win.Top = 20; $win.ShowActivated = $false
@@ -2497,6 +3015,7 @@ if ($Headless) {
             Show-Storage (Get-PDStorageAnalysis); Show-Page 'storage'; Wait-UI 300; Save-Visual $ui.RootBorder '06-storage'
             Show-Advice (Get-PDOSAdvice -Info $s.Info -DataDir $DataDir); Show-Page 'advisor'; Wait-UI 300; Save-Visual $ui.RootBorder '07-advisor'
             Show-Page 'toolbox'; Show-TgDetail 'crystaldiskinfo'; Wait-UI 400; Save-Visual $ui.RootBorder '08-tools'
+            Show-VoiceDemo; Wait-UI 400; Save-Visual $ui.RootBorder '10-voice'; $ui.VoiceOverlay.Visibility = 'Collapsed'
             Show-Page 'report'; Set-Busy $true; $ui.StatusText.Text = 'Quick Scan - 45%'; $ui.Progress.Value = 45; $ui.LogBox.Visibility = 'Visible'; Wait-UI 300; Save-Visual $ui.RootBorder '09-report-busy'; Set-Busy $false
             $script:ShotDialog = 'dialog'
             [void](Ask (L "The Assistant will now:`n`n1.  understand the problem`n2.  check whether it really exists on this PC`n3.  if it does, fix it automatically" "Assistant आता:`n`n1.  समस्या समजून घेईल`n2.  ती समस्या या PC वर खरंच आहे का ते तपासेल`n3.  असल्यास आपोआप दुरुस्त करेल" "Assistant अब:`n`n1.  समस्या समझेगा`n2.  जाँचेगा कि वह इस PC पर सच में है या नहीं`n3.  है तो अपने आप ठीक करेगा") 'Sanjeevani Assistant')

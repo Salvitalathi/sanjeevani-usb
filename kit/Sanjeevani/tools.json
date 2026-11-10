@@ -947,6 +947,78 @@
         "url": "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf"
       },
       "page": "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF"
+    },
+    {
+      "id": "piper",
+      "name": "Piper (voice engine)",
+      "category": "Voice",
+      "desc": "Assistant चा आवाज - offline text-to-speech (MIT license)",
+      "exe": "^piper\\.exe$",
+      "source": {
+        "kind": "github",
+        "repo": "rhasspy/piper",
+        "asset": "(?i)^piper_windows_amd64\\.zip$",
+        "anyRelease": true
+      },
+      "page": "https://github.com/rhasspy/piper"
+    },
+    {
+      "id": "voice-mr",
+      "name": "Piper voice - Marathi",
+      "category": "Voice",
+      "desc": "मराठी आवाज (Piper)",
+      "exe": "\\.onnx$",
+      "sizeMB": 80,
+      "source": { "kind": "piper-voice", "lang": "mr", "prefer": [ "female", "sunita", "priyamvada", "medium" ] },
+      "page": "https://huggingface.co/rhasspy/piper-voices"
+    },
+    {
+      "id": "voice-hi",
+      "name": "Piper voice - Hindi",
+      "category": "Voice",
+      "desc": "हिंदी आवाज (Piper, priyamvada - female)",
+      "exe": "\\.onnx$",
+      "sizeMB": 80,
+      "source": { "kind": "piper-voice", "lang": "hi", "prefer": [ "priyamvada", "female", "medium" ] },
+      "page": "https://huggingface.co/rhasspy/piper-voices"
+    },
+    {
+      "id": "voice-en",
+      "name": "Piper voice - English",
+      "category": "Voice",
+      "desc": "English voice (Piper, female)",
+      "exe": "\\.onnx$",
+      "sizeMB": 80,
+      "source": { "kind": "piper-voice", "lang": "en", "prefer": [ "en_GB-alba", "en_US-amy", "hfc_female", "lessac" ] },
+      "page": "https://huggingface.co/rhasspy/piper-voices"
+    },
+    {
+      "id": "whisper",
+      "name": "whisper.cpp (speech recognition)",
+      "category": "Voice",
+      "desc": "Assistant ऐकतो - offline speech-to-text (MIT license)",
+      "exe": "^whisper-cli\\.exe$",
+      "source": {
+        "kind": "github",
+        "repo": "ggml-org/whisper.cpp",
+        "asset": "(?i)^whisper-bin-x64\\.zip$",
+        "anyRelease": true
+      },
+      "page": "https://github.com/ggml-org/whisper.cpp"
+    },
+    {
+      "id": "whisper-model",
+      "name": "Whisper small (speech model)",
+      "category": "Voice",
+      "desc": "मराठी / हिंदी / English ऐकण्यासाठी model (MIT license)",
+      "file": "ggml-small-q5_1.bin",
+      "exe": "\\.bin$",
+      "sizeMB": 190,
+      "source": {
+        "kind": "url",
+        "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin"
+      },
+      "page": "https://huggingface.co/ggerganov/whisper.cpp"
     }
   ],
   "docs": [

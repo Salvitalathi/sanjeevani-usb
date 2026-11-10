@@ -183,7 +183,7 @@ Copy-Item (Join-Path $Kit '*') $fakeUsb -Recurse -Force
 $DataDir = Join-Path $fakeUsb 'Sanjeevani\PCDoctor\data'
 
 Test-Case 'Modules import' {
-    foreach ($m in 'Common', 'Diagnostics', 'Repair', 'Speed', 'Storage', 'Advisor', 'Report', 'ToolGuide', 'Integrity', 'Registry', 'Ask', 'LocalAI', 'Troubleshoot') {
+    foreach ($m in 'Common', 'Diagnostics', 'Repair', 'Speed', 'Storage', 'Advisor', 'Report', 'ToolGuide', 'Integrity', 'Registry', 'Ask', 'LocalAI', 'Troubleshoot', 'Voice') {
         Import-Module (Join-Path $fakeUsb "Sanjeevani\PCDoctor\lib\$m.psm1") -Force -DisableNameChecking
     }
     $ctx = Initialize-PDContext -UsbRoot $fakeUsb
@@ -657,6 +657,47 @@ Test-Case 'Assistant: finds a real fault, fixes it, confirms it, and skips candi
     }
     # 6. Marathi / Hindi summaries carry no English sentences from the checks
     foreach ($c in $r.Checked) { Assert ($c.Check.Text.mr -ne $c.Check.Text.en -or $c.Check.Text.en -notmatch '\b(the|is|was|and)\b') "English text inside Marathi: $($c.Check.Text.mr)" }
+}
+
+Test-Case 'Voice: lines in 3 languages, language detection, goodbye, microphone helper compiles' {
+    foreach ($k in Get-PDVoiceKeys) {
+        foreach ($l in 'en', 'mr', 'hi') { Assert ((Get-PDVoiceLine $k $l 'x').Length -gt 5) "voice line $k missing in $l" }
+        if ($k -ne 'welcome') { foreach ($l in 'mr', 'hi') { Assert ((Get-PDVoiceLine $k $l 'x') -match '[ऀ-ॿ]') "voice line $k in $l is not translated" } }
+    }
+    Assert ((Get-PDVoiceLine 'greet' 'mr') -eq 'मी संजीवनी. आपली काय मदत करू शकते?') 'greeting changed'
+    $cases = @{ 'माझ्या laptop चा आवाज येत नाही' = 'mr'; 'मेरे laptop में आवाज़ नहीं आ रही है' = 'hi'; 'my printer is not working' = 'en'
+                'net chalat nahi ahe' = 'mr'; 'internet nahi chal raha hai' = 'hi'; 'printer print देत नाही' = 'mr'; 'computer bahut slow hai' = 'hi' }
+    foreach ($k in $cases.Keys) { $g = Get-PDTextLang $k; Assert ($g -eq $cases[$k]) "language of '$k' = $g, expected $($cases[$k])" }
+    foreach ($t in 'नाही', 'नको, धन्यवाद', 'No thanks', 'धन्यवाद', 'नहीं, शुक्रिया', 'bas') { Assert (Test-PDGoodbye $t) "'$t' should end the talk" }
+    foreach ($t in 'internet नाही', 'नाही चालत', 'no internet', 'nahi chalat', 'printer चालत नाही', 'no sound', 'माझा laptop खूप हळू चालतो') { Assert (-not (Test-PDGoodbye $t)) "'$t' is a problem, not a goodbye" }
+    Assert (Initialize-PDVoiceNative) 'microphone / volume helper (C#) does not compile on PowerShell 5.1'
+    Write-Host ("      microphones: {0}" -f [SJVoice.Mic]::Devices) -ForegroundColor DarkGray
+    $m = Enable-PDMicrophone
+    Assert ($null -ne $m.Has) 'Enable-PDMicrophone returned nothing'
+    Assert ((ConvertTo-PDSpeakable '✔ C: has 12% free -> ok') -eq 'C drive has 12 percent free, ok') "speakable text: $(ConvertTo-PDSpeakable '✔ C: has 12% free -> ok')"
+}
+
+Test-Case 'Voice: speech is written with a Windows voice; speech-to-text request is well formed (mocked)' {
+    $root = Join-Path $env:TEMP ('sjv-voice-' + [guid]::NewGuid().ToString('N').Substring(0, 6))
+    New-Item -ItemType Directory -Path (Join-Path $root 'Sanjeevani') -Force | Out-Null
+    try {
+        $wav = Join-Path $root 'hello.wav'
+        $eng = New-PDSpeech -Text 'Welcome to Sanjeevani PC Doctor.' -Lang 'en' -Out $wav -UsbRoot $root
+        Write-Host "      speech engine on this Windows: $(if ($eng) { $eng } else { 'none (subtitles only)' })" -ForegroundColor DarkGray
+        if ($eng) { Assert ((Get-Item $wav).Length -gt 2000) 'speech file is empty' }
+        else { [IO.File]::WriteAllBytes($wav, [byte[]](@(0x52, 0x49, 0x46, 0x46) + @(0) * 60)) }
+        Assert (-not (Test-PDCanListen -UsbRoot $root)) 'can listen without key or offline model'
+        '{"provider":"gemini","key":"test-key","model":"gemini-test-flash"}' | Set-Content (Join-Path $root 'Sanjeevani\ai.json') -Encoding UTF8
+        Assert (Test-PDCanListen -UsbRoot $root) 'should listen online with a key'
+        $script:sent = $null
+        $mock = { param($u, $h, $b, $m) $script:sent = @{ Url = $u; Body = $b; Key = $h['x-goog-api-key'] }; '{"candidates":[{"content":{"parts":[{"text":"माझ्या laptop चा आवाज येत नाही"}]}}]}' }
+        $r = ConvertFrom-PDSpeech -Wav $wav -Lang 'mr' -UsbRoot $root -Transport $mock
+        Assert ($r.Text -eq 'माझ्या laptop चा आवाज येत नाही' -and $r.Source -eq 'online') "transcript: $($r.Text) / $($r.Source) / $($r.Error)"
+        Assert ($script:sent.Url -match 'gemini-test-flash:generateContent' -and $script:sent.Key -eq 'test-key') 'wrong request'
+        $j = $script:sent.Body | ConvertFrom-Json
+        Assert ($j.contents[0].parts[1].inline_data.mime_type -eq 'audio/wav' -and $j.contents[0].parts[1].inline_data.data.Length -gt 40) 'audio not attached'
+        Assert ($script:sent.Body -notmatch '@') 'the request must not contain an e-mail address'
+    } finally { Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue }
 }
 
 Test-Case 'Assistant: understanding falls back to keywords; offline AI request is well formed (mocked)' {
