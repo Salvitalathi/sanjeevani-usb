@@ -1,4 +1,4 @@
-# Sanjeevani PC Doctor - "समस्या सांगा": the user describes a problem in Marathi, English or Roman Marathi.
+﻿# Sanjeevani PC Doctor - "समस्या सांगा": the user describes a problem in Marathi, English or Roman Marathi.
 #   * Find-PDProblem    - offline: matches the text against data\problems.json (no internet, instant)
 #   * Invoke-PDAiAsk    - optional online AI (Google Gemini free tier, or Anthropic Claude) with the user's own API key.
 #                         The AI only understands the text and picks problems from the same catalog: it never runs

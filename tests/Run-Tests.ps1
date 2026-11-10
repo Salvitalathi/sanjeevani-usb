@@ -428,6 +428,7 @@ Test-Case 'Registry check finds virus-style and broken entries, fixes them and U
     $pol = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\System'
     $un = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\SanjeevaniTestOrphan'
     try {
+        if (-not (Test-Path $run)) { New-Item $run -Force | Out-Null }
         New-ItemProperty -Path $run -Name 'SanjeevaniTestMissing' -Value '"C:\NoSuchFolder\gone.exe" /min' -PropertyType String -Force | Out-Null
         New-ItemProperty -Path $run -Name 'SanjeevaniTestOk' -Value "`"$env:WINDIR\System32\notepad.exe`"" -PropertyType String -Force | Out-Null
         if (-not (Test-Path $pol)) { New-Item $pol -Force | Out-Null }
