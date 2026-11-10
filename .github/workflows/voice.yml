@@ -1,0 +1,60 @@
+name: Voice check
+
+# Downloads the offline voice (Piper + Marathi / Hindi / English voices) the way PC Doctor does on a real PC,
+# makes Sanjeevani say her usual sentences, and publishes the .wav files to the voice-samples branch
+# (so the voice can be listened to / measured without downloading artifacts).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'kit/Sanjeevani/PCDoctor/lib/Voice.psm1'
+      - '.github/workflows/voice.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  voice:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the voice and speak
+        shell: powershell
+        run: |
+          $lib = "$PWD\kit\Sanjeevani\PCDoctor\lib"
+          foreach ($m in 'Common', 'Ask', 'Voice') { Import-Module "$lib\$m.psm1" -Force -DisableNameChecking }
+          $root = "$env:RUNNER_TEMP\usb"; New-Item -ItemType Directory "$root\Sanjeevani" -Force | Out-Null
+          $null = Initialize-PDContext -UsbRoot $root
+          $out = "$PWD\samples"; New-Item -ItemType Directory $out -Force | Out-Null
+          $bad = 0
+          foreach ($l in 'mr', 'hi', 'en') {
+            $t0 = Get-Date
+            $r = Install-PDVoicePack -UsbRoot $root -Lang $l
+            Write-Host ("{0}: voice pack {1} in {2:0} s" -f $l, $r, ((Get-Date) - $t0).TotalSeconds)
+          }
+          $a = Get-PDVoiceAssets $root
+          Write-Host "piper: $($a.Piper)"; $a.Voices.GetEnumerator() | ForEach-Object { Write-Host "voice $($_.Key): $($_.Value)" }
+          foreach ($l in 'mr', 'hi', 'en') {
+            foreach ($k in 'greet', 'ack', 'more', 'bye') {
+              $f = Join-Path $out "$l-$k.wav"
+              $t0 = Get-Date
+              $e = New-PDSpeech -Text (Get-PDVoiceLine $k $l) -Lang $l -Out $f -UsbRoot $root -Mode 'basic'
+              $len = if (Test-Path $f) { (Get-Item $f).Length } else { 0 }
+              Write-Host ("{0}-{1}: engine {2}, {3} bytes, {4:0.0} s" -f $l, $k, $e, $len, ((Get-Date) - $t0).TotalSeconds)
+              if ($e -ne 'piper' -and $e -ne 'cache') { $bad++ }
+            }
+          }
+          Get-Content "$root\Sanjeevani\*.log" -ErrorAction SilentlyContinue | Select-String 'voice' | ForEach-Object { Write-Host $_ }
+          if ($bad) { Write-Host "$bad sentences were not spoken by the offline Indian voice"; exit 1 }
+      - name: Publish to the voice-samples branch
+        if: always()
+        shell: bash
+        run: |
+          [ -d samples ] || exit 0
+          cd samples
+          git init -q -b voice-samples
+          git config user.name "github-actions"; git config user.email "github-actions@users.noreply.github.com"
+          git add -A && git commit -qm "Voice samples for ${GITHUB_SHA::7}"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" voice-samples
