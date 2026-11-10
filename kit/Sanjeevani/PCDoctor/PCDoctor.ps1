@@ -2249,7 +2249,7 @@ function Say-V([string]$text, [scriptblock]$Then, [string]$lang) {
     Start-VTask { param($P) New-PDSpeech -Text $P.Text -Lang $P.Lang -Out $P.Out -UsbRoot $P.Root -Mode $P.Mode } @{ Text = $text; Lang = $lang; Out = $it.Wav; Root = $UsbRoot; Mode = $script:AiMode } { param($r, $c) $c.Engine = $r; $c.Ready = $true; if (-not $r) { $global:PDLogQueue.Enqueue('[WARN] voice: no voice could say: ' + $c.Text) }; Step-VSpeech } $it
 }
 function Step-VSpeech {
-    if (-not $script:V.Open -or $script:V.Speaking -or -not $script:V.Queue.Count) { return }
+    if (-not $script:V.Open -or $script:V.Speaking -or $script:V.WelcomePending -or -not $script:V.Queue.Count) { return }
     $it = $script:V.Queue[0]
     if (-not $it.Ready) { return }
     $script:V.Queue.RemoveAt(0)
@@ -2392,7 +2392,7 @@ function Open-Voice {
         if ($script:V.GreetDone) { Invoke-VAfterGreet }
     }
     Request-VVoicePack $script:V.Lang
-    Say-V (Get-PDVoiceLine 'welcome' 'en') -lang 'en'
+    if (-not $script:V.Welcomed) { Say-V (Get-PDVoiceLine 'welcome' 'en') -lang 'en' }
     Say-V (VL 'greet') -Then { $script:V.GreetDone = $true; if ($script:V.Mic) { Invoke-VAfterGreet } }
 }
 # no offline voice for this language yet: download it in the background (once; the next sentences use it)
@@ -2983,6 +2983,8 @@ $vtimer.Add_Tick({
             $mv = $script:VMusic.Volume; $tg = $script:V.MusicTarget
             if ([math]::Abs($mv - $tg) -gt 0.004) { $script:VMusic.Volume = $mv + [math]::Sign($tg - $mv) * 0.004 } elseif ($tg -eq 0 -and $script:VMusicOn) { $script:VMusic.Pause(); $script:VMusicOn = $false }
         }
+        # the welcome could not be prepared in time: do not keep Sanjeevani waiting for it
+        if ($script:V.WelcomePending -and -not $script:VWelcome -and ((Get-Date) - $script:V.WelcomeAt).TotalSeconds -gt 8) { $script:V.WelcomePending = $false; Step-VSpeech }
         if (-not $script:V.Open) { return }
         Update-VEvents
         if ($script:V.SpeakUntil -and (Get-Date) -ge $script:V.SpeakUntil) { End-VSpeech }
@@ -3022,12 +3024,31 @@ function Start-Startup {
     }
 }
 # when both the splash and the first read of the PC are done: Sanjeevani greets (unless switched off)
+# Sanjeevani starts as soon as the logo animation ends - the PC information keeps loading in the background
 function Invoke-AfterStartup {
-    if (-not $script:StartupDone -or -not $script:SplashDone -or $script:Greeted -or $Headless) { return }
+    if (-not $script:SplashDone -or $script:Greeted -or $Headless) { return }
     $script:Greeted = $true
     if (-not $script:NoVoice -and (Get-PDSetting $UsbRoot 'voice' $true) -ne $false) { Open-Voice }
 }
+# "Welcome to Sanjeevani PC Doctor" is spoken while the logo appears (prepared in the background, played as soon as ready)
+function Start-VWelcome {
+    if ($Headless -or $script:NoVoice -or (Get-PDSetting $UsbRoot 'voice' $true) -eq $false) { return }
+    $script:V.WelcomePending = $true; $script:V.Welcomed = $true; $script:V.WelcomeAt = Get-Date
+    New-Item -ItemType Directory -Path $VoiceTemp -Force -ErrorAction SilentlyContinue | Out-Null
+    $wav = Join-Path $VoiceTemp 'welcome.wav'
+    Start-VTask { param($P) New-PDSpeech -Text $P.Text -Lang 'en' -Out $P.Out -UsbRoot $P.Root -Mode $P.Mode } @{ Text = (Get-PDVoiceLine 'welcome' 'en'); Out = $wav; Root = $UsbRoot; Mode = $script:AiMode } {
+        param($r, $c)
+        if (-not $r -or -not (Test-Path -LiteralPath $c) -or -not $script:V.WelcomePending) { $script:V.WelcomePending = $false; Step-VSpeech; return }
+        try {
+            $script:VWelcome = New-Object Windows.Media.MediaPlayer
+            $script:VWelcome.Add_MediaEnded({ $script:V.WelcomePending = $false; try { $script:VWelcome.Close() } catch { }; Step-VSpeech })
+            $script:VWelcome.Add_MediaFailed({ $script:V.WelcomePending = $false; Step-VSpeech })
+            $script:VWelcome.Open((New-Object Uri $c)); $script:VWelcome.Volume = 1.0; $script:VWelcome.Play()
+        } catch { $script:V.WelcomePending = $false; Step-VSpeech }
+    } $wav
+}
 function Start-Splash {
+    Start-VWelcome
     Start-Startup                     # reads the PC while the logo animates, so the tiles are filled when the dashboard appears
     $sc = $ui.SplashLogo.RenderTransform
     $back = New-Object Windows.Media.Animation.BackEase; $back.Amplitude = 0.45; $back.EasingMode = 'EaseOut'
