@@ -9,6 +9,9 @@ Set-StrictMode -Off
 $script:Lines = @{
     welcome  = @{ en = 'Welcome to Sanjeevani PC Doctor.'; mr = 'Welcome to Sanjeevani PC Doctor.'; hi = 'Welcome to Sanjeevani PC Doctor.' }
     greet    = @{ en = 'I am Sanjeevani. How can I help you?'; mr = 'मी संजीवनी. आपली काय मदत करू शकते?'; hi = 'मैं संजीवनी हूँ। मैं आपकी क्या मदद कर सकती हूँ?' }
+    typeplease = @{ en = 'Please type your problem below and press Enter. I will do my best to solve it.'
+                    mr = 'कृपया आपली समस्या खाली type करा आणि Enter दाबा. मी पूर्ण प्रयत्न करून ती सोडवण्याचा प्रयत्न करेन.'
+                    hi = 'कृपया अपनी समस्या नीचे type करें और Enter दबाएँ। मैं पूरी कोशिश करके उसे हल करने का प्रयास करूँगी।' }
     nomic    = @{ en = 'Your system has no microphone, so please type your problem. I will do my best to solve it.'
                   mr = 'आपल्या system मध्ये mic सुविधा नसल्याने आपण manually लिहून आपली समस्या सांगा. मी पूर्ण प्रयत्न करून आपली समस्या निराकरण करण्याचा प्रयत्न करेन.'
                   hi = 'आपके system में mic नहीं है, इसलिए अपनी समस्या लिखकर बताइए। मैं पूरी कोशिश करके आपकी समस्या हल करने का प्रयास करूँगी।' }
@@ -389,13 +392,35 @@ function New-PDSpeechGemini([string]$Text, [string]$Out, $Cfg) {
     }
 }
 
+# English words inside Marathi / Hindi sentences, written the way an Indian speaker says them
+$script:SpokenWords = [ordered]@{
+    'restore point' = 'रिस्टोअर पॉइंट'; 'one-click optimize' = 'वन क्लिक ऑप्टिमाइझ'; 'sanjeevani' = 'संजीवनी'; 'pc doctor' = 'पीसी डॉक्टर'; 'doctor' = 'डॉक्टर'
+    'laptop' = 'लॅपटॉप'; 'computer' = 'कॉम्प्युटर'; 'pc' = 'पीसी'; 'internet' = 'इंटरनेट'; 'wifi' = 'वायफाय'; 'wi-fi' = 'वायफाय'; 'printer' = 'प्रिंटर'; 'print' = 'प्रिंट'
+    'screen' = 'स्क्रीन'; 'display' = 'डिस्प्ले'; 'battery' = 'बॅटरी'; 'charger' = 'चार्जर'; 'virus' = 'व्हायरस'; 'antivirus' = 'अँटीव्हायरस'; 'defender' = 'डिफेंडर'
+    'restart' = 'रिस्टार्ट'; 'mic' = 'माइक'; 'button' = 'बटण'; 'enter' = 'एंटर'; 'type' = 'टाइप'; 'windows' = 'विंडोज'; 'update' = 'अपडेट'; 'updates' = 'अपडेट्स'
+    'driver' = 'ड्रायव्हर'; 'drivers' = 'ड्रायव्हर्स'; 'service' = 'सर्व्हिस'; 'services' = 'सर्व्हिसेस'; 'issue' = 'इश्यू'; 'gemini' = 'जेमिनी'; 'key' = 'की'
+    'settings' = 'सेटिंग्ज'; 'online' = 'ऑनलाइन'; 'offline' = 'ऑफलाइन'; 'ai' = 'एआय'; 'disk' = 'डिस्क'; 'drive' = 'ड्राइव्ह'; 'ram' = 'रॅम'; 'cpu' = 'सीपीयू'
+    'ssd' = 'एसएसडी'; 'hdd' = 'एचडीडी'; 'file' = 'फाइल'; 'files' = 'फाइल्स'; 'folder' = 'फोल्डर'; 'usb' = 'यूएसबी'; 'pendrive' = 'पेनड्राइव्ह'; 'scan' = 'स्कॅन'
+    'quick scan' = 'क्विक स्कॅन'; 'power plan' = 'पॉवर प्लॅन'; 'power' = 'पॉवर'; 'plan' = 'प्लॅन'; 'junk' = 'जंक'; 'startup' = 'स्टार्टअप'; 'programs' = 'प्रोग्राम्स'
+    'program' = 'प्रोग्राम'; 'app' = 'ॲप'; 'apps' = 'ॲप्स'; 'software' = 'सॉफ्टवेअर'; 'hardware' = 'हार्डवेअर'; 'system' = 'सिस्टम'; 'blue screen' = 'ब्लू स्क्रीन'
+    'bluetooth' = 'ब्लूटूथ'; 'camera' = 'कॅमेरा'; 'keyboard' = 'कीबोर्ड'; 'mouse' = 'माउस'; 'touchpad' = 'टचपॅड'; 'fan' = 'फॅन'; 'cache' = 'कॅशे'; 'proxy' = 'प्रॉक्सी'
+    'network' = 'नेटवर्क'; 'router' = 'राउटर'; 'cable' = 'केबल'; 'speed' = 'स्पीड'; 'slow' = 'स्लो'; 'ok' = 'ओके'; 'okay' = 'ओके'; 'manually' = 'मॅन्युअली'
+    'dns' = 'डीएनएस'; 'ip' = 'आयपी'; 'sfc' = 'एसएफसी'; 'dism' = 'डिझम'; 'gb' = 'जीबी'; 'mb' = 'एमबी'; 'percent' = 'टक्के'; 'thermal paste' = 'थर्मल पेस्ट'
+    'heatsink' = 'हीटसिंक'; 'registry' = 'रजिस्ट्री'; 'task manager' = 'टास्क मॅनेजर'; 'welcome' = 'वेलकम'; 'to' = 'टू'; 'sorry' = 'सॉरी'; 'please' = 'प्लीज'
+}
+function ConvertTo-PDIndianSpeech([string]$Text) {
+    $t = $Text
+    foreach ($k in @($script:SpokenWords.Keys | Sort-Object Length -Descending)) { $t = [regex]::Replace($t, '(?i)(?<![A-Za-z])' + [regex]::Escape($k) + '(?![A-Za-z])', $script:SpokenWords[$k]) }
+    return $t
+}
+
 # Writes the sentence as a .wav. Returns the engine used, or $null. Good recordings are cached on this PC, so a sentence
 # said once with the online voice is said the same way later, even offline.
 # Sentences said once with the online (Gemini) voice are kept on the pendrive (else on this PC), so they are said in
 # the same natural voice later - on any PC, even offline, without using the key's small free limit again.
 function Get-PDVoiceCachePath([string]$UsbRoot, [string]$Lang, [string]$Text) {
     $sha = [Security.Cryptography.SHA1]::Create()
-    $key = -join ($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes("v3|$Lang|$Text")) | ForEach-Object { $_.ToString('x2') })
+    $key = -join ($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes("v4|$Lang|$Text")) | ForEach-Object { $_.ToString('x2') })
     foreach ($d in @((Join-Path $UsbRoot 'Sanjeevani\voice-cache'), (Join-Path $env:LOCALAPPDATA 'Sanjeevani\voice-cache'))) {
         if (Test-Path -LiteralPath (Join-Path $d "$key.wav")) { return (Join-Path $d "$key.wav") }
     }
@@ -410,25 +435,31 @@ function New-PDSpeech {
     $cached = Get-PDVoiceCachePath $UsbRoot $Lang $Text
     if (Test-Path -LiteralPath $cached) { try { Copy-Item -LiteralPath $cached -Destination $Out -Force; return 'cache' } catch { } }
     $keep = { try { New-Item -ItemType Directory -Path (Split-Path $cached) -Force | Out-Null; Copy-Item -LiteralPath $Out -Destination $cached -Force } catch { } }
+    # one voice for the whole conversation: the Indian female Piper voice (Marathi; the Hindi "Priyamvada" voice also reads Marathi)
+    $a = Get-PDVoiceAssets $UsbRoot
+    $voices = @(@($a.Voices[$Lang]) + @($(if ($Lang -eq 'mr') { $a.Voices['hi'] })) | Where-Object { $_ })
+    if ($voices.Count -and $Lang -ne 'en') { $Text = ConvertTo-PDIndianSpeech $Text }
+    if ($a.Piper) {
+        foreach ($voice in $voices) {
+            try {
+                Remove-Item -LiteralPath $Out -Force -ErrorAction SilentlyContinue
+                $psi = New-Object Diagnostics.ProcessStartInfo $a.Piper
+                $psi.Arguments = "--model `"$voice`" --output_file `"$Out`" --sentence_silence 0.25"
+                $psi.UseShellExecute = $false; $psi.RedirectStandardInput = $true; $psi.RedirectStandardError = $true; $psi.CreateNoWindow = $true
+                $psi.WorkingDirectory = Split-Path $a.Piper
+                $p = [Diagnostics.Process]::Start($psi)
+                $b = [Text.Encoding]::UTF8.GetBytes(($Text -replace "`r?`n", ' ') + "`n")
+                $p.StandardInput.BaseStream.Write($b, 0, $b.Length); $p.StandardInput.Close()
+                $err = $p.StandardError.ReadToEnd()
+                if (-not $p.WaitForExit(30000)) { try { $p.Kill() } catch { } }
+                if ((Test-Path -LiteralPath $Out) -and (Get-Item -LiteralPath $Out).Length -gt 2000) { & $keep; return 'piper' }
+                Write-PDLog ("voice: piper could not use " + (Split-Path $voice -Leaf) + ': ' + $(if ($err.Length -gt 200) { $err.Substring($err.Length - 200) } else { $err })) 'WARN'
+            } catch { Write-PDLog "voice: piper failed: $($_.Exception.Message)" 'WARN' }
+        }
+    }
     $cfg = Get-PDAiConfig $UsbRoot
     if ($Mode -in 'auto', 'online' -and $cfg.key -and $cfg.provider -ne 'claude') {
         if (New-PDSpeechGemini $Text $Out $cfg) { & $keep; return 'online' }
-    }
-    $a = Get-PDVoiceAssets $UsbRoot
-    $voice = $a.Voices[$Lang]
-    if ($a.Piper -and $voice) {
-        try {
-            $psi = New-Object Diagnostics.ProcessStartInfo $a.Piper
-            $psi.Arguments = "--model `"$voice`" --output_file `"$Out`" --sentence_silence 0.25"
-            $psi.UseShellExecute = $false; $psi.RedirectStandardInput = $true; $psi.RedirectStandardError = $true; $psi.CreateNoWindow = $true
-            $psi.WorkingDirectory = Split-Path $a.Piper
-            $p = [Diagnostics.Process]::Start($psi)
-            $b = [Text.Encoding]::UTF8.GetBytes(($Text -replace "`r?`n", ' ') + "`n")
-            $p.StandardInput.BaseStream.Write($b, 0, $b.Length); $p.StandardInput.Close()
-            $null = $p.StandardError.ReadToEnd()
-            if (-not $p.WaitForExit(30000)) { try { $p.Kill() } catch { } }
-            if ((Test-Path -LiteralPath $Out) -and (Get-Item -LiteralPath $Out).Length -gt 2000) { return 'piper' }
-        } catch { Write-PDLog "voice: piper failed: $($_.Exception.Message)" 'WARN' }
     }
     if (New-PDSpeechWinRT $Text $Lang $Out) { return 'windows' }
     # no Marathi / Hindi voice on this Windows: an English (India) voice reads the sentence in Roman letters
@@ -449,7 +480,8 @@ function New-PDSpeechWinRT([string]$Text, [string]$Lang, [string]$Out) {
         $all = @([Windows.Media.SpeechSynthesis.SpeechSynthesizer]::AllVoices)
         $want = switch ($Lang) { 'mr' { 'mr-*', 'hi-*' } 'hi' { 'hi-*' } default { 'en-IN', 'en-*' } }
         $v = $null
-        foreach ($w in $want) { $v = $all | Where-Object { $_.Language -like $w -and [string]$_.Gender -eq 'Female' } | Select-Object -First 1; if ($v) { break }; $v = $all | Where-Object { $_.Language -like $w } | Select-Object -First 1; if ($v) { break } }
+        foreach ($w in $want) { $v = $all | Where-Object { $_.Language -like $w -and [string]$_.Gender -eq 'Female' } | Select-Object -First 1; if ($v) { break } }
+        if (-not $v) { foreach ($w in $want) { $v = $all | Where-Object { $_.Language -like $w } | Select-Object -First 1; if ($v) { break } } }
         if (-not $v) { return $false }
         $s = New-Object Windows.Media.SpeechSynthesis.SpeechSynthesizer
         $s.Voice = $v

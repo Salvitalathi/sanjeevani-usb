@@ -200,7 +200,7 @@ $UiText = @{
     'v.close'        = @('Close (back to the dashboard)', 'बंद करा (dashboard वर परत)', 'बंद करें (dashboard पर वापस)')
     'v.mic'          = @('Speak', 'बोला', 'बोलें')
     'v.send'         = @('Send', 'पाठवा', 'भेजें')
-    'v.hint'         = @('Speak, or type the problem here ...', 'बोला, किंवा समस्या इथे लिहा...', 'बोलें, या समस्या यहाँ लिखें...')
+    'v.hint'         = @('Type your problem here and press Enter ...', 'आपली समस्या इथे लिहा आणि Enter दाबा...', 'अपनी समस्या यहाँ लिखें और Enter दबाएँ...')
     'ask.hint'       = @('e.g. "internet not working", "laptop gets very hot", "printer not printing"', 'उदा. "net chalat nahi", "laptop खूप गरम होतो", "printer print देत नाही"', 'उदा. "net nahi chal raha", "laptop बहुत गर्म होता है", "printer print नहीं कर रहा"')
     'ai.sub'         = @('Offline AI (Gemma, on the USB) works without internet. Online AI is optional and uses your own API key - Google Gemini keys are free. The AI only understands the problem; every check and repair is done by PC Doctor''s own tested actions.',
                          'Offline AI (Gemma, USB वर) internet शिवाय चालतो. Online AI optional आहे आणि तुमची स्वतःची API key वापरतो - Google Gemini ची key मोफत आहे. AI फक्त समस्या समजून घेतो; प्रत्येक तपासणी आणि दुरुस्ती PC Doctor च्या स्वतःच्या तपासलेल्या actions ने होते.',
@@ -2387,14 +2387,19 @@ function Open-Voice {
     Start-VAnimations $true
     Set-VState 'speak'
     Add-VStep 'voice link online' '#2DD4BF'
+    # the user types the problem; the microphone is used only when switched on ("listen": true in settings.json)
+    $script:V.ListenOn = ((Get-PDSetting $UsbRoot 'listen' $false) -eq $true)
+    $ui.VMicBtn.Visibility = if ($script:V.ListenOn) { 'Visible' } else { 'Collapsed' }
+    if (-not $script:V.ListenOn) { $script:V.Mic = [pscustomobject]@{ Has = $false; Fixed = $false; CanHear = $false; Off = $true } }
     # microphone (turned on if muted / blocked) - checked while Sanjeevani greets
-    Start-VTask -Pool 'audio' { param($P) $m = Enable-PDMicrophone; [pscustomobject]@{ Has = $m.Has; Fixed = $m.Fixed; CanHear = (Test-PDCanListen -UsbRoot $P.Root -Mode $P.Mode) } } @{ Root = $UsbRoot; Mode = $script:AiMode } {
+    if ($script:V.ListenOn) { Start-VTask -Pool 'audio' { param($P) $m = Enable-PDMicrophone; [pscustomobject]@{ Has = $m.Has; Fixed = $m.Fixed; CanHear = (Test-PDCanListen -UsbRoot $P.Root -Mode $P.Mode) } } @{ Root = $UsbRoot; Mode = $script:AiMode } {
         param($r) $script:V.Mic = $(if ($r) { $r } else { [pscustomobject]@{ Has = $false; Fixed = $false; CanHear = $false } })
         Add-VStep $(if ($script:V.Mic.Has) { 'microphone ready' } else { 'no microphone' }) $(if ($script:V.Mic.Has) { '#2DD4BF' } else { '#FBBF24' })
         if ($script:V.GreetDone) { Invoke-VAfterGreet }
-    }
+    } }
     Request-VVoicePack $script:V.Lang
-    if (-not $script:V.Welcomed) { Say-V (Get-PDVoiceLine 'welcome' 'en') -lang 'en' }
+    if ($script:V.Lang -eq 'mr') { Request-VVoicePack 'hi' }      # the Hindi Indian voice is the stand-by for Marathi
+    if (-not $script:V.Welcomed) { Say-V (Get-PDVoiceLine 'welcome' 'en') }      # English words, said by the same Indian voice
     Say-V (VL 'greet') -Then { $script:V.GreetDone = $true; if ($script:V.Mic) { Invoke-VAfterGreet } }
 }
 # no offline voice for this language yet: download it in the background (once; the next sentences use it)
@@ -2403,10 +2408,11 @@ function Request-VVoicePack([string]$l) {
     if ($script:V.PackTried[$l]) { return }
     $script:V.PackTried[$l] = $true
     Start-VTask -Pool 'bg' { param($P) Install-PDVoicePack -UsbRoot $P.Root -Lang $P.Lang } @{ Root = $UsbRoot; Lang = $l } { param($r, $c) if ($r -eq 'installed') { Add-VStep "voice $($c) installed" '#2DD4BF' } } $l
-    Start-VTask -Pool 'bg' { param($P) Invoke-PDVoicePrefetch -UsbRoot $P.Root -Lang $P.Lang } @{ Root = $UsbRoot; Lang = $l } { param($r, $c) if ($r) { $global:PDLogQueue.Enqueue("[INFO] voice: $r sentences saved in the online voice") } } $l
+    if ((Get-PDSetting $UsbRoot 'onlineVoice' $false) -eq $true) { Start-VTask -Pool 'bg' { param($P) Invoke-PDVoicePrefetch -UsbRoot $P.Root -Lang $P.Lang } @{ Root = $UsbRoot; Lang = $l } { param($r, $c) if ($r) { $global:PDLogQueue.Enqueue("[INFO] voice: $r sentences saved in the online voice") } } $l }
 }
 function Invoke-VAfterGreet {
     $m = $script:V.Mic
+    if ($m.Off) { Say-V (VL 'typeplease') -Then { Set-VState 'idle'; $ui.VInput.Focus() | Out-Null }; $ui.VInput.Focus() | Out-Null; return }
     if ($m.Has -and $m.CanHear) {
         if ($m.Fixed) { Say-V (VL 'micfixed') }
         Start-VListen
@@ -2993,7 +2999,7 @@ $ui.AskBox.Add_KeyDown({ param($s, $e) if ($e.Key -eq 'Return') { $e.Handled = $
 $ui.VInput.Add_KeyDown({ param($s, $e) if ($e.Key -eq 'Return') { $e.Handled = $true; $t = $ui.VInput.Text; $ui.VInput.Text = ''; Invoke-VHeard $t $false } elseif ($e.Key -eq 'Escape') { Close-Voice } })
 $ui.VInput.Add_TextChanged({ $ui.VHint.Visibility = if ($ui.VInput.Text) { 'Collapsed' } else { 'Visible' } })
 # the orb itself is a big mic button
-foreach ($el in $ui.VCore, $ui.VCoreIcon) { $el.Cursor = 'Hand'; $el.Add_MouseLeftButtonUp({ if ($script:V.Open -and -not $script:V.Fixing) { Set-VMicWait $false; if ($script:V.Mic -and -not $script:V.Mic.Has) { Say-V (VL 'nomic') } else { $script:V.Tries = 0; Start-VListen } } }) }
+foreach ($el in $ui.VCore, $ui.VCoreIcon) { $el.Cursor = 'Hand'; $el.Add_MouseLeftButtonUp({ if ($script:V.Open -and -not $script:V.Fixing) { Set-VMicWait $false; if ($script:V.Mic -and $script:V.Mic.Off) { $ui.VInput.Focus() | Out-Null } elseif ($script:V.Mic -and -not $script:V.Mic.Has) { Say-V (VL 'nomic') } else { $script:V.Tries = 0; Start-VListen } } }) }
 $ui.VAuto.Add_Click({ [void](Set-PDSetting $UsbRoot 'voice' ([bool]$ui.VAuto.IsChecked)) })
 # voice screen: tasks, spoken progress, orb animation, music fade
 $vtimer = New-Object System.Windows.Threading.DispatcherTimer
@@ -3058,7 +3064,7 @@ function Start-VWelcome {
     $script:V.WelcomePending = $true; $script:V.Welcomed = $true; $script:V.WelcomeAt = Get-Date
     New-Item -ItemType Directory -Path $VoiceTemp -Force -ErrorAction SilentlyContinue | Out-Null
     $wav = Join-Path $VoiceTemp 'welcome.wav'
-    Start-VTask { param($P) New-PDSpeech -Text $P.Text -Lang 'en' -Out $P.Out -UsbRoot $P.Root -Mode $P.Mode } @{ Text = (Get-PDVoiceLine 'welcome' 'en'); Out = $wav; Root = $UsbRoot; Mode = $script:AiMode } {
+    Start-VTask { param($P) New-PDSpeech -Text $P.Text -Lang $P.Lang -Out $P.Out -UsbRoot $P.Root -Mode $P.Mode } @{ Text = (Get-PDVoiceLine 'welcome' 'en'); Lang = $Lang; Out = $wav; Root = $UsbRoot; Mode = $script:AiMode } {
         param($r, $c)
         if (-not $r -or -not (Test-Path -LiteralPath $c) -or -not $script:V.WelcomePending) { $script:V.WelcomePending = $false; Step-VSpeech; return }
         try {
