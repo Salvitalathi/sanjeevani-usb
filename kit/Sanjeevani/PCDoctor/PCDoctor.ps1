@@ -356,7 +356,7 @@ $xamlText = @'
               <Border x:Name="box" DockPanel.Dock="Left" Width="18" Height="18" CornerRadius="5" BorderThickness="1.5" BorderBrush="#3B4B68" Background="#0D1526" VerticalAlignment="Top" Margin="0,2,10,0">
                 <TextBlock x:Name="tick" Text="&#xE73E;" FontFamily="{StaticResource IconFont}" FontSize="11" Foreground="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
               </Border>
-              <ContentPresenter VerticalAlignment="Center">
+              <ContentPresenter VerticalAlignment="Top" Margin="0,1,0,0">
                 <ContentPresenter.Resources><Style TargetType="TextBlock"><Setter Property="TextWrapping" Value="Wrap"/></Style></ContentPresenter.Resources>
               </ContentPresenter>
             </DockPanel>
