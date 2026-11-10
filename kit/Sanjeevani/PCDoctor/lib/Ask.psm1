@@ -40,7 +40,7 @@ function Find-PDProblem {
 }
 
 # ------------------------------------------------------------------ quick fixes
-function New-PDFixResult([bool]$Ok, [string]$Mr, [string]$En) { [pscustomobject]@{ Ok = $Ok; Mr = $Mr; En = $En } }
+function New-PDFixResult([bool]$Ok, [string]$Mr, [string]$En, [string]$Hi) { [pscustomobject]@{ Ok = $Ok; Mr = $Mr; En = $En; Hi = $(if ($Hi) { $Hi } else { $En }) } }
 
 function Restart-PDServiceSafe([string]$Name) {
     $s = Get-Service -Name $Name -ErrorAction SilentlyContinue
@@ -58,13 +58,13 @@ function Invoke-PDQuickFix {
             $n = @(Get-ChildItem -LiteralPath $q -File -ErrorAction SilentlyContinue).Count
             Get-ChildItem -LiteralPath $q -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
             $ok = Restart-PDServiceSafe 'Spooler'
-            Write-PDLog "Printer: $n अडकलेल्या files काढल्या, print service restart" 'OK'
-            return (New-PDFixResult $ok "Print queue मधल्या $n अडकलेल्या files काढल्या आणि print service पुन्हा सुरू केली. आता पुन्हा print करून पाहा." "Removed $n stuck print files and restarted the print service. Try printing again.")
+            Write-PDLog "Printer: removed $n stuck files, restarted the print service" 'OK'
+            return (New-PDFixResult $ok "Print queue मधल्या $n अडकलेल्या files काढल्या आणि print service पुन्हा सुरू केली. आता पुन्हा print करून पाहा." "Removed $n stuck print files and restarted the print service. Try printing again." "Print queue की $n अटकी files हटाईं और print service फिर शुरू की। अब फिर से print करके देखें।")
         }
         'audio' {
             $a = Restart-PDServiceSafe 'AudioEndpointBuilder'; $b = Restart-PDServiceSafe 'Audiosrv'
             Set-Service -Name Audiosrv -StartupType Automatic -ErrorAction SilentlyContinue
-            return (New-PDFixResult ($a -and $b) 'Windows audio services पुन्हा सुरू केल्या. Taskbar वरच्या speaker icon वर योग्य device निवडा आणि आवाज तपासा.' 'Restarted the Windows audio services. Pick the right device on the taskbar speaker icon and test the sound.')
+            return (New-PDFixResult ($a -and $b) 'Windows audio services पुन्हा सुरू केल्या. Taskbar वरच्या speaker icon वर योग्य device निवडा आणि आवाज तपासा.' 'Restarted the Windows audio services. Pick the right device on the taskbar speaker icon and test the sound.' 'Windows audio services फिर शुरू कीं। Taskbar के speaker icon पर सही device चुनें और आवाज़ जाँचें।')
         }
         'time' {
             Set-Service -Name W32Time -StartupType Automatic -ErrorAction SilentlyContinue
@@ -74,23 +74,23 @@ function Invoke-PDQuickFix {
             $ok = $LASTEXITCODE -eq 0
             Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\tzautoupdate' -Name Start -Value 3 -ErrorAction SilentlyContinue
             $now = (Get-Date).ToString('dd-MM-yyyy HH:mm')
-            if ($ok) { return (New-PDFixResult $true "Internet वरून वेळ घेतली. आता: $now. PC बंद केल्यावर पुन्हा चुकत असेल तर motherboard ची CMOS battery बदला." "Time synced from the internet. Now: $now. If it is wrong again after a shutdown, replace the CMOS battery.") }
-            return (New-PDFixResult $false "वेळ sync झाली नाही (internet नाही?): $out" "Time could not sync (no internet?): $out")
+            if ($ok) { return (New-PDFixResult $true "Internet वरून वेळ घेतली. आता: $now. PC बंद केल्यावर पुन्हा चुकत असेल तर motherboard ची CMOS battery बदला." "Time synced from the internet. Now: $now. If it is wrong again after a shutdown, replace the CMOS battery." "Internet से समय लिया। अब: $now. PC बंद करने के बाद फिर गलत हो तो motherboard की CMOS battery बदलें।") }
+            return (New-PDFixResult $false "वेळ sync झाली नाही (internet नाही?): $out" "Time could not sync (no internet?): $out" "समय sync नहीं हुआ (internet नहीं?): $out")
         }
         'explorer' {
             Get-Process explorer -ErrorAction SilentlyContinue | Stop-Process -Force
             for ($w = 0; $w -lt 8 -and -not (Get-Process explorer -ErrorAction SilentlyContinue); $w++) { Start-Sleep 1 }
             if (-not (Get-Process explorer -ErrorAction SilentlyContinue)) { $null = & runas.exe /trustlevel:0x20000 explorer.exe 2>&1 }   # start the shell without admin rights
-            return (New-PDFixResult $true 'Taskbar / desktop / File Explorer पुन्हा सुरू केले.' 'Restarted the taskbar / desktop / File Explorer.')
+            return (New-PDFixResult $true 'Taskbar / desktop / File Explorer पुन्हा सुरू केले.' 'Restarted the taskbar / desktop / File Explorer.' 'Taskbar / desktop / File Explorer फिर शुरू किए।')
         }
         'search' {
             $ok = Restart-PDServiceSafe 'WSearch'
-            return (New-PDFixResult $ok 'Windows Search service पुन्हा सुरू केली. 1-2 मिनिटांनी search करून पाहा.' 'Restarted the Windows Search service. Try searching in 1-2 minutes.')
+            return (New-PDFixResult $ok 'Windows Search service पुन्हा सुरू केली. 1-2 मिनिटांनी search करून पाहा.' 'Restarted the Windows Search service. Try searching in 1-2 minutes.' 'Windows Search service फिर शुरू की। 1-2 मिनट बाद search करके देखें।')
         }
         'bluetooth' {
             $ok = Restart-PDServiceSafe 'bthserv'
             [void](Restart-PDServiceSafe 'BTAGService')
-            return (New-PDFixResult $ok 'Bluetooth service पुन्हा सुरू केली. Device "Remove" करून पुन्हा pair करा.' 'Restarted the Bluetooth service. Remove the device and pair it again.')
+            return (New-PDFixResult $ok 'Bluetooth service पुन्हा सुरू केली. Device "Remove" करून पुन्हा pair करा.' 'Restarted the Bluetooth service. Remove the device and pair it again.' 'Bluetooth service फिर शुरू की। Device "Remove" करके फिर से pair करें।')
         }
         'wifi' {
             Set-Service -Name WlanSvc -StartupType Automatic -ErrorAction SilentlyContinue
@@ -102,22 +102,23 @@ function Invoke-PDQuickFix {
             $has = @(Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object { $_.InterfaceDescription -match '(?i)wi-?fi|wireless|wlan|802\.11' }).Count
             $msg = 'WLAN service सुरू केली.' + $(if ($en) { " बंद असलेले adapters चालू केले: $($en -join ', ')." } else { '' })
             $msgEn = 'Started the WLAN service.' + $(if ($en) { " Enabled adapters: $($en -join ', ')." } else { '' })
-            if (-not $has) { $msg += ' या PC मध्ये WiFi adapter दिसत नाही - driver नाही: "Drivers तपासा".'; $msgEn += ' No WiFi adapter is visible - no driver: "Check drivers".'; $ok = $false }
-            else { $msg += ' Airplane mode बंद आहे ना आणि keyboard ची WiFi key पाहा.'; $msgEn += ' Check that Airplane mode is off and the keyboard WiFi key.' }
-            return (New-PDFixResult $ok $msg $msgEn)
+            $msgHi = 'WLAN service शुरू की।' + $(if ($en) { " बंद adapters चालू किए: $($en -join ', ')।" } else { '' })
+            if (-not $has) { $msg += ' या PC मध्ये WiFi adapter दिसत नाही - driver नाही: "Drivers तपासा".'; $msgEn += ' No WiFi adapter is visible - no driver: "Check drivers".'; $msgHi += ' इस PC में WiFi adapter नहीं दिखता - driver नहीं: "Drivers जाँचें"।'; $ok = $false }
+            else { $msg += ' Airplane mode बंद आहे ना आणि keyboard ची WiFi key पाहा.'; $msgEn += ' Check that Airplane mode is off and the keyboard WiFi key.'; $msgHi += ' Airplane mode बंद है न, और keyboard की WiFi key देखें।' }
+            return (New-PDFixResult $ok $msg $msgEn $msgHi)
         }
         'usb' {
             $out = (& pnputil.exe /scan-devices 2>&1) -join ' '
-            return (New-PDFixResult ($LASTEXITCODE -eq 0) 'नवीन hardware पुन्हा शोधले. Device अजून दिसत नसेल तर दुसरा port / cable वापरा.' 'Scanned for hardware again. If the device still does not show, try another port / cable.')
+            return (New-PDFixResult ($LASTEXITCODE -eq 0) 'नवीन hardware पुन्हा शोधले. Device अजून दिसत नसेल तर दुसरा port / cable वापरा.' 'Scanned for hardware again. If the device still does not show, try another port / cable.' 'नया hardware फिर से खोजा। Device अब भी न दिखे तो दूसरा port / cable लगाएँ।')
         }
         'store' {
             Start-Process -FilePath "$env:WINDIR\System32\wsreset.exe" -ErrorAction SilentlyContinue
-            return (New-PDFixResult $true 'Microsoft Store cache reset सुरू केले - काही सेकंदांनी Store आपोआप उघडेल.' 'Started the Microsoft Store cache reset - the Store opens by itself in a few seconds.')
+            return (New-PDFixResult $true 'Microsoft Store cache reset सुरू केले - काही सेकंदांनी Store आपोआप उघडेल.' 'Started the Microsoft Store cache reset - the Store opens by itself in a few seconds.' 'Microsoft Store cache reset शुरू किया - कुछ सेकंड में Store अपने आप खुलेगा।')
         }
         'dns' {
             $null = & ipconfig.exe /flushdns 2>&1
             try { Clear-DnsClientCache -ErrorAction Stop } catch { }
-            return (New-PDFixResult $true 'DNS cache साफ केला. Website पुन्हा उघडून पाहा.' 'Cleared the DNS cache. Open the website again.')
+            return (New-PDFixResult $true 'DNS cache साफ केला. Website पुन्हा उघडून पाहा.' 'Cleared the DNS cache. Open the website again.' 'DNS cache साफ़ किया। Website फिर से खोलकर देखें।')
         }
         default { throw "unknown quick fix: $Id" }
     }
@@ -167,11 +168,11 @@ function Invoke-PDHttpJson {
     } catch {
         $code = $null; try { $code = [int]$_.Exception.Response.StatusCode } catch { }
         $msg = switch ($code) {
-            { $_ -in 400, 401, 403 } { 'API key चुकीची / चालू नाही (API key invalid or not enabled)' }
-            404 { 'हे AI model मिळाले नाही (model not found)' }
-            429 { 'मोफत मर्यादा संपली - थोड्या वेळाने प्रयत्न करा (free quota used up - try later)' }
-            { $_ -ge 500 } { 'AI service सध्या उपलब्ध नाही (service unavailable)' }
-            default { 'Internet / AI service ला पोहोचता आले नाही (no connection)' }
+            { $_ -in 400, 401, 403 } { L 'The API key is wrong or not enabled' 'API key चुकीची / चालू नाही' 'API key गलत / चालू नहीं' }
+            404 { L 'This AI model was not found' 'हे AI model मिळाले नाही' 'यह AI model नहीं मिला' }
+            429 { L 'Free quota used up - try again later' 'मोफत मर्यादा संपली - थोड्या वेळाने प्रयत्न करा' 'मुफ़्त सीमा खत्म - थोड़ी देर बाद कोशिश करें' }
+            { $_ -ge 500 } { L 'The AI service is unavailable right now' 'AI service सध्या उपलब्ध नाही' 'AI service अभी उपलब्ध नहीं' }
+            default { L 'Could not reach the internet / AI service' 'Internet / AI service ला पोहोचता आले नाही' 'Internet / AI service तक नहीं पहुँच सके' }
         }
         throw "$msg [$code]"
     }
@@ -184,7 +185,7 @@ function Resolve-PDGeminiModel($Config, [scriptblock]$Transport) {
     # newest stable "gemini-<version>-flash" (not lite / preview / image)
     $best = $models | Where-Object { $_ -match '^gemini-(\d+(?:\.\d+)?)-flash$' } | Sort-Object { [double]($_ -replace '^gemini-(\d+(?:\.\d+)?)-flash$', '$1') } -Descending | Select-Object -First 1
     if (-not $best) { $best = $models | Where-Object { $_ -match '^gemini-flash-latest$|flash' -and $_ -notmatch 'lite|image|tts|audio|live' } | Select-Object -First 1 }
-    if (-not $best) { throw 'या key ला कोणतेही Gemini Flash model उपलब्ध नाही' }
+    if (-not $best) { throw (L 'No Gemini Flash model is available for this key' 'या key ला कोणतेही Gemini Flash model उपलब्ध नाही' 'इस key के लिए कोई Gemini Flash model उपलब्ध नहीं') }
     return $best
 }
 
@@ -192,7 +193,7 @@ function ConvertFrom-PDAiAnswer([string]$Text, [object[]]$Problems) {
     $t = $Text.Trim()
     $t = $t -replace '^```(?:json)?\s*', '' -replace '\s*```$', ''
     $s = $t.IndexOf('{'); $e = $t.LastIndexOf('}')
-    if ($s -lt 0 -or $e -le $s) { throw 'AI चे उत्तर समजले नाही' }
+    if ($s -lt 0 -or $e -le $s) { throw (L 'The AI answer could not be understood' 'AI चे उत्तर समजले नाही' 'AI का जवाब समझ नहीं आया') }
     $j = $t.Substring($s, $e - $s + 1) | ConvertFrom-Json
     $known = @($Problems | ForEach-Object { $_.id })
     [pscustomobject]@{
@@ -206,7 +207,7 @@ function ConvertFrom-PDAiAnswer([string]$Text, [object[]]$Problems) {
 function Invoke-PDAiAsk {
     param([Parameter(Mandatory)][string]$Text, [Parameter(Mandatory)]$Config, [Parameter(Mandatory)][object[]]$Problems,
         [string]$PcInfo, [scriptblock]$Transport)
-    if (-not $Config.key) { throw 'AI ची API key सेट केलेली नाही (AI सेटिंग्ज)' }
+    if (-not $Config.key) { throw (L 'No AI API key is set (AI settings)' 'AI ची API key सेट केलेली नाही (AI settings)' 'AI की API key सेट नहीं है (AI settings)') }
     if (-not $Transport) { $Transport = { param($u, $h, $b, $m) Invoke-PDHttpJson -Url $u -Headers $h -Body $b -Method $(if ($m) { $m } else { 'POST' }) } }
     $pr = New-PDAiPrompt -Problems $Problems -PcInfo $PcInfo
     $userText = $pr.UserPrefix + "Problem: " + $Text
@@ -240,7 +241,7 @@ function Resolve-PDProblemIds {
     if (-not $Config) { $Config = Get-PDAiConfig $UsbRoot }
     if ($Mode -in 'auto', 'online' -and $Config.key) {
         try {
-            Write-PDLog 'Online AI ला समस्या समजावत आहे...' 'STEP'
+            Write-PDLog 'Asking the online AI ...' 'STEP'
             $r = Invoke-PDAiAsk -Text $Text -Config $Config -Problems $Problems -PcInfo $PcInfo
             $ids = @($r.ProblemIds); $source = 'online'; $model = $r.Model; $und = $r.UnderstoodEn
         } catch { $notes += "online AI: $($_.Exception.Message)" }
@@ -251,7 +252,7 @@ function Resolve-PDProblemIds {
             $fit = Test-PDLocalAIFit $ai
             if ($fit.Ok) {
                 try {
-                    Write-PDLog 'Offline AI सुरू करत आहे (पहिल्यांदा 30-90 सेकंद)...' 'STEP'
+                    Write-PDLog 'Starting the offline AI (30-90 seconds the first time) ...' 'STEP'
                     Set-PDProgress -1 'Offline AI'
                     $r = Invoke-PDLocalAIAsk -Text $Text -Problems $Problems -Ai $ai
                     $ids = @($r.ProblemIds); $source = 'offline'; $model = $r.Model; $und = $r.UnderstoodEn

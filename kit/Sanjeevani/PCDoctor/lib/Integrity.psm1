@@ -136,21 +136,21 @@ function Add-SJTrusted {
     return $n
 }
 
-# Plain-language summary lines (Marathi / English)
+# Plain-language summary lines (en / mr / hi). Self-contained: Setup uses this module without Common.psm1.
 function Format-SJResult($R, [string]$Lang = 'mr') {
-    $mr = $Lang -ne 'en'
+    $t = { param($en, $mr, $hi) switch ($Lang) { 'mr' { $mr } 'hi' { $hi } default { $en } } }
     $out = @()
-    if ($R.Locked) { $out += $(if ($mr) { '🔒 Pendrive locked आहे - virus त्यावर काहीही लिहू शकत नाही.' } else { '🔒 The USB is write-protected - malware cannot write to it.' }) }
-    else { $out += $(if ($mr) { '🔓 Pendrive unlocked आहे. Virus असलेल्या PC वर lock switch लावूनच वापरा.' } else { '🔓 The USB is not write-protected. Lock it before using it on a PC that may have malware.' }) }
-    if (-not $R.HasManifest) { $out += $(if ($mr) { 'नोंद (integrity.json) नाही - तुमच्या PC वर UPDATE.cmd चालवा म्हणजे पूर्ण तपासणी होईल.' } else { 'No record (integrity.json) - run UPDATE.cmd on your own PC to enable the full check.' }) }
-    foreach ($x in $R.Changed) { $out += $(if ($mr) { "✖ बदललेला program (virus ची शक्यता): $x" } else { "✖ Program changed (possible virus): $x" }) }
-    foreach ($x in $R.NewExec) { $out += $(if ($mr) { "✖ अनोळखी नवीन program / script: $x" } else { "✖ Unknown new program / script: $x" }) }
-    if ($R.Autorun) { $out += $(if ($mr) { '✖ autorun.inf - USB virus पसरवण्याची फाईल' } else { '✖ autorun.inf - a file USB worms use to spread' }) }
-    foreach ($x in $R.HiddenFolders) { $out += $(if ($mr) { "✖ Virus ने लपवलेला folder: $x" } else { "✖ Folder hidden by a virus: $x" }) }
-    foreach ($x in $R.NewMyTools) { $out += $(if ($mr) { "• MyTools मध्ये नवीन program: $x - तुम्ही स्वतः टाकला असल्यास नोंदवा, ओळखत नसाल तर quarantine करा." } else { "• New program in MyTools: $x - record it if you added it yourself, quarantine it if you do not know it." }) }
-    foreach ($x in $R.RootLinks) { $out += $(if ($mr) { "✖ संशयास्पद shortcut (shortcut virus): $x" } else { "✖ Suspicious shortcut (shortcut virus): $x" }) }
-    if (@($R.Missing).Count) { $out += $(if ($mr) { "• $(@($R.Missing).Count) फाईली नाहीत (delete / CLEAN केल्या असतील) - UPDATE.cmd ने परत येतील." } else { "• $(@($R.Missing).Count) files are missing (deleted / cleaned?) - UPDATE.cmd brings them back." }) }
-    if (-not (Get-SJIssueCount $R) -and -not @($R.NewMyTools).Count) { $out += $(if ($mr) { "✔ Pendrive स्वच्छ आहे ($($R.Checked) फाईली तपासल्या)." } else { "✔ The USB is clean ($($R.Checked) files checked)." }) }
+    if ($R.Locked) { $out += (& $t '🔒 The USB is write-protected - malware cannot write to it.' '🔒 Pendrive locked आहे - virus त्यावर काहीही लिहू शकत नाही.' '🔒 Pendrive locked है - virus उस पर कुछ नहीं लिख सकता।') }
+    else { $out += (& $t '🔓 The USB is not write-protected. Lock it before using it on a PC that may have malware.' '🔓 Pendrive unlocked आहे. Virus असलेल्या PC वर lock switch लावूनच वापरा.' '🔓 Pendrive unlocked है। Virus वाले PC पर lock switch लगाकर ही इस्तेमाल करें।') }
+    if (-not $R.HasManifest) { $out += (& $t 'No record (integrity.json) - run UPDATE.cmd on your own PC to enable the full check.' 'नोंद (integrity.json) नाही - तुमच्या PC वर UPDATE.cmd चालवा म्हणजे पूर्ण तपासणी होईल.' 'Record (integrity.json) नहीं है - अपने PC पर UPDATE.cmd चलाएँ ताकि पूरी जाँच हो सके।') }
+    foreach ($x in $R.Changed) { $out += ((& $t '✖ Program changed (possible virus): ' '✖ बदललेला program (virus ची शक्यता): ' '✖ बदला हुआ program (virus की संभावना): ') + $x) }
+    foreach ($x in $R.NewExec) { $out += ((& $t '✖ Unknown new program / script: ' '✖ अनोळखी नवीन program / script: ' '✖ अनजान नया program / script: ') + $x) }
+    if ($R.Autorun) { $out += (& $t '✖ autorun.inf - a file USB worms use to spread' '✖ autorun.inf - USB virus पसरवण्याची फाईल' '✖ autorun.inf - USB virus फैलाने वाली file') }
+    foreach ($x in $R.HiddenFolders) { $out += ((& $t '✖ Folder hidden by a virus: ' '✖ Virus ने लपवलेला folder: ' '✖ Virus द्वारा छिपाया folder: ') + $x) }
+    foreach ($x in $R.NewMyTools) { $out += ((& $t '• New program in MyTools: {0} - record it if you added it yourself, quarantine it if you do not know it.' '• MyTools मध्ये नवीन program: {0} - तुम्ही स्वतः टाकला असल्यास नोंदवा, ओळखत नसाल तर quarantine करा.' '• MyTools में नया program: {0} - आपने खुद रखा हो तो दर्ज करें, न पहचानें तो quarantine करें।') -f $x) }
+    foreach ($x in $R.RootLinks) { $out += ((& $t '✖ Suspicious shortcut (shortcut virus): ' '✖ संशयास्पद shortcut (shortcut virus): ' '✖ संदिग्ध shortcut (shortcut virus): ') + $x) }
+    if (@($R.Missing).Count) { $out += ((& $t '• {0} files are missing (deleted / cleaned?) - UPDATE.cmd brings them back.' '• {0} फाईली नाहीत (delete / CLEAN केल्या असतील) - UPDATE.cmd ने परत येतील.' '• {0} files नहीं हैं (delete / CLEAN की होंगी) - UPDATE.cmd से वापस आएँगी।') -f @($R.Missing).Count) }
+    if (-not (Get-SJIssueCount $R) -and -not @($R.NewMyTools).Count) { $out += ((& $t '✔ The USB is clean ({0} files checked).' '✔ Pendrive स्वच्छ आहे ({0} फाईली तपासल्या).' '✔ Pendrive साफ़ है ({0} files जाँचीं)।') -f $R.Checked) }
     return $out
 }
 

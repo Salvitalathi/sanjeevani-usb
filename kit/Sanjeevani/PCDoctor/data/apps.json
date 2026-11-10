@@ -8,7 +8,15 @@
       "alternatives": [
         "qBittorrent (free, ads नाहीत)"
       ],
-      "action": "uninstall"
+      "action": "uninstall",
+      "reason_en": "Comes with ads and bundled software; antivirus programs often flag it as dangerous.",
+      "reason_hi": "Ads और bundled software आते हैं; antivirus अक्सर इसे खतरनाक मानते हैं।",
+      "alternatives_en": [
+        "qBittorrent (free, no ads)"
+      ],
+      "alternatives_hi": [
+        "qBittorrent (free, ads नहीं)"
+      ]
     },
     {
       "match": "Driver ?Booster|Driver ?Easy|DriverPack|Driver ?Genius|Smart ?Driver|Driver ?Updater|DriverMax|Driver Support",
@@ -19,7 +27,19 @@
         "PC निर्मात्याची website",
         "Toolbox मधील Snappy Driver Installer Origin"
       ],
-      "action": "uninstall"
+      "action": "uninstall",
+      "reason_en": "Such 'driver updaters' install wrong drivers and ask for money.",
+      "reason_hi": "ऐसे 'driver updater' गलत drivers डालते हैं और पैसे माँगते हैं।",
+      "alternatives_en": [
+        "Windows Update",
+        "the PC maker's website",
+        "Snappy Driver Installer Origin (Tools guide)"
+      ],
+      "alternatives_hi": [
+        "Windows Update",
+        "PC निर्माता की website",
+        "Tools गाइड का Snappy Driver Installer Origin"
+      ]
     },
     {
       "match": "IObit|Advanced SystemCare|Smart Defrag|Wise Care|Wise Registry|PC Optimizer|SpeedUpMyPC|Reimage|Restoro|Fortect|Registry Cleaner|Registry Reviver|Glary|Auslogics|Ashampoo WinOptimizer|PC Cleaner|Clean Master",
@@ -29,7 +49,17 @@
         "Sanjeevani PC Doctor",
         "Windows Storage Sense"
       ],
-      "action": "uninstall"
+      "action": "uninstall",
+      "reason_en": "'PC optimizers / registry cleaners' run in the background and slow the PC down themselves; no benefit.",
+      "reason_hi": "'PC optimizer / registry cleaner' खुद background में चलकर PC slow करते हैं; कोई फ़ायदा नहीं।",
+      "alternatives_en": [
+        "Sanjeevani PC Doctor",
+        "Windows Storage Sense"
+      ],
+      "alternatives_hi": [
+        "Sanjeevani PC Doctor",
+        "Windows Storage Sense"
+      ]
     },
     {
       "match": "OneLaunch|WebDiscover|Wave Browser|Shift Browser|ByteFence|Segurazo|SAntivirus|PC App Store|Search Protect|MyPCBackup|DealPly|Babylon|Conduit|Ask Toolbar|Baidu|Yahoo.*Toolbar|Hola",
@@ -39,7 +69,17 @@
         "काढून टाका",
         "नंतर Toolbox मधील AdwCleaner चालवा"
       ],
-      "action": "uninstall"
+      "action": "uninstall",
+      "reason_en": "Adware / browser hijacker - changes the search engine and shows ads.",
+      "reason_hi": "Adware / browser hijacker - search engine बदलता है, ads दिखाता है।",
+      "alternatives_en": [
+        "Remove it",
+        "then run AdwCleaner (Tools guide)"
+      ],
+      "alternatives_hi": [
+        "हटा दें",
+        "फिर Tools गाइड से AdwCleaner चलाएँ"
+      ]
     },
     {
       "match": "KMSpico|KMSAuto|KMSTools|AAct|Windows Loader|Microsoft Toolkit",
@@ -49,7 +89,17 @@
         "Genuine Windows / Office license",
         "LibreOffice (free)"
       ],
-      "action": "uninstall"
+      "action": "uninstall",
+      "reason_en": "Piracy activator - often comes with malware.",
+      "reason_hi": "Piracy activator - इनके साथ अक्सर malware आता है।",
+      "alternatives_en": [
+        "Genuine Windows / Office license",
+        "LibreOffice (free)"
+      ],
+      "alternatives_hi": [
+        "Genuine Windows / Office license",
+        "LibreOffice (free)"
+      ]
     },
     {
       "match": "SHAREit",
@@ -60,7 +110,19 @@
         "Phone Link",
         "USB cable"
       ],
-      "action": "uninstall"
+      "action": "uninstall",
+      "reason_en": "The PC version has lots of ads and background services.",
+      "reason_hi": "PC version में बहुत ads और background services हैं।",
+      "alternatives_en": [
+        "Quick Share / Nearby Share",
+        "Phone Link",
+        "USB cable"
+      ],
+      "alternatives_hi": [
+        "Quick Share / Nearby Share",
+        "Phone Link",
+        "USB cable"
+      ]
     },
     {
       "match": "360 Total Security|Avast Cleanup|AVG TuneUp|Norton Utilities|CCleaner Browser|Avast Secure Browser|AVG Secure Browser",
@@ -70,7 +132,17 @@
         "Microsoft Defender",
         "Edge / Firefox"
       ],
-      "action": "uninstall"
+      "action": "uninstall",
+      "reason_en": "Optimizer / bundled browser - not needed and slows the PC.",
+      "reason_hi": "Optimizer / bundled browser - ज़रूरत नहीं और PC slow करते हैं।",
+      "alternatives_en": [
+        "Microsoft Defender",
+        "Edge / Firefox"
+      ],
+      "alternatives_hi": [
+        "Microsoft Defender",
+        "Edge / Firefox"
+      ]
     },
     {
       "match": "Adobe Flash|Shockwave|Silverlight|QuickTime",
@@ -79,7 +151,15 @@
       "alternatives": [
         "गरज नाही - काढा"
       ],
-      "action": "uninstall"
+      "action": "uninstall",
+      "reason_en": "Discontinued software - a security risk.",
+      "reason_hi": "बंद हो चुका software - security खतरा।",
+      "alternatives_en": [
+        "Not needed - remove it"
+      ],
+      "alternatives_hi": [
+        "ज़रूरत नहीं - हटाएँ"
+      ]
     },
     {
       "match": "^Skype",
@@ -89,7 +169,17 @@
         "Microsoft Teams (free)",
         "WhatsApp Desktop"
       ],
-      "action": "uninstall"
+      "action": "uninstall",
+      "reason_en": "Microsoft shut down the Skype service in May 2025.",
+      "reason_hi": "Microsoft ने Skype सेवा मई 2025 में बंद कर दी।",
+      "alternatives_en": [
+        "Microsoft Teams (free)",
+        "WhatsApp Desktop"
+      ],
+      "alternatives_hi": [
+        "Microsoft Teams (free)",
+        "WhatsApp Desktop"
+      ]
     },
     {
       "match": "Microsoft Office.*(2007|2010|2013)",
@@ -100,7 +190,19 @@
         "Office on the web (free)",
         "Microsoft 365"
       ],
-      "action": "replace"
+      "action": "replace",
+      "reason_en": "Old Office - no more security updates.",
+      "reason_hi": "पुराना Office - अब security updates नहीं।",
+      "alternatives_en": [
+        "LibreOffice (free)",
+        "Office on the web (free)",
+        "Microsoft 365"
+      ],
+      "alternatives_hi": [
+        "LibreOffice (free)",
+        "Office on the web (free)",
+        "Microsoft 365"
+      ]
     },
     {
       "match": "^Java( \\d+)?( Update \\d+)?|Java\\(TM\\)|Java SE Runtime",
@@ -109,7 +211,15 @@
       "alternatives": [
         "गरज नसल्यास काढा"
       ],
-      "action": "keep-if-needed"
+      "action": "keep-if-needed",
+      "reason_en": "Old Java is a security risk. But some government DSC / e-filing utilities need Java - keep it if needed.",
+      "reason_hi": "पुराना Java security खतरा है। पर कुछ सरकारी DSC / e-filing utilities को Java चाहिए - ज़रूरत हो तो रखें।",
+      "alternatives_en": [
+        "Remove it if not needed"
+      ],
+      "alternatives_hi": [
+        "ज़रूरत न हो तो हटाएँ"
+      ]
     },
     {
       "match": "Nero ",
@@ -119,7 +229,17 @@
         "Windows मधले built-in burning",
         "CDBurnerXP (free)"
       ],
-      "action": "uninstall"
+      "action": "uninstall",
+      "reason_en": "CD/DVD burning suite - rarely needed today and heavy.",
+      "reason_hi": "CD/DVD burning suite - आजकल शायद ही चाहिए, भारी है।",
+      "alternatives_en": [
+        "Windows' built-in burning",
+        "CDBurnerXP (free)"
+      ],
+      "alternatives_hi": [
+        "Windows का built-in burning",
+        "CDBurnerXP (free)"
+      ]
     },
     {
       "match": "^WinRAR",
@@ -128,7 +248,15 @@
       "alternatives": [
         "7-Zip (free, open-source)"
       ],
-      "action": "replace"
+      "action": "replace",
+      "reason_en": "Trial software; the free alternative is just as good.",
+      "reason_hi": "Trial software; free विकल्प उतना ही अच्छा है।",
+      "alternatives_en": [
+        "7-Zip (free, open-source)"
+      ],
+      "alternatives_hi": [
+        "7-Zip (free, open-source)"
+      ]
     },
     {
       "match": "KMPlayer|GOM Player",
@@ -138,7 +266,17 @@
         "VLC",
         "MPC-BE"
       ],
-      "action": "replace"
+      "action": "replace",
+      "reason_en": "The player has ads and bundled offers.",
+      "reason_hi": "Player में ads और bundled offers हैं।",
+      "alternatives_en": [
+        "VLC",
+        "MPC-BE"
+      ],
+      "alternatives_hi": [
+        "VLC",
+        "MPC-BE"
+      ]
     },
     {
       "match": "WPS Office",
@@ -149,7 +287,19 @@
         "OnlyOffice",
         "Office on the web"
       ],
-      "action": "replace"
+      "action": "replace",
+      "reason_en": "Ads in the free version.",
+      "reason_hi": "Free version में ads हैं।",
+      "alternatives_en": [
+        "LibreOffice",
+        "OnlyOffice",
+        "Office on the web"
+      ],
+      "alternatives_hi": [
+        "LibreOffice",
+        "OnlyOffice",
+        "Office on the web"
+      ]
     },
     {
       "match": "^CCleaner",
@@ -159,7 +309,17 @@
         "Sanjeevani PC Doctor cleanup",
         "Windows Storage Sense"
       ],
-      "action": "uninstall"
+      "action": "uninstall",
+      "reason_en": "Runs in the background and shows upgrade offers; Windows already has a cleanup.",
+      "reason_hi": "Background में चलता है और upgrade offers दिखाता है; Windows में cleanup पहले से है।",
+      "alternatives_en": [
+        "Sanjeevani PC Doctor cleanup",
+        "Windows Storage Sense"
+      ],
+      "alternatives_hi": [
+        "Sanjeevani PC Doctor cleanup",
+        "Windows Storage Sense"
+      ]
     },
     {
       "match": "McAfee|Norton|Avast|^AVG|Avira|Quick ?Heal|^K7|Kaspersky|Bitdefender|ESET|Total Defense|Comodo|Panda|Trend Micro|Sophos|Webroot|Net ?Protector|NPAV|eScan|Guardian|Seqrite|Smadav|Total ?AV",
@@ -168,7 +328,15 @@
       "alternatives": [
         "Microsoft Defender (built-in)"
       ],
-      "action": "replace"
+      "action": "replace",
+      "reason_en": "On a light PC a third-party antivirus uses a lot of RAM and disk. Microsoft Defender in Windows 10/11 is free, light and enough.",
+      "reason_hi": "हल्के PC पर third-party antivirus बहुत RAM और disk खाता है। Windows 10/11 का Microsoft Defender free, हल्का और काफ़ी है।",
+      "alternatives_en": [
+        "Microsoft Defender (built-in)"
+      ],
+      "alternatives_hi": [
+        "Microsoft Defender (built-in)"
+      ]
     },
     {
       "match": "Adobe Acrobat|Adobe Reader",
@@ -179,7 +347,17 @@
         "SumatraPDF (खूप हलका)",
         "Microsoft Edge (PDF viewer)"
       ],
-      "action": "replace"
+      "action": "replace",
+      "reason_en": "Far too heavy just for reading PDFs.",
+      "reason_hi": "PDF पढ़ने के लिए बहुत भारी।",
+      "alternatives_en": [
+        "SumatraPDF (very light)",
+        "Microsoft Edge (PDF viewer)"
+      ],
+      "alternatives_hi": [
+        "SumatraPDF (बहुत हल्का)",
+        "Microsoft Edge (PDF viewer)"
+      ]
     },
     {
       "match": "Adobe Photoshop",
@@ -191,7 +369,19 @@
         "Paint.NET",
         "GIMP"
       ],
-      "action": "replace"
+      "action": "replace",
+      "reason_en": "Too heavy for this hardware.",
+      "reason_hi": "इस hardware के लिए बहुत भारी।",
+      "alternatives_en": [
+        "Photopea (web)",
+        "Paint.NET",
+        "GIMP"
+      ],
+      "alternatives_hi": [
+        "Photopea (web)",
+        "Paint.NET",
+        "GIMP"
+      ]
     },
     {
       "match": "CorelDRAW",
@@ -201,7 +391,15 @@
       "alternatives": [
         "Inkscape (free)"
       ],
-      "action": "replace"
+      "action": "replace",
+      "reason_en": "Heavy for this hardware.",
+      "reason_hi": "इस hardware के लिए भारी।",
+      "alternatives_en": [
+        "Inkscape (free)"
+      ],
+      "alternatives_hi": [
+        "Inkscape (free)"
+      ]
     },
     {
       "match": "Adobe Creative Cloud",
@@ -211,7 +409,15 @@
       "alternatives": [
         "Startup मधून बंद करा"
       ],
-      "action": "keep-if-needed"
+      "action": "keep-if-needed",
+      "reason_en": "Keeps running in the background.",
+      "reason_hi": "Background में लगातार चलता है।",
+      "alternatives_en": [
+        "Turn it off at startup"
+      ],
+      "alternatives_hi": [
+        "Startup से बंद करें"
+      ]
     },
     {
       "match": "^Google Chrome",
@@ -223,7 +429,19 @@
         "Firefox",
         "Chrome मध्ये Memory Saver चालू करा"
       ],
-      "action": "keep-if-needed"
+      "action": "keep-if-needed",
+      "reason_en": "Chrome uses a lot of RAM.",
+      "reason_hi": "Chrome बहुत RAM इस्तेमाल करता है।",
+      "alternatives_en": [
+        "Edge (Efficiency mode)",
+        "Firefox",
+        "turn on Memory Saver in Chrome"
+      ],
+      "alternatives_hi": [
+        "Edge (Efficiency mode)",
+        "Firefox",
+        "Chrome में Memory Saver चालू करें"
+      ]
     },
     {
       "match": "Microsoft Teams classic|Teams Machine-Wide",
@@ -234,7 +452,17 @@
         "teams.microsoft.com (browser)",
         "नवीन Teams"
       ],
-      "action": "replace"
+      "action": "replace",
+      "reason_en": "Old Teams is very heavy.",
+      "reason_hi": "पुराना Teams बहुत भारी है।",
+      "alternatives_en": [
+        "teams.microsoft.com (browser)",
+        "new Teams"
+      ],
+      "alternatives_hi": [
+        "teams.microsoft.com (browser)",
+        "नया Teams"
+      ]
     },
     {
       "match": "^Zoom",
@@ -245,7 +473,17 @@
         "Browser मधून Zoom join करा",
         "Startup बंद करा"
       ],
-      "action": "keep-if-needed"
+      "action": "keep-if-needed",
+      "reason_en": "Starts with Windows.",
+      "reason_hi": "Startup पर चालू हो जाता है।",
+      "alternatives_en": [
+        "Join Zoom from the browser",
+        "turn it off at startup"
+      ],
+      "alternatives_hi": [
+        "Browser से Zoom join करें",
+        "Startup बंद करें"
+      ]
     },
     {
       "match": "^Spotify",
@@ -255,7 +493,15 @@
       "alternatives": [
         "open.spotify.com (browser)"
       ],
-      "action": "replace"
+      "action": "replace",
+      "reason_en": "The desktop app eats RAM.",
+      "reason_hi": "Desktop app RAM खाता है।",
+      "alternatives_en": [
+        "open.spotify.com (browser)"
+      ],
+      "alternatives_hi": [
+        "open.spotify.com (browser)"
+      ]
     },
     {
       "match": "^iTunes",
@@ -265,7 +511,15 @@
       "alternatives": [
         "Apple Music / Apple Devices app (Store)"
       ],
-      "action": "keep-if-needed"
+      "action": "keep-if-needed",
+      "reason_en": "Not needed if you do not use an iPhone.",
+      "reason_hi": "iPhone इस्तेमाल न करें तो ज़रूरत नहीं।",
+      "alternatives_en": [
+        "Apple Music / Apple Devices app (Store)"
+      ],
+      "alternatives_hi": [
+        "Apple Music / Apple Devices app (Store)"
+      ]
     },
     {
       "match": "BlueStacks|NoxPlayer|LDPlayer|MEmu",
@@ -275,7 +529,15 @@
       "alternatives": [
         "Phone वरच app वापरा"
       ],
-      "action": "uninstall"
+      "action": "uninstall",
+      "reason_en": "An Android emulator is far too heavy for this PC.",
+      "reason_hi": "Android emulator इस PC के लिए बहुत भारी है।",
+      "alternatives_en": [
+        "Use the app on the phone"
+      ],
+      "alternatives_hi": [
+        "App phone पर ही इस्तेमाल करें"
+      ]
     },
     {
       "match": "^Steam$|Epic Games Launcher|^EA app|^Origin$|Ubisoft Connect|Battle\\.net",
@@ -286,7 +548,17 @@
         "Startup बंद करा",
         "वापरत नसल्यास काढा"
       ],
-      "action": "keep-if-needed"
+      "action": "keep-if-needed",
+      "reason_en": "Game launchers run in the background.",
+      "reason_hi": "Game launchers background में चलते हैं।",
+      "alternatives_en": [
+        "Turn them off at startup",
+        "remove them if unused"
+      ],
+      "alternatives_hi": [
+        "Startup बंद करें",
+        "इस्तेमाल न हो तो हटाएँ"
+      ]
     },
     {
       "match": "^Dropbox|^Google Drive",
@@ -297,7 +569,17 @@
         "Browser मधून वापरा",
         "Startup बंद करा"
       ],
-      "action": "keep-if-needed"
+      "action": "keep-if-needed",
+      "reason_en": "Constant syncing keeps the disk busy.",
+      "reason_hi": "लगातार sync करके disk busy रखते हैं।",
+      "alternatives_en": [
+        "Use it from the browser",
+        "turn it off at startup"
+      ],
+      "alternatives_hi": [
+        "Browser से इस्तेमाल करें",
+        "Startup बंद करें"
+      ]
     }
   ]
 }

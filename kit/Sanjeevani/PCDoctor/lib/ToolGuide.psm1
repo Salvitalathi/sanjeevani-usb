@@ -1,15 +1,18 @@
 ﻿# Sanjeevani PC Doctor - "Tools मार्गदर्शक": finds the USB tools, prepares their settings for this PC
-# and runs automatic checks whose results are explained in Marathi and English.
+# and runs automatic checks whose results are explained in English, Marathi and Hindi.
 # Every check is read-only except the stress test (which only loads the CPU) - nothing is changed on the PC.
 Set-StrictMode -Off
 
 # ------------------------------------------------------------------ result object
 function New-TGResult {
-    param([string]$Status = 'info', [string]$HeadMr, [string]$HeadEn)
-    [pscustomobject]@{ Status = $Status; HeadMr = $HeadMr; HeadEn = $HeadEn
-        LinesMr = (New-Object System.Collections.ArrayList); LinesEn = (New-Object System.Collections.ArrayList); File = $null }
+    param([string]$Status = 'info', [string]$HeadMr, [string]$HeadEn, [string]$HeadHi)
+    [pscustomobject]@{ Status = $Status; HeadMr = $HeadMr; HeadEn = $HeadEn; HeadHi = $HeadHi
+        LinesMr = (New-Object System.Collections.ArrayList); LinesEn = (New-Object System.Collections.ArrayList); LinesHi = (New-Object System.Collections.ArrayList); File = $null }
 }
-function Add-TGLine($R, [string]$Mr, [string]$En) { [void]$R.LinesMr.Add($Mr); [void]$R.LinesEn.Add($(if ($En) { $En } else { $Mr })) }
+function Add-TGLine($R, [string]$Mr, [string]$En, [string]$Hi) {
+    if (-not $En) { $En = $Mr }
+    [void]$R.LinesMr.Add($Mr); [void]$R.LinesEn.Add($En); [void]$R.LinesHi.Add($(if ($Hi) { $Hi } else { $En }))
+}
 function Set-TGWorse($R, [string]$Status) {
     $rank = @{ info = 0; ok = 1; warn = 2; bad = 3 }
     if ($rank[$Status] -gt $rank[$R.Status]) { $R.Status = $Status }
@@ -196,7 +199,7 @@ function Get-TGThermalC {
 
 # ------------------------------------------------------------------ auto checks
 function Invoke-TGDiskHealth([string]$UsbRoot, $P) {
-    $r = New-TGResult 'ok' 'Disk ची तब्येत' 'Disk health'
+    $r = New-TGResult 'ok' 'Disk ची तब्येत' 'Disk health' 'Disk की सेहत'
     $cdiDone = $false
     $exe = Get-TGRunPath (Find-TGTool -UsbRoot $UsbRoot -Id 'crystaldiskinfo')
     if ($exe) {
@@ -211,12 +214,12 @@ function Invoke-TGDiskHealth([string]$UsbRoot, $P) {
                 $tmp = if ($d.TempC) { " · $($d.TempC)°C" } else { '' }
                 $pct = if ($d.Percent) { " ($($d.Percent)%)" } else { '' }
                 switch -Regex ($d.Health) {
-                    '^Good' { Add-TGLine $r "✔ $($d.Model): ठीक$pct$tmp" "✔ $($d.Model): Good$pct$tmp" }
-                    '^Caution' { Set-TGWorse $r 'warn'; Add-TGLine $r "⚠ $($d.Model): Caution$pct$tmp - disk खराब होऊ लागली. महत्त्वाचा data लगेच copy करा आणि disk बदलायची तयारी करा." "⚠ $($d.Model): Caution$pct$tmp - the disk is starting to fail. Copy important data now and plan a replacement." }
-                    '^Bad' { Set-TGWorse $r 'bad'; Add-TGLine $r "✖ $($d.Model): Bad$tmp - disk खराब. आत्ताच data copy करा, disk बदला." "✖ $($d.Model): Bad$tmp - the disk is failing. Copy the data now and replace the disk." }
+                    '^Good' { Add-TGLine $r "✔ $($d.Model): ठीक$pct$tmp" "✔ $($d.Model): Good$pct$tmp" "✔ $($d.Model): ठीक$pct$tmp" }
+                    '^Caution' { Set-TGWorse $r 'warn'; Add-TGLine $r "⚠ $($d.Model): Caution$pct$tmp - disk खराब होऊ लागली. महत्त्वाचा data लगेच copy करा आणि disk बदलायची तयारी करा." "⚠ $($d.Model): Caution$pct$tmp - the disk is starting to fail. Copy important data now and plan a replacement." "⚠ $($d.Model): Caution$pct$tmp - disk खराब होने लगी है। ज़रूरी data तुरंत copy करें और disk बदलने की तैयारी करें।" }
+                    '^Bad' { Set-TGWorse $r 'bad'; Add-TGLine $r "✖ $($d.Model): Bad$tmp - disk खराब. आत्ताच data copy करा, disk बदला." "✖ $($d.Model): Bad$tmp - the disk is failing. Copy the data now and replace the disk." "✖ $($d.Model): Bad$tmp - disk खराब। अभी data copy करें, disk बदलें।" }
                     default { Add-TGLine $r "• $($d.Model): $($d.Health)$tmp" }
                 }
-                if ($d.TempC -ge 55) { Set-TGWorse $r 'warn'; Add-TGLine $r "   तापमान जास्त ($($d.TempC)°C) - हवा खेळती ठेवा / laptop खाली कठीण पृष्ठभाग." "   Temperature is high ($($d.TempC)°C) - improve airflow / keep the laptop on a hard surface." }
+                if ($d.TempC -ge 55) { Set-TGWorse $r 'warn'; Add-TGLine $r "   तापमान जास्त ($($d.TempC)°C) - हवा खेळती ठेवा / laptop खाली कठीण पृष्ठभाग." "   Temperature is high ($($d.TempC)°C) - improve airflow / keep the laptop on a hard surface." "   तापमान ज़्यादा ($($d.TempC)°C) - हवा का बहाव रखें / laptop के नीचे सख्त सतह रखें।" }
             }
         }
     }
@@ -229,14 +232,14 @@ function Invoke-TGDiskHealth([string]$UsbRoot, $P) {
             if ($rc -and $rc.Temperature) { $extra += "$($rc.Temperature)°C" }
             if ($rc -and $null -ne $rc.Wear -and $rc.Wear -gt 0) { $extra += "wear $($rc.Wear)%" }
             $ex = if ($extra) { ' · ' + ($extra -join ' · ') } else { '' }
-            if ($d.HealthStatus -eq 'Unhealthy') { Set-TGWorse $r 'bad'; Add-TGLine $r "✖ $name : खराब$ex - आत्ताच data copy करा." "✖ $name : Unhealthy$ex - copy the data now." }
-            elseif ($d.HealthStatus -eq 'Warning' -or ($rc -and $rc.ReadErrorsUncorrected -gt 0) -or ($rc -and $rc.Wear -ge 80)) { Set-TGWorse $r 'warn'; Add-TGLine $r "⚠ $name : लक्ष द्या$ex - data चा backup घ्या." "⚠ $name : Warning$ex - back up the data." }
-            else { Add-TGLine $r "✔ $name : ठीक$ex" "✔ $name : Healthy$ex" }
+            if ($d.HealthStatus -eq 'Unhealthy') { Set-TGWorse $r 'bad'; Add-TGLine $r "✖ $name : खराब$ex - आत्ताच data copy करा." "✖ $name : Unhealthy$ex - copy the data now." "✖ $name : खराब$ex - अभी data copy करें।" }
+            elseif ($d.HealthStatus -eq 'Warning' -or ($rc -and $rc.ReadErrorsUncorrected -gt 0) -or ($rc -and $rc.Wear -ge 80)) { Set-TGWorse $r 'warn'; Add-TGLine $r "⚠ $name : लक्ष द्या$ex - data चा backup घ्या." "⚠ $name : Warning$ex - back up the data." "⚠ $name : ध्यान दें$ex - data का backup लें।" }
+            else { Add-TGLine $r "✔ $name : ठीक$ex" "✔ $name : Healthy$ex" "✔ $name : ठीक$ex" }
         }
-        if (-not $r.LinesMr.Count) { $r.Status = 'info'; Add-TGLine $r 'Disk माहिती मिळाली नाही.' 'No disk information was available.' }
-        else { Add-TGLine $r '(Windows ची माहिती. जास्त अचूक तपासणीसाठी CrystalDiskInfo pendrive वर ठेवा.)' '(From Windows. Keep CrystalDiskInfo on the USB for a more precise check.)' }
+        if (-not $r.LinesMr.Count) { $r.Status = 'info'; Add-TGLine $r 'Disk माहिती मिळाली नाही.' 'No disk information was available.' 'Disk की जानकारी नहीं मिली।' }
+        else { Add-TGLine $r '(Windows ची माहिती. जास्त अचूक तपासणीसाठी CrystalDiskInfo pendrive वर ठेवा.)' '(From Windows. Keep CrystalDiskInfo on the USB for a more precise check.)' '(Windows की जानकारी। ज़्यादा सटीक जाँच के लिए CrystalDiskInfo pendrive पर रखें।)' }
     }
-    $r.HeadMr = switch ($r.Status) { 'bad' { 'Disk खराब आहे - data लगेच वाचवा' } 'warn' { 'Disk वर लक्ष द्या' } default { 'सगळे disks ठीक आहेत' } }
+    $r.HeadMr = switch ($r.Status) { 'bad' { 'Disk खराब आहे - data लगेच वाचवा' } 'warn' { 'Disk वर लक्ष द्या' } default { 'सगळे disks ठीक आहेत' } }; $r.HeadHi = switch ($r.Status) { 'bad' { 'Disk खराब है - data तुरंत बचाएँ' } 'warn' { 'Disk पर ध्यान दें' } default { 'सभी disks ठीक हैं' } }
     $r.HeadEn = switch ($r.Status) { 'bad' { 'A disk is failing - save the data now' } 'warn' { 'A disk needs attention' } default { 'All disks are healthy' } }
     return $r
 }
@@ -260,7 +263,7 @@ function ConvertFrom-TGDiskInfo([string]$Text) {
 }
 
 function Invoke-TGBattery([string]$UsbRoot, $P) {
-    $r = New-TGResult 'info' 'Battery' 'Battery'
+    $r = New-TGResult 'info' 'Battery' 'Battery' 'Battery'
     $xmlFile = Join-Path $env:TEMP 'sjv-battery.xml'
     Remove-Item -LiteralPath $xmlFile -ErrorAction SilentlyContinue
     # via cmd so that powercfg's error text on PCs without a battery never becomes a PowerShell error
@@ -268,8 +271,8 @@ function Invoke-TGBattery([string]$UsbRoot, $P) {
     $bats = @()
     if (Test-Path -LiteralPath $xmlFile) { try { [xml]$x = Get-Content -LiteralPath $xmlFile -Raw; $bats = @($x.BatteryReport.Batteries.Battery | Where-Object { $_ }) } catch { } }
     if (-not $bats.Count) {
-        $r.HeadMr = 'Battery सापडली नाही'; $r.HeadEn = 'No battery found'
-        Add-TGLine $r 'हा desktop PC आहे किंवा battery लावलेली / ओळखलेली नाही.' 'This is a desktop PC, or the battery is not fitted / not detected.'
+        $r.HeadMr = 'Battery सापडली नाही'; $r.HeadHi = 'Battery नहीं मिली'; $r.HeadEn = 'No battery found'
+        Add-TGLine $r 'हा desktop PC आहे किंवा battery लावलेली / ओळखलेली नाही.' 'This is a desktop PC, or the battery is not fitted / not detected.' 'यह desktop PC है या battery लगी / पहचानी नहीं गई।'
         return $r
     }
     $worst = 0
@@ -279,13 +282,13 @@ function Invoke-TGBattery([string]$UsbRoot, $P) {
         $wear = [math]::Max(0, [math]::Round(100 * (1 - $full / $design)))
         $worst = [math]::Max($worst, $wear)
         $cyc = if ($b.CycleCount) { " · $($b.CycleCount) cycles" } else { '' }
-        Add-TGLine $r ("{0}: मूळ क्षमता {1:N0} mWh, आता {2:N0} mWh → झीज {3}%{4}" -f $b.Id, $design, $full, $wear, $cyc) ("{0}: design {1:N0} mWh, now {2:N0} mWh → wear {3}%{4}" -f $b.Id, $design, $full, $wear, $cyc)
+        Add-TGLine $r ("{0}: मूळ क्षमता {1:N0} mWh, आता {2:N0} mWh → झीज {3}%{4}" -f $b.Id, $design, $full, $wear, $cyc) ("{0}: design {1:N0} mWh, now {2:N0} mWh → wear {3}%{4}" -f $b.Id, $design, $full, $wear, $cyc) ("{0}: मूल क्षमता {1:N0} mWh, अब {2:N0} mWh → घिसाव {3}%{4}" -f $b.Id, $design, $full, $wear, $cyc)
     }
-    if ($worst -ge 40) { $r.Status = 'bad'; $r.HeadMr = "Battery बदलण्याची वेळ (झीज $worst%)"; $r.HeadEn = "Time to replace the battery ($worst% wear)"
-        Add-TGLine $r 'Battery मूळ क्षमतेच्या 60% पेक्षा कमी charge धरते. नवीन original battery लावा.' 'It holds less than 60% of its original charge. Fit a new original battery.' }
-    elseif ($worst -ge 20) { $r.Status = 'warn'; $r.HeadMr = "Battery थोडी झिजली (झीज $worst%)"; $r.HeadEn = "Battery somewhat worn ($worst% wear)"
-        Add-TGLine $r 'चालेल, पण backup कमी मिळेल. 100% वर सतत charger लावून ठेवणे टाळा.' 'Usable, with shorter backup. Avoid keeping it on the charger at 100% all the time.' }
-    else { $r.Status = 'ok'; $r.HeadMr = "Battery चांगली (झीज $worst%)"; $r.HeadEn = "Battery is good ($worst% wear)" }
+    if ($worst -ge 40) { $r.Status = 'bad'; $r.HeadMr = "Battery बदलण्याची वेळ (झीज $worst%)"; $r.HeadHi = "Battery बदलने का समय (घिसाव $worst%)"; $r.HeadEn = "Time to replace the battery ($worst% wear)"
+        Add-TGLine $r 'Battery मूळ क्षमतेच्या 60% पेक्षा कमी charge धरते. नवीन original battery लावा.' 'It holds less than 60% of its original charge. Fit a new original battery.' 'Battery मूल क्षमता के 60% से कम charge रखती है। नई original battery लगाएँ।' }
+    elseif ($worst -ge 20) { $r.Status = 'warn'; $r.HeadMr = "Battery थोडी झिजली (झीज $worst%)"; $r.HeadHi = "Battery थोड़ी घिसी (घिसाव $worst%)"; $r.HeadEn = "Battery somewhat worn ($worst% wear)"
+        Add-TGLine $r 'चालेल, पण backup कमी मिळेल. 100% वर सतत charger लावून ठेवणे टाळा.' 'Usable, with shorter backup. Avoid keeping it on the charger at 100% all the time.' 'चलेगी, पर backup कम मिलेगा। 100% पर लगातार charger लगाए रखने से बचें।' }
+    else { $r.Status = 'ok'; $r.HeadMr = "Battery चांगली (झीज $worst%)"; $r.HeadHi = "Battery अच्छी है (घिसाव $worst%)"; $r.HeadEn = "Battery is good ($worst% wear)" }
     return $r
 }
 
@@ -294,7 +297,7 @@ function Get-TGRamType([int]$t) {
 }
 
 function Invoke-TGSystemSummary([string]$UsbRoot, $P) {
-    $r = New-TGResult 'ok' 'या PC ची माहिती आणि upgrade सल्ला' 'PC details and upgrade advice'
+    $r = New-TGResult 'ok' 'या PC ची माहिती आणि upgrade सल्ला' 'PC details and upgrade advice' 'इस PC की जानकारी और upgrade सलाह'
     $cs = Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue
     $cpu = Get-CimInstance Win32_Processor -ErrorAction SilentlyContinue | Select-Object -First 1
     $os = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
@@ -302,8 +305,8 @@ function Invoke-TGSystemSummary([string]$UsbRoot, $P) {
     $slots = (@(Get-CimInstance Win32_PhysicalMemoryArray -ErrorAction SilentlyContinue) | Measure-Object MemoryDevices -Sum).Sum
     $gpu = @(Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue | Where-Object { $_.Name -notmatch 'Basic Display|Remote|Virtual' })
     $ramGB = [math]::Round(($cs.TotalPhysicalMemory) / 1GB)
-    Add-TGLine $r "PC: $($cs.Manufacturer) $($cs.Model)" ''
-    Add-TGLine $r "CPU: $($cpu.Name.Trim()) · $($cpu.NumberOfCores) cores / $($cpu.NumberOfLogicalProcessors) threads" ''
+    Add-TGLine $r "PC: $($cs.Manufacturer) $($cs.Model)" '' ''
+    Add-TGLine $r "CPU: $($cpu.Name.Trim()) · $($cpu.NumberOfCores) cores / $($cpu.NumberOfLogicalProcessors) threads" '' ''
     $type = ($mods | ForEach-Object { Get-TGRamType ([int]$_.SMBIOSMemoryType) } | Where-Object { $_ } | Select-Object -First 1)
     $speed = ($mods | ForEach-Object { if ($_.ConfiguredClockSpeed) { $_.ConfiguredClockSpeed } else { $_.Speed } } | Measure-Object -Maximum).Maximum
     $modTxt = ($mods | ForEach-Object { "$([math]::Round($_.Capacity / 1GB)) GB" }) -join ' + '
@@ -312,57 +315,57 @@ function Invoke-TGSystemSummary([string]$UsbRoot, $P) {
     if ($speed) { $ramTxt += " $speed MHz" }
     if ($mods.Count) { $ramTxt += " ($modTxt)" }
     if ($slots) { $ramTxt += " · slots: $slots" }
-    Add-TGLine $r $ramTxt ''
-    foreach ($g in $gpu) { Add-TGLine $r "Graphics: $($g.Name)" '' }
-    Add-TGLine $r "Windows: $($os.Caption) ($($os.Version))" ''
+    Add-TGLine $r $ramTxt '' ''
+    foreach ($g in $gpu) { Add-TGLine $r "Graphics: $($g.Name)" '' '' }
+    Add-TGLine $r "Windows: $($os.Caption) ($($os.Version))" '' ''
     # system disk type
     $sysType = $null
     try {
         $dn = (Get-Partition -DriveLetter ($env:SystemDrive.Substring(0, 1)) -ErrorAction Stop).DiskNumber
         $pd = Get-PhysicalDisk -ErrorAction Stop | Where-Object { [string]$_.DeviceId -eq [string]$dn } | Select-Object -First 1
-        if ($pd) { $sysType = [string]$pd.MediaType; Add-TGLine $r "Windows disk: $($pd.FriendlyName) ($sysType, $([math]::Round($pd.Size / 1GB)) GB, $($pd.BusType))" '' }
+        if ($pd) { $sysType = [string]$pd.MediaType; Add-TGLine $r "Windows disk: $($pd.FriendlyName) ($sysType, $([math]::Round($pd.Size / 1GB)) GB, $($pd.BusType))" '' '' }
     } catch { }
     # advice
-    if ($ramGB -lt 4) { Set-TGWorse $r 'bad'; Add-TGLine $r '✖ RAM 4 GB पेक्षा कमी - Windows 10/11 खूप हळू चालेल. किमान 8 GB करा.' '✖ Less than 4 GB RAM - Windows 10/11 will be very slow. Upgrade to at least 8 GB.' }
-    elseif ($ramGB -lt 8) { Set-TGWorse $r 'warn'; Add-TGLine $r '⚠ RAM 8 GB पेक्षा कमी - browser + office एकत्र हळू. 8 GB केल्यास फरक जाणवेल.' '⚠ Less than 8 GB RAM - browser + office together are slow. 8 GB makes a clear difference.' }
+    if ($ramGB -lt 4) { Set-TGWorse $r 'bad'; Add-TGLine $r '✖ RAM 4 GB पेक्षा कमी - Windows 10/11 खूप हळू चालेल. किमान 8 GB करा.' '✖ Less than 4 GB RAM - Windows 10/11 will be very slow. Upgrade to at least 8 GB.' '✖ RAM 4 GB से कम - Windows 10/11 बहुत धीमा चलेगा। कम से कम 8 GB करें।' }
+    elseif ($ramGB -lt 8) { Set-TGWorse $r 'warn'; Add-TGLine $r '⚠ RAM 8 GB पेक्षा कमी - browser + office एकत्र हळू. 8 GB केल्यास फरक जाणवेल.' '⚠ Less than 8 GB RAM - browser + office together are slow. 8 GB makes a clear difference.' '⚠ RAM 8 GB से कम - browser + office साथ में धीमे। 8 GB करने से फ़र्क दिखेगा।' }
     if ($mods.Count -eq 1 -and $slots -gt 1) {
         Set-TGWorse $r 'warn'
         $same = (("$type $(if ($speed) { "$speed MHz" })").Trim())
-        Add-TGLine $r ("⚠ एकच RAM stick (single channel). मोकळ्या slot मध्ये तशीच {0} RAM लावल्यास dual channel होऊन वेग वाढतो." -f $same) ("⚠ Only one RAM stick (single channel). Adding a matching {0} stick in the free slot enables dual channel and speeds it up." -f $same)
+        Add-TGLine $r ("⚠ एकच RAM stick (single channel). मोकळ्या slot मध्ये तशीच {0} RAM लावल्यास dual channel होऊन वेग वाढतो." -f $same) ("⚠ Only one RAM stick (single channel). Adding a matching {0} stick in the free slot enables dual channel and speeds it up." -f $same) ("⚠ एक ही RAM stick (single channel)। खाली slot में वैसी ही {0} RAM लगाने से dual channel होकर speed बढ़ती है।" -f $same)
     }
-    if ($sysType -eq 'HDD') { Set-TGWorse $r 'warn'; Add-TGLine $r '⚠ Windows hard disk (HDD) वर आहे. SSD लावल्यास PC 3-5 पट लवकर सुरू होतो - सगळ्यात मोठा फायदा.' '⚠ Windows runs from a hard disk (HDD). An SSD makes it start 3-5 times faster - the biggest single upgrade.' }
-    if ($r.Status -eq 'ok') { Add-TGLine $r '✔ RAM आणि disk या कामांसाठी पुरेसे आहेत.' '✔ RAM and disk are adequate.' }
+    if ($sysType -eq 'HDD') { Set-TGWorse $r 'warn'; Add-TGLine $r '⚠ Windows hard disk (HDD) वर आहे. SSD लावल्यास PC 3-5 पट लवकर सुरू होतो - सगळ्यात मोठा फायदा.' '⚠ Windows runs from a hard disk (HDD). An SSD makes it start 3-5 times faster - the biggest single upgrade.' '⚠ Windows hard disk (HDD) पर है। SSD लगाने से PC 3-5 गुना जल्दी शुरू होता है - सबसे बड़ा फ़ायदा।' }
+    if ($r.Status -eq 'ok') { Add-TGLine $r '✔ RAM आणि disk या कामांसाठी पुरेसे आहेत.' '✔ RAM and disk are adequate.' '✔ RAM और disk इन कामों के लिए काफ़ी हैं।' }
     # full CPU-Z report
     $exe = Get-TGRunPath (Find-TGTool -UsbRoot $UsbRoot -Id 'cpuz')
     if ($exe -and $P.ReportDir) {
         $base = Join-Path $P.ReportDir ("cpuz-{0:yyyyMMdd-HHmm}" -f (Get-Date))
         Set-PDProgress -1 'CPU-Z report'
         [void](Invoke-TGProcess $exe @("-txt=$base") 120 -Hidden)
-        if (Test-Path -LiteralPath "$base.txt") { $r.File = "$base.txt"; Add-TGLine $r 'CPU-Z चा पूर्ण report Reports folder मध्ये save केला.' 'The full CPU-Z report was saved in the Reports folder.' }
+        if (Test-Path -LiteralPath "$base.txt") { $r.File = "$base.txt"; Add-TGLine $r 'CPU-Z चा पूर्ण report Reports folder मध्ये save केला.' 'The full CPU-Z report was saved in the Reports folder.' 'CPU-Z की पूरी report Reports folder में save की।' }
     }
     return $r
 }
 
 function Invoke-TGTemps([string]$UsbRoot, $P) {
-    $r = New-TGResult 'info' 'तापमान' 'Temperatures'
+    $r = New-TGResult 'info' 'तापमान' 'Temperatures' 'तापमान'
     $c = Get-TGThermalC
     if ($null -ne $c) {
-        Add-TGLine $r "Windows नुसार सध्याचे तापमान: $c°C" "Current temperature reported by Windows: $c°C"
-        if ($c -ge 90) { Set-TGWorse $r 'bad'; Add-TGLine $r '✖ खूप गरम. Fan / heatsink ची धूळ साफ करा, thermal paste बदला.' '✖ Very hot. Clean the fan / heatsink and renew the thermal paste.' }
-        elseif ($c -ge 80) { Set-TGWorse $r 'warn'; Add-TGLine $r '⚠ गरम. Vents मोकळे आहेत ना ते पाहा.' '⚠ Hot. Check that the vents are not blocked.' }
+        Add-TGLine $r "Windows नुसार सध्याचे तापमान: $c°C" "Current temperature reported by Windows: $c°C" "Windows के अनुसार अभी का तापमान: $c°C"
+        if ($c -ge 90) { Set-TGWorse $r 'bad'; Add-TGLine $r '✖ खूप गरम. Fan / heatsink ची धूळ साफ करा, thermal paste बदला.' '✖ Very hot. Clean the fan / heatsink and renew the thermal paste.' '✖ बहुत गर्म। Fan / heatsink की धूल साफ़ करें, thermal paste बदलें।' }
+        elseif ($c -ge 80) { Set-TGWorse $r 'warn'; Add-TGLine $r '⚠ गरम. Vents मोकळे आहेत ना ते पाहा.' '⚠ Hot. Check that the vents are not blocked.' '⚠ गर्म। Vents खुले हैं या नहीं देखें।' }
     }
     $exe = Get-TGRunPath (Find-TGTool -UsbRoot $UsbRoot -Id 'hwinfo')
     if ($exe) {
         Initialize-TGToolConfig 'hwinfo' $exe
         Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) | Out-Null
-        Add-TGLine $r 'HWiNFO चा Sensors window उघडला आहे. त्यात हे पाहा:' 'HWiNFO''s Sensors window is open. Look at:'
+        Add-TGLine $r 'HWiNFO चा Sensors window उघडला आहे. त्यात हे पाहा:' 'HWiNFO''s Sensors window is open. Look at:' 'HWiNFO की Sensors window खुली है। उसमें यह देखें:'
     } else {
-        Add-TGLine $r 'HWiNFO pendrive वर नाही - Setup चालवून घ्या. तोपर्यंत हे लक्षात ठेवा:' 'HWiNFO is not on the USB - run Setup to get it. Meanwhile:'
+        Add-TGLine $r 'HWiNFO pendrive वर नाही - Setup चालवून घ्या. तोपर्यंत हे लक्षात ठेवा:' 'HWiNFO is not on the USB - run Setup to get it. Meanwhile:' 'HWiNFO pendrive पर नहीं है - Setup चलाकर लें। तब तक यह ध्यान रखें:'
     }
-    Add-TGLine $r '• "CPU Package" / "CPU (Tctl/Tdie)": 40-75°C ठीक · 80-90°C जास्त · 95°C+ धोका.' '• "CPU Package" / "CPU (Tctl/Tdie)": 40-75°C fine · 80-90°C high · 95°C+ dangerous.'
-    Add-TGLine $r '• "Thermal Throttling" = Yes → गरमीमुळे PC हळू होतो; cooling साफ करा.' '• "Thermal Throttling" = Yes → heat is slowing the PC; clean the cooling.'
-    Add-TGLine $r '• GPU 85°C पर्यंत, disk 55°C पर्यंत ठीक.' '• GPU up to 85°C and disks up to 55°C are fine.'
-    $r.HeadMr = if ($r.Status -eq 'bad') { 'PC खूप गरम होत आहे' } elseif ($r.Status -eq 'warn') { 'PC गरम आहे' } else { 'तापमान तपासणी' }
+    Add-TGLine $r '• "CPU Package" / "CPU (Tctl/Tdie)": 40-75°C ठीक · 80-90°C जास्त · 95°C+ धोका.' '• "CPU Package" / "CPU (Tctl/Tdie)": 40-75°C fine · 80-90°C high · 95°C+ dangerous.' '• "CPU Package" / "CPU (Tctl/Tdie)": 40-75°C ठीक · 80-90°C ज़्यादा · 95°C+ खतरा।'
+    Add-TGLine $r '• "Thermal Throttling" = Yes → गरमीमुळे PC हळू होतो; cooling साफ करा.' '• "Thermal Throttling" = Yes → heat is slowing the PC; clean the cooling.' '• "Thermal Throttling" = Yes → गर्मी से PC धीमा होता है; cooling साफ़ करें।'
+    Add-TGLine $r '• GPU 85°C पर्यंत, disk 55°C पर्यंत ठीक.' '• GPU up to 85°C and disks up to 55°C are fine.' '• GPU 85°C तक, disk 55°C तक ठीक।'
+    $r.HeadMr = if ($r.Status -eq 'bad') { 'PC खूप गरम होत आहे' } elseif ($r.Status -eq 'warn') { 'PC गरम आहे' } else { 'तापमान तपासणी' }; $r.HeadHi = if ($r.Status -eq 'bad') { 'PC बहुत गर्म हो रहा है' } elseif ($r.Status -eq 'warn') { 'PC गर्म है' } else { 'तापमान जाँच' }
     $r.HeadEn = if ($r.Status -eq 'bad') { 'The PC is overheating' } elseif ($r.Status -eq 'warn') { 'The PC runs hot' } else { 'Temperature check' }
     return $r
 }
@@ -377,22 +380,22 @@ $script:TGDriverHints = @(
     @('^athw|^athr|^qcamain', 'Qualcomm Atheros WiFi driver', 'Qualcomm Atheros WiFi driver'),
     @('^bcmwl', 'Broadcom WiFi driver', 'Broadcom WiFi driver'),
     @('^iaStor|^iaStorA|^iaStorAC|^RstMwService', 'Intel storage (RST) driver', 'Intel storage (RST) driver'),
-    @('^(ntoskrnl|ntkrnlmp|hal)\.', 'Windows kernel - हे स्वतः कारण नसते; बहुतेक RAM / disk / इतर driver', 'Windows kernel - rarely the cause itself; usually RAM / disk / another driver')
+    @('^(ntoskrnl|ntkrnlmp|hal)\.', 'Windows kernel - हे स्वतः कारण नसते; बहुतेक RAM / disk / इतर driver', 'Windows kernel - rarely the cause itself; usually RAM / disk / another driver', 'Windows kernel - यह खुद कारण नहीं होता; ज़्यादातर RAM / disk / दूसरा driver')
 )
 function Get-TGDriverHint([string]$Driver, [string]$Lang) {
-    foreach ($h in $script:TGDriverHints) { if ($Driver -match $h[0]) { return $(if ($Lang -eq 'en') { $h[2] } else { $h[1] }) } }
+    foreach ($h in $script:TGDriverHints) { if ($Driver -match $h[0]) { return $(switch ($Lang) { 'en' { $h[2] } 'hi' { if ($h.Count -gt 3) { $h[3] } else { $h[2] } } default { $h[1] } }) } }
     return $null
 }
 
 function Invoke-TGCrashes([string]$UsbRoot, $P) {
-    $r = New-TGResult 'ok' 'Blue screen इतिहास' 'Blue-screen history'
+    $r = New-TGResult 'ok' 'Blue screen इतिहास' 'Blue-screen history' 'Blue screen इतिहास'
     $since = (Get-Date).AddDays(-60)
     $bug = @(); $kp = @()
     try { $bug = @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; Id = 1001; StartTime = $since } -ErrorAction Stop | Where-Object { $_.ProviderName -match 'WER-SystemErrorReporting|BugCheck' }) } catch { }
     try { $kp = @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; ProviderName = 'Microsoft-Windows-Kernel-Power'; Id = 41; StartTime = $since } -ErrorAction Stop) } catch { }
     $dumpDir = Join-Path $env:SystemRoot 'Minidump'
     $dumps = @(Get-ChildItem -LiteralPath $dumpDir -Filter *.dmp -ErrorAction SilentlyContinue)
-    Add-TGLine $r ("मागच्या 60 दिवसांत: {0} blue screen, {1} वेळा अचानक बंद / restart (power cut धरून)." -f $bug.Count, $kp.Count) ("Last 60 days: {0} blue screens, {1} sudden shutdowns / restarts (power cuts included)." -f $bug.Count, $kp.Count)
+    Add-TGLine $r ("मागच्या 60 दिवसांत: {0} blue screen, {1} वेळा अचानक बंद / restart (power cut धरून)." -f $bug.Count, $kp.Count) ("Last 60 days: {0} blue screens, {1} sudden shutdowns / restarts (power cuts included)." -f $bug.Count, $kp.Count) ("पिछले 60 दिनों में: {0} blue screen, {1} बार अचानक बंद / restart (power cut सहित)।" -f $bug.Count, $kp.Count)
     $exe = Get-TGRunPath (Find-TGTool -UsbRoot $UsbRoot -Id 'bluescreenview')
     $crashes = @()
     if ($exe -and $dumps.Count) {
@@ -405,41 +408,41 @@ function Invoke-TGCrashes([string]$UsbRoot, $P) {
     if ($crashes.Count) {
         $groups = @($crashes | Where-Object { $_.'Caused By Driver' } | Group-Object 'Caused By Driver' | Sort-Object Count -Descending)
         foreach ($g in ($groups | Select-Object -First 4)) {
-            $hintMr = Get-TGDriverHint $g.Name 'mr'; $hintEn = Get-TGDriverHint $g.Name 'en'
+            $hintMr = Get-TGDriverHint $g.Name 'mr'; $hintEn = Get-TGDriverHint $g.Name 'en'; $hintHi = Get-TGDriverHint $g.Name 'hi'
             $bc = ($g.Group | ForEach-Object { $_.'Bug Check String' } | Select-Object -Unique) -join ', '
-            Add-TGLine $r ("• {0} - {1} वेळा ({2}){3}" -f $g.Name, $g.Count, $bc, $(if ($hintMr) { " → $hintMr" } else { '' })) ("• {0} - {1} times ({2}){3}" -f $g.Name, $g.Count, $bc, $(if ($hintEn) { " → $hintEn" } else { '' }))
+            Add-TGLine $r ("• {0} - {1} वेळा ({2}){3}" -f $g.Name, $g.Count, $bc, $(if ($hintMr) { " → $hintMr" } else { '' })) ("• {0} - {1} times ({2}){3}" -f $g.Name, $g.Count, $bc, $(if ($hintEn) { " → $hintEn" } else { '' })) ("• {0} - {1} बार ({2}){3}" -f $g.Name, $g.Count, $bc, $(if ($hintHi) { " → $hintHi" } else { '' }))
         }
         $top = $groups | Select-Object -First 1
         if ($top -and $top.Name -notmatch '^(ntoskrnl|ntkrnlmp|hal)\.' -and $top.Count -ge 2) {
             Set-TGWorse $r 'bad'
-            Add-TGLine $r "उपाय: $($top.Name) चा driver कंपनीच्या website वरून नवीन install करा (किंवा PC Doctor → दुरुस्ती → Drivers)." "Fix: install a fresh driver for $($top.Name) from the maker's website (or PC Doctor → Repair → Drivers)."
+            Add-TGLine $r "उपाय: $($top.Name) चा driver कंपनीच्या website वरून नवीन install करा (किंवा PC Doctor → दुरुस्ती → Drivers)." "Fix: install a fresh driver for $($top.Name) from the maker's website (or PC Doctor → Repair → Drivers)." "उपाय: $($top.Name) का driver कंपनी की website से नया install करें (या PC Doctor → मरम्मत → Drivers)।"
         } else {
             Set-TGWorse $r 'warn'
-            Add-TGLine $r 'वेगवेगळे / Windows चे files दोषी दिसतात - RAM (Windows Memory Diagnostic / MemTest86+) आणि disk (CrystalDiskInfo) तपासा.' 'Different or Windows files are blamed - test the RAM (Windows Memory Diagnostic / MemTest86+) and the disk (CrystalDiskInfo).'
+            Add-TGLine $r 'वेगवेगळे / Windows चे files दोषी दिसतात - RAM (Windows Memory Diagnostic / MemTest86+) आणि disk (CrystalDiskInfo) तपासा.' 'Different or Windows files are blamed - test the RAM (Windows Memory Diagnostic / MemTest86+) and the disk (CrystalDiskInfo).' 'अलग-अलग / Windows की files दोषी दिखती हैं - RAM (Windows Memory Diagnostic / MemTest86+) और disk (CrystalDiskInfo) जाँचें।'
         }
     } elseif ($bug.Count) {
         Set-TGWorse $r 'warn'
-        Add-TGLine $r 'Blue screens झाले, पण dump files नाहीत / BlueScreenView नाही. RAM आणि disk तपासा; drivers update करा.' 'Blue screens happened, but there are no dump files / no BlueScreenView. Test RAM and disk; update drivers.'
+        Add-TGLine $r 'Blue screens झाले, पण dump files नाहीत / BlueScreenView नाही. RAM आणि disk तपासा; drivers update करा.' 'Blue screens happened, but there are no dump files / no BlueScreenView. Test RAM and disk; update drivers.' 'Blue screens हुईं, पर dump files नहीं / BlueScreenView नहीं। RAM और disk जाँचें; drivers update करें।'
     }
     if ($kp.Count -ge 3 -and -not $bug.Count) {
         Set-TGWorse $r 'warn'
-        Add-TGLine $r 'Blue screen शिवाय वारंवार अचानक बंद = गरम होणे, power supply / charger किंवा battery. HWiNFO ने तापमान पाहा.' 'Repeated sudden shutdowns without a blue screen = overheating, power supply / charger or battery. Check temperatures in HWiNFO.'
+        Add-TGLine $r 'Blue screen शिवाय वारंवार अचानक बंद = गरम होणे, power supply / charger किंवा battery. HWiNFO ने तापमान पाहा.' 'Repeated sudden shutdowns without a blue screen = overheating, power supply / charger or battery. Check temperatures in HWiNFO.' 'Blue screen के बिना बार-बार अचानक बंद = गर्म होना, power supply / charger या battery। HWiNFO से तापमान देखें।'
     }
-    $r.HeadMr = switch ($r.Status) { 'bad' { 'Crash चे कारण सापडले' } 'warn' { 'Crash झाले - पुढील तपासणी करा' } default { 'मागच्या 60 दिवसांत crash नाहीत' } }
+    $r.HeadMr = switch ($r.Status) { 'bad' { 'Crash चे कारण सापडले' } 'warn' { 'Crash झाले - पुढील तपासणी करा' } default { 'मागच्या 60 दिवसांत crash नाहीत' } }; $r.HeadHi = switch ($r.Status) { 'bad' { 'Crash का कारण मिला' } 'warn' { 'Crash हुए - आगे जाँच करें' } default { 'पिछले 60 दिनों में crash नहीं' } }
     $r.HeadEn = switch ($r.Status) { 'bad' { 'Crash cause found' } 'warn' { 'Crashes happened - more checks needed' } default { 'No crashes in the last 60 days' } }
     return $r
 }
 
 function Invoke-TGMsert([string]$UsbRoot, $P) {
-    $r = New-TGResult 'info' 'Virus scan' 'Virus scan'
+    $r = New-TGResult 'info' 'Virus scan' 'Virus scan' 'Virus scan'
     $exe = Get-TGRunPath (Find-TGTool -UsbRoot $UsbRoot -Id 'msert')
-    if (-not $exe) { $r.HeadMr = 'Microsoft Safety Scanner pendrive वर नाही'; $r.HeadEn = 'Microsoft Safety Scanner is not on the USB'; Add-TGLine $r 'Setup चालवून tools update करा, किंवा PC Doctor → दुरुस्ती → "Antivirus चालू करा + quick scan".' 'Run Setup to update the tools, or PC Doctor → Repair → "Turn on antivirus + quick scan".'; return $r }
+    if (-not $exe) { $r.HeadMr = 'Microsoft Safety Scanner pendrive वर नाही'; $r.HeadHi = 'Microsoft Safety Scanner pendrive पर नहीं है'; $r.HeadEn = 'Microsoft Safety Scanner is not on the USB'; Add-TGLine $r 'Setup चालवून tools update करा, किंवा PC Doctor → दुरुस्ती → "Antivirus चालू करा + quick scan".' 'Run Setup to update the tools, or PC Doctor → Repair → "Turn on antivirus + quick scan".' 'Setup चलाकर tools update करें, या PC Doctor → मरम्मत → "Antivirus चालू करें + quick scan"।'; return $r }
     $log = Join-Path $env:SystemRoot 'debug\msert.log'
     $before = if (Test-Path -LiteralPath $log) { (Get-Item -LiteralPath $log).Length } else { 0 }
     Write-PDLog 'Microsoft Safety Scanner: quick scan (detection only) - 10-20 मिनिटे' 'STEP'
     Set-PDProgress -1 'virus scan'
     $code = Invoke-TGProcess $exe @('/Q', '/N') 3600
-    if ($null -eq $code) { $r.HeadMr = 'Scan थांबवला'; $r.HeadEn = 'Scan stopped'; return $r }
+    if ($null -eq $code) { $r.HeadMr = 'Scan थांबवला'; $r.HeadHi = 'Scan रोका गया'; $r.HeadEn = 'Scan stopped'; return $r }
     $txt = ''
     if (Test-Path -LiteralPath $log) {
         $all = [IO.File]::ReadAllBytes($log)
@@ -447,24 +450,24 @@ function Invoke-TGMsert([string]$UsbRoot, $P) {
         $txt = $enc.GetString($all)
         if ($before -gt 0 -and $before -lt $all.Length) { $txt = $enc.GetString($all, [int]$before, $all.Length - [int]$before) }
     }
-    if ($txt -match 'No infection found') { $r.Status = 'ok'; $r.HeadMr = 'Virus सापडला नाही'; $r.HeadEn = 'No virus found' }
+    if ($txt -match 'No infection found') { $r.Status = 'ok'; $r.HeadMr = 'Virus सापडला नाही'; $r.HeadHi = 'Virus नहीं मिला'; $r.HeadEn = 'No virus found' }
     elseif ($txt -match '(?i)infect|threat|detected') {
-        $r.Status = 'bad'; $r.HeadMr = 'Virus / malware सापडला'; $r.HeadEn = 'Virus / malware found'
-        foreach ($l in ($txt -split "`r?`n" | Where-Object { $_ -match '(?i)threat|infect|detected' } | Select-Object -First 8)) { Add-TGLine $r ('• ' + $l.Trim()) '' }
-        Add-TGLine $r 'काढण्यासाठी: "उघडा" → Full scan → सापडलेले काढू द्या. नंतर Kaspersky Virus Removal Tool ने पुन्हा तपासा.' 'To remove: "Open" → Full scan → let it remove them. Then check again with the Kaspersky Virus Removal Tool.'
-    } else { $r.HeadMr = 'Scan पूर्ण'; $r.HeadEn = 'Scan finished'; Add-TGLine $r "Exit code $code. Log: $log" '' }
+        $r.Status = 'bad'; $r.HeadMr = 'Virus / malware सापडला'; $r.HeadHi = 'Virus / malware मिला'; $r.HeadEn = 'Virus / malware found'
+        foreach ($l in ($txt -split "`r?`n" | Where-Object { $_ -match '(?i)threat|infect|detected' } | Select-Object -First 8)) { Add-TGLine $r ('• ' + $l.Trim()) '' '' }
+        Add-TGLine $r 'काढण्यासाठी: "उघडा" → Full scan → सापडलेले काढू द्या. नंतर Kaspersky Virus Removal Tool ने पुन्हा तपासा.' 'To remove: "Open" → Full scan → let it remove them. Then check again with the Kaspersky Virus Removal Tool.' 'हटाने के लिए: "खोलें" → Full scan → मिले हुए हटाने दें। फिर Kaspersky Virus Removal Tool से दोबारा जाँचें।'
+    } else { $r.HeadMr = 'Scan पूर्ण'; $r.HeadHi = 'Scan पूरा'; $r.HeadEn = 'Scan finished'; Add-TGLine $r "Exit code $code. Log: $log" '' '' }
     return $r
 }
 
 function Invoke-TGBigFolders([string]$UsbRoot, $P) {
-    $r = New-TGResult 'info' 'C: वरचे सगळ्यात मोठे folders' 'Biggest folders on C:'
+    $r = New-TGResult 'info' 'C: वरचे सगळ्यात मोठे folders' 'Biggest folders on C:' 'C: पर सबसे बड़े folders'
     $exe = Get-TGRunPath (Find-TGTool -UsbRoot $UsbRoot -Id 'wiztree')
-    if (-not $exe) { $r.HeadMr = 'WizTree pendrive वर नाही'; $r.HeadEn = 'WizTree is not on the USB'; Add-TGLine $r 'PC Doctor → "C: drive जागा" → "C: drive तपासा" वापरा.' 'Use PC Doctor → "C: drive space" → "Check C: drive".'; return $r }
+    if (-not $exe) { $r.HeadMr = 'WizTree pendrive वर नाही'; $r.HeadHi = 'WizTree pendrive पर नहीं है'; $r.HeadEn = 'WizTree is not on the USB'; Add-TGLine $r 'PC Doctor → "C: drive जागा" → "C: drive तपासा" वापरा.' 'Use PC Doctor → "C: drive space" → "Check C: drive".' 'PC Doctor → "C: drive जगह" → "C: drive जाँचें" इस्तेमाल करें।'; return $r }
     $csv = Join-Path $env:TEMP 'sjv-wiztree.csv'
     Remove-Item -LiteralPath $csv -ErrorAction SilentlyContinue
     Set-PDProgress -1 'WizTree'
     [void](Invoke-TGProcess $exe @("$($env:SystemDrive)\", "/export=`"$csv`"", '/admin=1', '/exportfolders=1', '/exportfiles=0', '/exportmaxdepth=3') 600 -Hidden)
-    if (-not (Test-Path -LiteralPath $csv)) { $r.HeadMr = 'WizTree चा निकाल मिळाला नाही'; $r.HeadEn = 'WizTree gave no result'; return $r }
+    if (-not (Test-Path -LiteralPath $csv)) { $r.HeadMr = 'WizTree चा निकाल मिळाला नाही'; $r.HeadHi = 'WizTree का नतीजा नहीं मिला'; $r.HeadEn = 'WizTree gave no result'; return $r }
     $rows = ConvertFrom-TGWizTreeCsv (Get-Content -LiteralPath $csv -Raw)
     $sys = '^' + [regex]::Escape($env:SystemDrive) + '\\(Windows|Program Files|Program Files \(x86\)|ProgramData|Recovery|System Volume Information|\$Recycle\.Bin)\\?$'
     $drive = [regex]::Escape($env:SystemDrive)
@@ -479,10 +482,10 @@ function Invoke-TGBigFolders([string]$UsbRoot, $P) {
         if ($pick | Where-Object { $f.Path.StartsWith($_.Path.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase) }) { continue }
         $pick += $f
     }
-    foreach ($f in $pick) { Add-TGLine $r ("{0,9}  {1}" -f (Format-PDSize $f.Size), $f.Path) '' }
+    foreach ($f in $pick) { Add-TGLine $r ("{0,9}  {1}" -f (Format-PDSize $f.Size), $f.Path) '' '' }
     $win = $rows | Where-Object { $_.Path -match ('^' + [regex]::Escape($env:SystemDrive) + '\\Windows\\?$') } | Select-Object -First 1
-    if ($win) { Add-TGLine $r ("(Windows folder: {0} - तो हाताने साफ करू नका; PC Doctor → वेग → cleanup वापरा.)" -f (Format-PDSize $win.Size)) ("(Windows folder: {0} - do not clean it by hand; use PC Doctor → Speed → cleanup.)" -f (Format-PDSize $win.Size)) }
-    Add-TGLine $r 'हलवण्यासाठी: PC Doctor → "C: drive जागा" (files सुरक्षितपणे दुसऱ्या drive वर, Undo सह).' 'To move them: PC Doctor → "C: drive space" (moves files safely to another drive, with Undo).'
+    if ($win) { Add-TGLine $r ("(Windows folder: {0} - तो हाताने साफ करू नका; PC Doctor → वेग → cleanup वापरा.)" -f (Format-PDSize $win.Size)) ("(Windows folder: {0} - do not clean it by hand; use PC Doctor → Speed → cleanup.)" -f (Format-PDSize $win.Size)) ("(Windows folder: {0} - इसे हाथ से साफ़ न करें; PC Doctor → स्पीड → cleanup इस्तेमाल करें।)" -f (Format-PDSize $win.Size)) }
+    Add-TGLine $r 'हलवण्यासाठी: PC Doctor → "C: drive जागा" (files सुरक्षितपणे दुसऱ्या drive वर, Undo सह).' 'To move them: PC Doctor → "C: drive space" (moves files safely to another drive, with Undo).' 'ले जाने के लिए: PC Doctor → "C: drive जगह" (files सुरक्षित रूप से दूसरे drive पर, Undo के साथ)।'
     $r.Status = 'ok'
     return $r
 }
@@ -500,12 +503,12 @@ function ConvertFrom-TGWizTreeCsv([string]$Text) {
 }
 
 function Invoke-TGKeys([string]$UsbRoot, $P) {
-    $r = New-TGResult 'ok' 'Product keys' 'Product keys'
+    $r = New-TGResult 'ok' 'Product keys' 'Product keys' 'Product keys'
     $lines = @()
     try {
         $k = (Get-CimInstance -ClassName SoftwareLicensingService -ErrorAction Stop).OA3xOriginalProductKey
-        if ($k) { $lines += "Windows (BIOS): $k"; Add-TGLine $r "Windows key BIOS मध्ये आहे: $k - reinstall नंतर आपोआप activate होईल." "Windows key stored in the BIOS: $k - it activates by itself after a reinstall." }
-        else { Add-TGLine $r 'BIOS मध्ये Windows key नाही (जुना PC / retail key).' 'No Windows key in the BIOS (older PC / retail key).' }
+        if ($k) { $lines += "Windows (BIOS): $k"; Add-TGLine $r "Windows key BIOS मध्ये आहे: $k - reinstall नंतर आपोआप activate होईल." "Windows key stored in the BIOS: $k - it activates by itself after a reinstall." "Windows key BIOS में है: $k - reinstall के बाद अपने आप activate होगा।" }
+        else { Add-TGLine $r 'BIOS मध्ये Windows key नाही (जुना PC / retail key).' 'No Windows key in the BIOS (older PC / retail key).' 'BIOS में Windows key नहीं (पुराना PC / retail key)।' }
     } catch { }
     $exe = Get-TGRunPath (Find-TGTool -UsbRoot $UsbRoot -Id 'produkey')
     if ($exe) {
@@ -516,7 +519,7 @@ function Invoke-TGKeys([string]$UsbRoot, $P) {
             $blocks = (Get-Content -LiteralPath $out -Raw) -split '(?m)^={5,}\s*$'
             foreach ($b in $blocks) {
                 $n = [regex]::Match($b, '(?m)^Product Name\s*:\s*(.+?)\s*$'); $kk = [regex]::Match($b, '(?m)^Product Key\s*:\s*(.+?)\s*$')
-                if ($n.Success -and $kk.Success) { $lines += "$($n.Groups[1].Value): $($kk.Groups[1].Value)"; Add-TGLine $r "$($n.Groups[1].Value): $($kk.Groups[1].Value)" '' }
+                if ($n.Success -and $kk.Success) { $lines += "$($n.Groups[1].Value): $($kk.Groups[1].Value)"; Add-TGLine $r "$($n.Groups[1].Value): $($kk.Groups[1].Value)" '' '' }
             }
         }
     }
@@ -524,14 +527,14 @@ function Invoke-TGKeys([string]$UsbRoot, $P) {
         $f = Join-Path $P.ReportDir 'product-keys.txt'
         Set-Content -LiteralPath $f -Value (@("Product keys - $env:COMPUTERNAME - $(Get-Date)") + $lines) -Encoding UTF8
         $r.File = $f
-        Add-TGLine $r 'Keys Reports folder मध्ये product-keys.txt मध्ये save केल्या - customer शिवाय कोणाला देऊ नका.' 'Keys saved to product-keys.txt in the Reports folder - share them only with the customer.'
+        Add-TGLine $r 'Keys Reports folder मध्ये product-keys.txt मध्ये save केल्या - customer शिवाय कोणाला देऊ नका.' 'Keys saved to product-keys.txt in the Reports folder - share them only with the customer.' 'Keys Reports folder में product-keys.txt में save कीं - customer के अलावा किसी को न दें।'
     }
     if (-not $lines.Count) { $r.Status = 'info' }
     return $r
 }
 
 function Invoke-TGNetwork([string]$UsbRoot, $P) {
-    $r = New-TGResult 'ok' 'Internet तपासणी' 'Internet check'
+    $r = New-TGResult 'ok' 'Internet तपासणी' 'Internet check' 'Internet जाँच'
     $gw = $null
     try { $gw = (Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction Stop | Sort-Object RouteMetric | Select-Object -First 1).NextHop } catch { }
     $ping = { param($h)
@@ -540,11 +543,11 @@ function Invoke-TGNetwork([string]$UsbRoot, $P) {
         return [pscustomobject]@{ Ok = $true; Ms = [math]::Round(($t | Measure-Object ResponseTime -Average).Average); Lost = 4 - $t.Count } }
     $up = @(Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object Status -eq 'Up')
     if (-not $up.Count) {
-        $r.Status = 'bad'; $r.HeadMr = 'Network जोडलेले नाही'; $r.HeadEn = 'Not connected to any network'
-        Add-TGLine $r 'WiFi / LAN cable जोडलेले नाही, किंवा driver नाही. PC Doctor → दुरुस्ती → Drivers तपासा.' 'No WiFi / LAN connection, or no driver. Check PC Doctor → Repair → Drivers.'
+        $r.Status = 'bad'; $r.HeadMr = 'Network जोडलेले नाही'; $r.HeadHi = 'Network से जुड़ा नहीं'; $r.HeadEn = 'Not connected to any network'
+        Add-TGLine $r 'WiFi / LAN cable जोडलेले नाही, किंवा driver नाही. PC Doctor → दुरुस्ती → Drivers तपासा.' 'No WiFi / LAN connection, or no driver. Check PC Doctor → Repair → Drivers.' 'WiFi / LAN cable जुड़ा नहीं, या driver नहीं। PC Doctor → मरम्मत → Drivers जाँचें।'
         return $r
     }
-    Add-TGLine $r ("जोडलेले: " + (($up | ForEach-Object { "$($_.Name) ($($_.LinkSpeed))" }) -join ', ')) ("Connected: " + (($up | ForEach-Object { "$($_.Name) ($($_.LinkSpeed))" }) -join ', '))
+    Add-TGLine $r ("जोडलेले: " + (($up | ForEach-Object { "$($_.Name) ($($_.LinkSpeed))" }) -join ', ')) ("Connected: " + (($up | ForEach-Object { "$($_.Name) ($($_.LinkSpeed))" }) -join ', ')) ("जुड़े हुए: " + (($up | ForEach-Object { "$($_.Name) ($($_.LinkSpeed))" }) -join ', '))
     $g = if ($gw) { & $ping $gw } else { $null }
     $i = & $ping '8.8.8.8'
     $dnsOk = $false
@@ -552,48 +555,48 @@ function Invoke-TGNetwork([string]$UsbRoot, $P) {
     # a real web request - some routers / networks block ping but the internet works
     $webOk = $false
     try { $w = Invoke-WebRequest -Uri 'http://www.msftconnecttest.com/connecttest.txt' -UseBasicParsing -TimeoutSec 15; $webOk = ($w.Content -match 'Microsoft Connect Test') } catch { }
-    if ($g -and $g.Ok) { Add-TGLine $r "✔ Router ($gw): $($g.Ms) ms" '' }
-    elseif ($gw) { Add-TGLine $r "• Router ($gw) ping ला उत्तर देत नाही (काही routers देत नाहीत)." "• Router ($gw) does not answer ping (some routers never do)." }
-    if ($i.Ok) { Add-TGLine $r "✔ Internet ping (8.8.8.8): $($i.Ms) ms$(if ($i.Lost) { ", $($i.Lost)/4 lost" })" '' }
+    if ($g -and $g.Ok) { Add-TGLine $r "✔ Router ($gw): $($g.Ms) ms" '' '' }
+    elseif ($gw) { Add-TGLine $r "• Router ($gw) ping ला उत्तर देत नाही (काही routers देत नाहीत)." "• Router ($gw) does not answer ping (some routers never do)." "• Router ($gw) ping का जवाब नहीं देता (कुछ routers नहीं देते)।" }
+    if ($i.Ok) { Add-TGLine $r "✔ Internet ping (8.8.8.8): $($i.Ms) ms$(if ($i.Lost) { ", $($i.Lost)/4 lost" })" '' '' }
     if ($webOk) {
-        Add-TGLine $r '✔ Website उघडते - internet चालू आहे.' '✔ A website loads - the internet works.'
-        if ($i.Ok -and ($i.Lost -ge 1 -or $i.Ms -gt 150)) { Set-TGWorse $r 'warn'; Add-TGLine $r '⚠ Internet हळू / packets हरवतात - WiFi signal कमी किंवा ISP.' '⚠ Slow internet / packet loss - weak WiFi signal or the ISP.' }
+        Add-TGLine $r '✔ Website उघडते - internet चालू आहे.' '✔ A website loads - the internet works.' '✔ Website खुलती है - internet चालू है।'
+        if ($i.Ok -and ($i.Lost -ge 1 -or $i.Ms -gt 150)) { Set-TGWorse $r 'warn'; Add-TGLine $r '⚠ Internet हळू / packets हरवतात - WiFi signal कमी किंवा ISP.' '⚠ Slow internet / packet loss - weak WiFi signal or the ISP.' '⚠ Internet धीमा / packets खोते हैं - WiFi signal कम या ISP.' }
     } elseif ($i.Ok -and -not $dnsOk) {
-        Set-TGWorse $r 'bad'; Add-TGLine $r '✖ Internet आहे पण website नावे उघडत नाहीत (DNS). PC Doctor → दुरुस्ती → "Internet / Network reset".' '✖ Internet works but website names do not resolve (DNS). PC Doctor → Repair → "Internet / Network reset".'
+        Set-TGWorse $r 'bad'; Add-TGLine $r '✖ Internet आहे पण website नावे उघडत नाहीत (DNS). PC Doctor → दुरुस्ती → "Internet / Network reset".' '✖ Internet works but website names do not resolve (DNS). PC Doctor → Repair → "Internet / Network reset".' '✖ Internet है पर website के नाम नहीं खुलते (DNS)। PC Doctor → मरम्मत → "Internet / Network reset"।'
     } elseif ($i.Ok) {
-        Set-TGWorse $r 'warn'; Add-TGLine $r '⚠ Internet आहे पण website उघडली नाही - proxy / firewall / antivirus तपासा.' '⚠ The internet answers but the website did not load - check proxy / firewall / antivirus.'
+        Set-TGWorse $r 'warn'; Add-TGLine $r '⚠ Internet आहे पण website उघडली नाही - proxy / firewall / antivirus तपासा.' '⚠ The internet answers but the website did not load - check proxy / firewall / antivirus.' '⚠ Internet है पर website नहीं खुली - proxy / firewall / antivirus जाँचें।'
     } elseif (-not $gw) {
-        Set-TGWorse $r 'bad'; Add-TGLine $r '✖ Router (gateway) मिळाला नाही - IP मिळत नाही. Router restart करा; मग PC Doctor → दुरुस्ती → "Internet / Network reset".' '✖ No router (gateway) - no IP address. Restart the router, then PC Doctor → Repair → "Internet / Network reset".'
+        Set-TGWorse $r 'bad'; Add-TGLine $r '✖ Router (gateway) मिळाला नाही - IP मिळत नाही. Router restart करा; मग PC Doctor → दुरुस्ती → "Internet / Network reset".' '✖ No router (gateway) - no IP address. Restart the router, then PC Doctor → Repair → "Internet / Network reset".' '✖ Router (gateway) नहीं मिला - IP नहीं मिलता। Router restart करें; फिर PC Doctor → मरम्मत → "Internet / Network reset"।'
     } elseif ($g.Ok) {
-        Set-TGWorse $r 'bad'; Add-TGLine $r '✖ Router चालतो पण internet नाही → ISP / recharge / router चा internet light तपासा.' '✖ The router works but there is no internet → check the ISP / recharge / the router''s internet light.'
+        Set-TGWorse $r 'bad'; Add-TGLine $r '✖ Router चालतो पण internet नाही → ISP / recharge / router चा internet light तपासा.' '✖ The router works but there is no internet → check the ISP / recharge / the router''s internet light.' '✖ Router चलता है पर internet नहीं → ISP / recharge / router की internet light जाँचें।'
     } else {
-        Set-TGWorse $r 'bad'; Add-TGLine $r '✖ Router पर्यंतच पोहोचत नाही - WiFi password / cable / router restart करा.' '✖ Cannot reach the router - check the WiFi password / cable, restart the router.'
+        Set-TGWorse $r 'bad'; Add-TGLine $r '✖ Router पर्यंतच पोहोचत नाही - WiFi password / cable / router restart करा.' '✖ Cannot reach the router - check the WiFi password / cable, restart the router.' '✖ Router तक ही नहीं पहुँचता - WiFi password / cable / router restart करें।'
     }
-    $r.HeadMr = switch ($r.Status) { 'bad' { 'Internet मध्ये समस्या सापडली' } 'warn' { 'Internet चालते पण हळू' } default { 'Internet ठीक चालते' } }
+    $r.HeadMr = switch ($r.Status) { 'bad' { 'Internet मध्ये समस्या सापडली' } 'warn' { 'Internet चालते पण हळू' } default { 'Internet ठीक चालते' } }; $r.HeadHi = switch ($r.Status) { 'bad' { 'Internet में समस्या मिली' } 'warn' { 'Internet चलता है पर धीमा' } default { 'Internet ठीक चल रहा है' } }
     $r.HeadEn = switch ($r.Status) { 'bad' { 'Internet problem found' } 'warn' { 'Internet works but slowly' } default { 'Internet works fine' } }
     return $r
 }
 
 function Invoke-TGMemDiag([string]$UsbRoot, $P) {
-    $r = New-TGResult 'info' 'RAM test निकाल' 'RAM test result'
+    $r = New-TGResult 'info' 'RAM test निकाल' 'RAM test result' 'RAM test नतीजा'
     $ev = $null
     try { $ev = Get-WinEvent -FilterHashtable @{ LogName = 'System'; ProviderName = 'Microsoft-Windows-MemoryDiagnostics-Results' } -MaxEvents 1 -ErrorAction Stop } catch { }
     if (-not $ev) {
-        $r.HeadMr = 'या PC वर अजून RAM test झालेला नाही'; $r.HeadEn = 'No RAM test has run on this PC yet'
-        Add-TGLine $r '"उघडा" दाबून "Restart now and check" निवडा. Test नंतर परत इथे निकाल पाहा.' 'Press "Open" and choose "Restart now and check". Come back here for the result afterwards.'
+        $r.HeadMr = 'या PC वर अजून RAM test झालेला नाही'; $r.HeadHi = 'इस PC पर अभी RAM test नहीं हुआ'; $r.HeadEn = 'No RAM test has run on this PC yet'
+        Add-TGLine $r '"उघडा" दाबून "Restart now and check" निवडा. Test नंतर परत इथे निकाल पाहा.' 'Press "Open" and choose "Restart now and check". Come back here for the result afterwards.' '"खोलें" दबाकर "Restart now and check" चुनें। Test के बाद यहाँ नतीजा देखें।'
         return $r
     }
     $when = $ev.TimeCreated.ToString('dd-MM-yyyy HH:mm')
-    if ($ev.Id -eq 1201) { $r.Status = 'ok'; $r.HeadMr = "RAM ठीक आहे ($when)"; $r.HeadEn = "RAM is fine ($when)"; Add-TGLine $r 'Windows Memory Diagnostic ला errors सापडल्या नाहीत.' 'Windows Memory Diagnostic found no errors.' }
-    else { $r.Status = 'bad'; $r.HeadMr = "RAM मध्ये errors ($when)"; $r.HeadEn = "RAM errors found ($when)"; Add-TGLine $r 'RAM stick एक-एक काढून test करा; errors देणारी stick बदला. खात्रीसाठी pendrive वरून MemTest86+.' 'Test the sticks one at a time and replace the failing one. Confirm with MemTest86+ from the USB.' }
+    if ($ev.Id -eq 1201) { $r.Status = 'ok'; $r.HeadMr = "RAM ठीक आहे ($when)"; $r.HeadHi = "RAM ठीक है ($when)"; $r.HeadEn = "RAM is fine ($when)"; Add-TGLine $r 'Windows Memory Diagnostic ला errors सापडल्या नाहीत.' 'Windows Memory Diagnostic found no errors.' 'Windows Memory Diagnostic को errors नहीं मिलीं।' }
+    else { $r.Status = 'bad'; $r.HeadMr = "RAM मध्ये errors ($when)"; $r.HeadHi = "RAM में errors ($when)"; $r.HeadEn = "RAM errors found ($when)"; Add-TGLine $r 'RAM stick एक-एक काढून test करा; errors देणारी stick बदला. खात्रीसाठी pendrive वरून MemTest86+.' 'Test the sticks one at a time and replace the failing one. Confirm with MemTest86+ from the USB.' 'RAM stick एक-एक निकालकर test करें; errors देने वाली stick बदलें। पक्का करने के लिए pendrive से MemTest86+.' }
     return $r
 }
 
 function Invoke-TGStressCpu([string]$UsbRoot, $P) {
     $minutes = if ($P.Minutes) { [double]$P.Minutes } else { 10.0 }
-    $r = New-TGResult 'info' 'CPU / RAM stress test' 'CPU / RAM stress test'
+    $r = New-TGResult 'info' 'CPU / RAM stress test' 'CPU / RAM stress test' 'CPU / RAM stress test'
     $exe = Get-TGRunPath (Find-TGTool -UsbRoot $UsbRoot -Id 'prime95')
-    if (-not $exe) { $r.HeadMr = 'Prime95 pendrive वर नाही'; $r.HeadEn = 'Prime95 is not on the USB'; return $r }
+    if (-not $exe) { $r.HeadMr = 'Prime95 pendrive वर नाही'; $r.HeadHi = 'Prime95 pendrive पर नहीं है'; $r.HeadEn = 'Prime95 is not on the USB'; return $r }
     $dir = Split-Path $exe
     Initialize-TGToolConfig 'prime95' $exe
     $res = Join-Path $dir 'results.txt'
@@ -619,22 +622,22 @@ function Invoke-TGStressCpu([string]$UsbRoot, $P) {
         $txt = if ($before -gt 0 -and $before -lt $all.Length) { $all.Substring([int]$before) } else { $all }
     }
     $errs = @($txt -split "`r?`n" | Where-Object { $_ -match '(?i)FATAL ERROR|Hardware failure|ROUNDING|SUM\(INPUTS\)|ILLEGAL SUMOUT|Possible hardware' })
-    Add-TGLine $r ("चाललेला वेळ: {0:mm\:ss}" -f $ran) ("Ran for: {0:mm\:ss}" -f $ran)
-    if ($null -ne $maxT) { Add-TGLine $r "सगळ्यात जास्त तापमान (Windows नुसार): $maxT°C" "Highest temperature (reported by Windows): $maxT°C" }
+    Add-TGLine $r ("चाललेला वेळ: {0:mm\:ss}" -f $ran) ("Ran for: {0:mm\:ss}" -f $ran) ("चला समय: {0:mm\:ss}" -f $ran)
+    if ($null -ne $maxT) { Add-TGLine $r "सगळ्यात जास्त तापमान (Windows नुसार): $maxT°C" "Highest temperature (reported by Windows): $maxT°C" "सबसे ज़्यादा तापमान (Windows के अनुसार): $maxT°C" }
     if ($errs.Count) {
-        $r.Status = 'bad'; $r.HeadMr = 'Stress test मध्ये errors - hardware दोष'; $r.HeadEn = 'Errors in the stress test - hardware fault'
-        foreach ($e in ($errs | Select-Object -First 4)) { Add-TGLine $r ('• ' + $e.Trim()) '' }
-        Add-TGLine $r 'कारण: RAM (MemTest86+ ने तपासा), गरम होणे (धूळ / thermal paste), किंवा overclock / BIOS settings. BIOS "Load defaults" करून पुन्हा test करा.' 'Likely causes: RAM (test with MemTest86+), overheating (dust / thermal paste), or overclock / BIOS settings. Load BIOS defaults and test again.'
+        $r.Status = 'bad'; $r.HeadMr = 'Stress test मध्ये errors - hardware दोष'; $r.HeadHi = 'Stress test में errors - hardware दोष'; $r.HeadEn = 'Errors in the stress test - hardware fault'
+        foreach ($e in ($errs | Select-Object -First 4)) { Add-TGLine $r ('• ' + $e.Trim()) '' '' }
+        Add-TGLine $r 'कारण: RAM (MemTest86+ ने तपासा), गरम होणे (धूळ / thermal paste), किंवा overclock / BIOS settings. BIOS "Load defaults" करून पुन्हा test करा.' 'Likely causes: RAM (test with MemTest86+), overheating (dust / thermal paste), or overclock / BIOS settings. Load BIOS defaults and test again.' 'कारण: RAM (MemTest86+ से जाँचें), गर्म होना (धूल / thermal paste), या overclock / BIOS settings. BIOS "Load defaults" करके फिर test करें।'
     } elseif ($why -eq 'hot') {
-        $r.Status = 'bad'; $r.HeadMr = 'CPU 95°C ओलांडला - test थांबवला'; $r.HeadEn = 'CPU passed 95°C - test stopped'
-        Add-TGLine $r 'Cooling अपुरे: fan / heatsink ची धूळ साफ करा, thermal paste बदला, laptop ला cooling pad.' 'Cooling is not enough: clean the fan / heatsink, renew the thermal paste, use a cooling pad for laptops.'
-    } elseif ($why -eq 'cancel') { $r.HeadMr = 'Test मध्येच थांबवला'; $r.HeadEn = 'Test stopped early' }
-    elseif ($why -eq 'exited') { $r.Status = 'warn'; $r.HeadMr = 'Prime95 मध्येच बंद झाला'; $r.HeadEn = 'Prime95 closed early'; Add-TGLine $r 'Prime95 window बंद केली गेली किंवा तो crash झाला. पुन्हा प्रयत्न करा.' 'The Prime95 window was closed or it crashed. Try again.' }
+        $r.Status = 'bad'; $r.HeadMr = 'CPU 95°C ओलांडला - test थांबवला'; $r.HeadHi = 'CPU 95°C पार - test रोका'; $r.HeadEn = 'CPU passed 95°C - test stopped'
+        Add-TGLine $r 'Cooling अपुरे: fan / heatsink ची धूळ साफ करा, thermal paste बदला, laptop ला cooling pad.' 'Cooling is not enough: clean the fan / heatsink, renew the thermal paste, use a cooling pad for laptops.' 'Cooling कम: fan / heatsink की धूल साफ़ करें, thermal paste बदलें, laptop के लिए cooling pad.'
+    } elseif ($why -eq 'cancel') { $r.HeadMr = 'Test मध्येच थांबवला'; $r.HeadHi = 'Test बीच में रोका गया'; $r.HeadEn = 'Test stopped early' }
+    elseif ($why -eq 'exited') { $r.Status = 'warn'; $r.HeadMr = 'Prime95 मध्येच बंद झाला'; $r.HeadHi = 'Prime95 बीच में बंद हो गया'; $r.HeadEn = 'Prime95 closed early'; Add-TGLine $r 'Prime95 window बंद केली गेली किंवा तो crash झाला. पुन्हा प्रयत्न करा.' 'The Prime95 window was closed or it crashed. Try again.' 'Prime95 window बंद की गई या वह crash हुआ। फिर कोशिश करें।' }
     else {
         $r.Status = if ($null -ne $maxT -and $maxT -ge 90) { 'warn' } else { 'ok' }
-        $r.HeadMr = "$minutes मिनिटे पूर्ण load - errors नाहीत (CPU / RAM stable)"; $r.HeadEn = "$minutes minutes at full load - no errors (CPU / RAM stable)"
-        if ($r.Status -eq 'warn') { Add-TGLine $r '⚠ Stable आहे पण 90°C च्या वर गेला - cooling साफ करणे चांगले.' '⚠ Stable, but it went above 90°C - cleaning the cooling is advisable.' }
-        if ($null -eq $maxT) { Add-TGLine $r 'हा PC Windows ला तापमान देत नाही - test चालू असताना HWiNFO मध्ये तापमान पाहणे चांगले.' 'This PC does not report temperatures to Windows - watch them in HWiNFO during the test.' }
+        $r.HeadMr = "$minutes मिनिटे पूर्ण load - errors नाहीत (CPU / RAM stable)"; $r.HeadHi = "$minutes मिनट पूरा load - errors नहीं (CPU / RAM stable)"; $r.HeadEn = "$minutes minutes at full load - no errors (CPU / RAM stable)"
+        if ($r.Status -eq 'warn') { Add-TGLine $r '⚠ Stable आहे पण 90°C च्या वर गेला - cooling साफ करणे चांगले.' '⚠ Stable, but it went above 90°C - cleaning the cooling is advisable.' '⚠ Stable है पर 90°C से ऊपर गया - cooling साफ़ करना अच्छा रहेगा।' }
+        if ($null -eq $maxT) { Add-TGLine $r 'हा PC Windows ला तापमान देत नाही - test चालू असताना HWiNFO मध्ये तापमान पाहणे चांगले.' 'This PC does not report temperatures to Windows - watch them in HWiNFO during the test.' 'यह PC Windows को तापमान नहीं देता - test के दौरान HWiNFO में तापमान देखना अच्छा है।' }
     }
     return $r
 }

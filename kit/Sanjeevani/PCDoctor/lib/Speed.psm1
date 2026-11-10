@@ -18,6 +18,9 @@ function Get-PDUserDirs {
 }
 
 # The junk categories PC Doctor measures (and, where marked Delete, removes itself).
+# name of a junk category in the user's language
+function Get-PDJunkName($Item) { return (L $Item.En $Item.Mr $Item.Hi) }
+
 function Get-PDJunkCategories {
     $users = Get-PDUserDirs
     $up = { param($rel) @($users | ForEach-Object { Join-Path $_.FullName $rel }) }
@@ -32,14 +35,14 @@ function Get-PDJunkCategories {
         foreach ($prof in @(Get-ChildItem -LiteralPath (Join-Path $l 'Mozilla\Firefox\Profiles') -Directory -ErrorAction SilentlyContinue)) { $browser += (Join-Path $prof.FullName 'cache2') }
     }
     @(
-        [pscustomobject]@{ Id = 'usertemp'; Mr = 'Users चे temporary files'; En = 'User temporary files'; Paths = @(& $up 'AppData\Local\Temp'); Filter = $null; Delete = $true }
-        [pscustomobject]@{ Id = 'wintemp'; Mr = 'Windows temporary files'; En = 'Windows temporary files'; Paths = @("$env:WINDIR\Temp"); Filter = $null; Delete = $true }
-        [pscustomobject]@{ Id = 'browser'; Mr = 'Browser cache (Chrome / Edge / Brave / Firefox) - history, passwords, login राहतात'; En = 'Browser cache (Chrome / Edge / Brave / Firefox) - history, passwords and logins stay'; Paths = $browser; Filter = $null; Delete = $true }
-        [pscustomobject]@{ Id = 'wer'; Mr = 'Error reports (crash reports)'; En = 'Error reports'; Paths = @("$env:ProgramData\Microsoft\Windows\WER\ReportArchive", "$env:ProgramData\Microsoft\Windows\WER\ReportQueue") + @(& $up 'AppData\Local\Microsoft\Windows\WER'); Filter = $null; Delete = $true }
-        [pscustomobject]@{ Id = 'thumbs'; Mr = 'Photo thumbnails cache'; En = 'Thumbnail cache'; Paths = @(& $up 'AppData\Local\Microsoft\Windows\Explorer'); Filter = 'thumbcache_*.db'; Delete = $false }
-        [pscustomobject]@{ Id = 'do'; Mr = 'Windows Update sharing cache (Delivery Optimization)'; En = 'Delivery Optimization cache'; Paths = @("$env:WINDIR\ServiceProfiles\NetworkService\AppData\Local\Microsoft\Windows\DeliveryOptimization\Cache", "$env:WINDIR\SoftwareDistribution\DeliveryOptimization"); Filter = $null; Delete = $false }
-        [pscustomobject]@{ Id = 'winold'; Mr = 'जुने Windows (Windows.old)'; En = 'Previous Windows (Windows.old)'; Paths = @("$env:SystemDrive\Windows.old"); Filter = $null; Delete = $false }
-        [pscustomobject]@{ Id = 'dump'; Mr = 'Memory dump (MEMORY.DMP)'; En = 'Memory dump (MEMORY.DMP)'; Paths = @("$env:WINDIR\MEMORY.DMP"); Filter = $null; Delete = $false }
+        [pscustomobject]@{ Id = 'usertemp'; Mr = 'Users चे temporary files'; En = 'User temporary files'; Hi = 'Users की temporary files'; Paths = @(& $up 'AppData\Local\Temp'); Filter = $null; Delete = $true }
+        [pscustomobject]@{ Id = 'wintemp'; Mr = 'Windows temporary files'; En = 'Windows temporary files'; Hi = 'Windows temporary files'; Paths = @("$env:WINDIR\Temp"); Filter = $null; Delete = $true }
+        [pscustomobject]@{ Id = 'browser'; Mr = 'Browser cache (Chrome / Edge / Brave / Firefox) - history, passwords, login राहतात'; En = 'Browser cache (Chrome / Edge / Brave / Firefox) - history, passwords and logins stay'; Hi = 'Browser cache (Chrome / Edge / Brave / Firefox) - history, passwords, login रहते हैं'; Paths = $browser; Filter = $null; Delete = $true }
+        [pscustomobject]@{ Id = 'wer'; Mr = 'Error reports (crash reports)'; En = 'Error reports'; Hi = 'Error reports (crash reports)'; Paths = @("$env:ProgramData\Microsoft\Windows\WER\ReportArchive", "$env:ProgramData\Microsoft\Windows\WER\ReportQueue") + @(& $up 'AppData\Local\Microsoft\Windows\WER'); Filter = $null; Delete = $true }
+        [pscustomobject]@{ Id = 'thumbs'; Mr = 'Photo thumbnails cache'; En = 'Thumbnail cache'; Hi = 'Photo thumbnails cache'; Paths = @(& $up 'AppData\Local\Microsoft\Windows\Explorer'); Filter = 'thumbcache_*.db'; Delete = $false }
+        [pscustomobject]@{ Id = 'do'; Mr = 'Windows Update sharing cache (Delivery Optimization)'; En = 'Delivery Optimization cache'; Hi = 'Windows Update sharing cache (Delivery Optimization)'; Paths = @("$env:WINDIR\ServiceProfiles\NetworkService\AppData\Local\Microsoft\Windows\DeliveryOptimization\Cache", "$env:WINDIR\SoftwareDistribution\DeliveryOptimization"); Filter = $null; Delete = $false }
+        [pscustomobject]@{ Id = 'winold'; Mr = 'जुने Windows (Windows.old)'; En = 'Previous Windows (Windows.old)'; Hi = 'पुराना Windows (Windows.old)'; Paths = @("$env:SystemDrive\Windows.old"); Filter = $null; Delete = $false }
+        [pscustomobject]@{ Id = 'dump'; Mr = 'Memory dump (MEMORY.DMP)'; En = 'Memory dump (MEMORY.DMP)'; Hi = 'Memory dump (MEMORY.DMP)'; Paths = @("$env:WINDIR\MEMORY.DMP"); Filter = $null; Delete = $false }
     )
 }
 
@@ -64,14 +67,14 @@ function Clear-PDJunk {
     param([switch]$RecycleBin, [switch]$ComponentStore)
     $drive = $env:SystemDrive.TrimEnd(':')
     $before = [double](Get-Volume -DriveLetter $drive).SizeRemaining
-    Write-PDLog 'Junk किती आहे ते मोजत आहे...' 'STEP'
+    Write-PDLog 'Measuring junk files ...' 'STEP'
     Set-PDProgress 5 'Measuring junk'
     $cats = Get-PDJunkCategories
     foreach ($c in $cats) { $c | Add-Member -NotePropertyName Before -NotePropertyValue (Get-PDPathBytes $c.Paths $c.Filter) -Force }
     $rbBefore = Get-PDRecycleBinBytes
-    Write-PDLog ("सापडलेले junk: " + (($cats | Where-Object { $_.Before -gt 0 } | ForEach-Object { "$($_.En) $(Format-PDSize $_.Before)" }) -join ', ')) 'INFO'
+    Write-PDLog ("Junk found: " + (($cats | Where-Object { $_.Before -gt 0 } | ForEach-Object { "$($_.En) $(Format-PDSize $_.Before)" }) -join ', ')) 'INFO'
 
-    Write-PDLog 'Temp files आणि browser cache साफ करत आहे...' 'STEP'
+    Write-PDLog 'Cleaning temp files and browser caches ...' 'STEP'
     Set-PDProgress 15 'Temp files'
     foreach ($c in ($cats | Where-Object { $_.Delete })) {
         foreach ($p in $c.Paths) {
@@ -85,7 +88,7 @@ function Clear-PDJunk {
 
     $cleanmgr = "$env:WINDIR\System32\cleanmgr.exe"
     if (Test-Path $cleanmgr) {
-        Write-PDLog 'Windows Disk Cleanup चालवत आहे (जुने updates, error reports, Windows.old)...' 'STEP'
+        Write-PDLog 'Running Windows Disk Cleanup (old updates, error reports, Windows.old) ...' 'STEP'
         Set-PDProgress 30 'Disk Cleanup'
         $base = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches'
         foreach ($h in $script:CleanHandlers) {
@@ -93,7 +96,7 @@ function Clear-PDJunk {
         }
         $p = Start-Process -FilePath $cleanmgr -ArgumentList '/sagerun:777' -PassThru -WindowStyle Hidden
         # cleanmgr can hang on some PCs; cap at 45 minutes
-        if (-not $p.WaitForExit(45 * 60 * 1000)) { try { $p.Kill() } catch { } ; Write-PDLog 'Disk Cleanup वेळेत संपला नाही, थांबवला.' 'WARN' }
+        if (-not $p.WaitForExit(45 * 60 * 1000)) { try { $p.Kill() } catch { } ; Write-PDLog 'Disk Cleanup did not finish in time and was stopped.' 'WARN' }
         foreach ($h in $script:CleanHandlers) { Remove-ItemProperty -Path "$base\$h" -Name StateFlags0777 -ErrorAction SilentlyContinue }
     }
     if ($ComponentStore) {
@@ -101,7 +104,7 @@ function Clear-PDJunk {
         [void](Invoke-PDProcess -FilePath "$env:WINDIR\System32\Dism.exe" -Arguments '/Online /Cleanup-Image /StartComponentCleanup' -ProgressLabel 'Old updates cleanup')
     }
     if ($RecycleBin) {
-        Write-PDLog 'Recycle Bin रिकामा करत आहे...' 'STEP'
+        Write-PDLog 'Emptying the Recycle Bin ...' 'STEP'
         try { Clear-RecycleBin -Force -ErrorAction Stop } catch { }
     }
     Set-PDProgress 90 'Measuring'
@@ -113,15 +116,15 @@ function Clear-PDJunk {
         $now = Get-PDPathBytes $c.Paths $c.Filter
         $gone = [math]::Max([double]0, $c.Before - $now)
         $sumCat += $gone
-        if ($c.Before -gt 0) { $items += [pscustomobject]@{ Id = $c.Id; Mr = $c.Mr; En = $c.En; Found = $c.Before; Freed = $gone; Left = $now } }
+        if ($c.Before -gt 0) { $items += [pscustomobject]@{ Id = $c.Id; Mr = $c.Mr; En = $c.En; Hi = $c.Hi; Found = $c.Before; Freed = $gone; Left = $now } }
     }
     $rbAfter = Get-PDRecycleBinBytes
-    if ($RecycleBin -and $rbBefore -gt 0) { $g = [math]::Max([double]0, $rbBefore - $rbAfter); $sumCat += $g; $items += [pscustomobject]@{ Id = 'recycle'; Mr = 'Recycle Bin'; En = 'Recycle Bin'; Found = $rbBefore; Freed = $g; Left = $rbAfter } }
+    if ($RecycleBin -and $rbBefore -gt 0) { $g = [math]::Max([double]0, $rbBefore - $rbAfter); $sumCat += $g; $items += [pscustomobject]@{ Id = 'recycle'; Mr = 'Recycle Bin'; En = 'Recycle Bin'; Hi = 'Recycle Bin'; Found = $rbBefore; Freed = $g; Left = $rbAfter } }
     $other = [math]::Max([double]0, $freed - $sumCat)
-    if ($other -ge 1MB) { $items += [pscustomobject]@{ Id = 'other'; Mr = 'Windows Disk Cleanup: जुने updates (WinSxS), setup files व इतर'; En = 'Windows Disk Cleanup: superseded updates (WinSxS), setup files and more'; Found = $other; Freed = $other; Left = 0 } }
+    if ($other -ge 1MB) { $items += [pscustomobject]@{ Id = 'other'; Mr = 'Windows Disk Cleanup: जुने updates (WinSxS), setup files व इतर'; En = 'Windows Disk Cleanup: superseded updates (WinSxS), setup files and more'; Hi = 'Windows Disk Cleanup: पुराने updates (WinSxS), setup files और अन्य'; Found = $other; Freed = $other; Left = 0 } }
     Set-PDProgress -1
-    Write-PDLog ("Cleanup पूर्ण - {0} जागा मोकळी झाली. आता {1} free." -f (Format-PDSize $freed), (Format-PDSize $after)) 'OK'
-    foreach ($i in $items) { Write-PDLog ("   {0}: {1} सापडले, {2} साफ{3}" -f $i.Mr, (Format-PDSize $i.Found), (Format-PDSize $i.Freed), $(if ($i.Left -ge 1MB) { " (वापरात असल्याने $(Format-PDSize $i.Left) राहिले)" } else { '' })) 'INFO' }
+    Write-PDLog ("Cleanup finished - {0} freed. Now {1} free." -f (Format-PDSize $freed), (Format-PDSize $after)) 'OK'
+    foreach ($i in $items) { Write-PDLog ("   {0}: {1} found, {2} cleaned{3}" -f $i.En, (Format-PDSize $i.Found), (Format-PDSize $i.Freed), $(if ($i.Left -ge 1MB) { " ($(Format-PDSize $i.Left) in use, left)" } else { '' })) 'INFO' }
     return [pscustomobject]@{ Freed = $freed; FreeAfter = $after; Items = $items; RecycleBinBytes = $rbAfter }
 }
 
@@ -135,7 +138,7 @@ function Set-PDStartupState {
     if (-not $Enabled) { $ft = [BitConverter]::GetBytes((Get-Date).ToFileTime()); [Array]::Copy($ft, 0, $bytes, 4, 8) }
     Set-ItemProperty -Path $key -Name $Item.ValueName -Value $bytes -Type Binary
     if (-not $NoUndo) { Add-PDUndo @{ Type = 'Startup'; ApprovedKey = $key; ValueName = $Item.ValueName; WasEnabled = [bool]$Item.Enabled } }
-    Write-PDLog ("Startup: {0} -> {1}" -f $Item.Name, $(if ($Enabled) { 'चालू' } else { 'बंद' })) 'OK'
+    Write-PDLog ("Startup: {0} -> {1}" -f $Item.Name, $(if ($Enabled) { 'on' } else { 'off' })) 'OK'
 }
 
 function Get-PDSafeStartupToDisable {
@@ -157,7 +160,7 @@ function Get-PDSafeStartupToDisable {
 
 # ---------------- visual effects ----------------
 function Set-PDVisualPerformance {
-    Write-PDLog 'Animations / transparency बंद करत आहे (fonts smooth राहतील)...' 'STEP'
+    Write-PDLog 'Turning animations / transparency off (fonts stay smooth) ...' 'STEP'
     Set-PDRegValue 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects' VisualFXSetting 3
     Set-PDRegValue 'HKCU:\Control Panel\Desktop' UserPreferencesMask ([byte[]](0x90, 0x12, 0x03, 0x80, 0x10, 0, 0, 0)) 'Binary'
     Set-PDRegValue 'HKCU:\Control Panel\Desktop' FontSmoothing '2' 'String'
@@ -167,7 +170,7 @@ function Set-PDVisualPerformance {
     Set-PDRegValue 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' ListviewShadow 0
     Set-PDRegValue 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize' EnableTransparency 0
     Set-PDRegValue 'HKCU:\Software\Microsoft\Windows\DWM' EnableAeroPeek 0
-    Write-PDLog 'Visual effects हलके केले. पूर्ण परिणामासाठी sign out / restart करा.' 'OK'
+    Write-PDLog 'Visual effects lightened. Sign out / restart for the full effect.' 'OK'
 }
 
 # ---------------- power ----------------
@@ -182,7 +185,7 @@ function Set-PDPowerPlan {
         if ($list -notmatch $high) { $null = & powercfg.exe -duplicatescheme $high $high 2>&1 }
         if (((& powercfg.exe /list) -join "`n") -match $high) { $target = $high }
     }
-    if ($current.Guid -eq $target) { Write-PDLog "Power plan आधीच योग्य आहे ($($current.Name))." 'OK'; return }
+    if ($current.Guid -eq $target) { Write-PDLog "Power plan is already right ($($current.Name))." 'OK'; return }
     Add-PDUndo @{ Type = 'PowerPlan'; Guid = $current.Guid }
     $null = & powercfg.exe /setactive $target 2>&1
     $label = if ($target -eq $high) { 'High performance' } else { 'Balanced' }
@@ -199,29 +202,29 @@ function Remove-PDBloat {
             Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -eq $name } |
                 Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Out-Null
             Add-PDUndo @{ Type = 'Appx'; Name = $name }
-            Write-PDLog "$name काढले (हवे असल्यास Microsoft Store मधून परत install करता येते)." 'OK'
-        } catch { Write-PDLog ("$name काढता आले नाही: " + $_.Exception.Message) 'WARN' }
+            Write-PDLog "$name removed (can be reinstalled from the Microsoft Store)." 'OK'
+        } catch { Write-PDLog ("$name could not be removed: " + $_.Exception.Message) 'WARN' }
     }
 }
 
 function Disable-PDSuggestions {
-    Write-PDLog 'Windows tips, ads आणि auto-installed apps बंद करत आहे...' 'STEP'
+    Write-PDLog 'Turning off Windows tips, ads and auto-installed apps ...' 'STEP'
     $p = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
     foreach ($n in 'SilentInstalledAppsEnabled', 'SystemPaneSuggestionsEnabled', 'SoftLandingEnabled', 'PreInstalledAppsEnabled',
                    'OemPreInstalledAppsEnabled', 'SubscribedContent-338388Enabled', 'SubscribedContent-338389Enabled',
                    'SubscribedContent-353694Enabled', 'SubscribedContent-353696Enabled', 'SubscribedContent-310093Enabled') {
         Set-PDRegValue $p $n 0
     }
-    Write-PDLog 'Suggestions / ads बंद.' 'OK'
+    Write-PDLog 'Suggestions / ads off.' 'OK'
 }
 
 function Disable-PDBackgroundApps {
-    Write-PDLog 'Store apps ना background मध्ये चालण्यापासून थांबवत आहे...' 'STEP'
+    Write-PDLog 'Stopping Store apps from running in the background ...' 'STEP'
     $p = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\AppPrivacy'
     if (-not (Test-Path $p)) { New-Item -Path $p -Force | Out-Null }
     Set-ItemProperty -Path $p -Name LetAppsRunInBackground -Value 2 -Type DWord
     Add-PDUndo @{ Type = 'RegValueRemove'; Path = $p; Name = 'LetAppsRunInBackground' }
-    Write-PDLog 'Background apps बंद (काही apps चे notifications उशिरा येऊ शकतात).' 'OK'
+    Write-PDLog 'Background apps off (some app notifications may arrive late).' 'OK'
 }
 
 # ---------------- services ----------------
@@ -248,23 +251,23 @@ function Set-PDPagefileAuto {
     if ($cs.AutomaticManagedPagefile) { return }
     $pf = @(Get-CimInstance Win32_PageFileSetting -ErrorAction SilentlyContinue)
     if ($pf.Count -eq 0) {
-        Write-PDLog 'Page file बंद होती - Windows managed केली (restart नंतर लागू).' 'STEP'
+        Write-PDLog 'The page file was off - set to Windows-managed (applies after a restart).' 'STEP'
         Set-CimInstance -InputObject $cs -Property @{ AutomaticManagedPagefile = $true } | Out-Null
         Add-PDUndo @{ Type = 'Note'; Text = 'Pagefile set to automatic' }
     }
 }
 
 function Disable-PDHibernation {
-    Write-PDLog 'Hibernation बंद करत आहे (hiberfil.sys ची जागा मोकळी होईल)...' 'STEP'
+    Write-PDLog 'Turning hibernation off (frees the space of hiberfil.sys) ...' 'STEP'
     $null = & powercfg.exe /h off 2>&1
     Add-PDUndo @{ Type = 'Hibernate' }
-    Write-PDLog 'Hibernation बंद.' 'OK'
+    Write-PDLog 'Hibernation off.' 'OK'
 }
 
 # ---------------- undo ----------------
 function Undo-PDChanges {
     $list = @(Get-PDUndo)
-    if ($list.Count -eq 0) { Write-PDLog 'Undo करण्यासारखे काही नाही.' 'INFO'; return }
+    if ($list.Count -eq 0) { Write-PDLog 'Nothing to undo.' 'INFO'; return }
     [array]::Reverse($list)
     foreach ($u in $list) {
         try {
@@ -274,7 +277,7 @@ function Undo-PDChanges {
                 'RegFile'        { $null = & reg.exe import $u.File 2>&1; Write-PDLog "Registry restore: $($u.Label)" 'OK' }
                 'RegTree'        { Restore-PDRegTree $u.File; Write-PDLog "Registry restore: $($u.Label)" 'OK' }
                 'PowerPlan'      { if ($u.Guid) { $null = & powercfg.exe /setactive $u.Guid 2>&1; Write-PDLog 'Power plan restore' 'OK' } }
-                'Hibernate'      { $null = & powercfg.exe /h on 2>&1; Write-PDLog 'Hibernation परत चालू' 'OK' }
+                'Hibernate'      { $null = & powercfg.exe /h on 2>&1; Write-PDLog 'Hibernation on again' 'OK' }
                 'RegValue'       {
                     if ($u.Existed) {
                         $v = $u.Old
@@ -284,13 +287,13 @@ function Undo-PDChanges {
                     } else { Remove-ItemProperty -Path $u.Path -Name $u.Name -ErrorAction SilentlyContinue }
                 }
                 'RegValueRemove' { Remove-ItemProperty -Path $u.Path -Name $u.Name -ErrorAction SilentlyContinue; Write-PDLog "Removed $($u.Path)\$($u.Name)" 'OK' }
-                'Appx'           { Write-PDLog "$($u.Name) - Microsoft Store मधून परत install करा." 'INFO' }
+                'Appx'           { Write-PDLog "$($u.Name) - reinstall it from the Microsoft Store." 'INFO' }
                 default          { }
             }
         } catch { Write-PDLog ("Undo {0}: {1}" -f $u.Type, $_.Exception.Message) 'WARN' }
     }
     Move-Item -LiteralPath $global:PDCtx.UndoFile -Destination ($global:PDCtx.UndoFile -replace '\.json$', ("-undone-{0:yyyyMMddHHmm}.json" -f (Get-Date))) -Force
-    Write-PDLog 'Undo पूर्ण. PC restart करा.' 'OK'
+    Write-PDLog 'Undo finished. Restart the PC.' 'OK'
 }
 
 Export-ModuleMember -Function *

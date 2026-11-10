@@ -1,0 +1,33 @@
+name: UI screenshots
+
+# Renders every PC Doctor page in English, Marathi and Hindi (real scan of the runner) to PNG files.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'kit/Sanjeevani/PCDoctor/**'
+      - '.github/workflows/ui.yml'
+
+jobs:
+  screenshots:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Render pages
+        shell: powershell
+        run: |
+          $ps1 = 'kit\Sanjeevani\PCDoctor\PCDoctor.ps1'
+          $bad = 0
+          foreach ($l in 'en', 'mr', 'hi') {
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File $ps1 -Screenshot "$PWD\shots" -Lang $l
+            if ($LASTEXITCODE) { $bad++ }
+          }
+          Get-ChildItem shots | Select-Object Name, Length | Format-Table | Out-String | Write-Host
+          if ($bad) { exit 1 }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pcdoctor-screenshots
+          path: shots

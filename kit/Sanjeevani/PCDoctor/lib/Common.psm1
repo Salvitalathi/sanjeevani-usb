@@ -22,9 +22,68 @@ function Initialize-PDContext {
         BackupDir = Join-Path $reportDir 'backup'
         LogFile   = Join-Path $reportDir ("log-{0:yyyyMMdd}.txt" -f (Get-Date))
         UndoFile  = Join-Path $reportDir 'undo.json'
+        Lang      = (Get-PDLangSetting -UsbRoot $UsbRoot)
     })
     $global:PDCtx = $ctx
     return $ctx
+}
+
+# ---------------------------------------------------------------- language (en / mr / hi)
+# Chosen in Setup (Sanjeevani\settings.json). A locked USB cannot be written, so a change made
+# inside PC Doctor is also kept on the PC (%LOCALAPPDATA%\Sanjeevani\settings.json), which wins.
+$script:LangNames = [ordered]@{ en = 'English'; mr = 'मराठी'; hi = 'हिन्दी' }
+function Get-PDLangNames { return $script:LangNames }
+function Get-PDSettingsFiles([string]$UsbRoot) {
+    $f = @()
+    if ($env:LOCALAPPDATA) { $f += (Join-Path $env:LOCALAPPDATA 'Sanjeevani\settings.json') }
+    if ($UsbRoot) { $f += (Join-Path $UsbRoot 'Sanjeevani\settings.json') }
+    return $f
+}
+function Get-PDLangSetting {
+    param([string]$UsbRoot)
+    foreach ($f in (Get-PDSettingsFiles $UsbRoot)) {
+        try {
+            if (Test-Path -LiteralPath $f) { $l = [string](Get-Content -LiteralPath $f -Raw -Encoding UTF8 | ConvertFrom-Json).lang; if ($script:LangNames.Contains($l)) { return $l } }
+        } catch { }
+    }
+    return ''
+}
+function Set-PDLangSetting {
+    param([string]$UsbRoot, [ValidateSet('en', 'mr', 'hi')][string]$Lang)
+    $saved = 0
+    foreach ($f in (Get-PDSettingsFiles $UsbRoot)) {
+        try {
+            $o = [ordered]@{}
+            if (Test-Path -LiteralPath $f) { (Get-Content -LiteralPath $f -Raw -Encoding UTF8 | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $o[$_.Name] = $_.Value } }
+            $o['lang'] = $Lang
+            New-Item -ItemType Directory -Path (Split-Path $f) -Force -ErrorAction Stop | Out-Null
+            [IO.File]::WriteAllText($f, ($o | ConvertTo-Json), (New-Object Text.UTF8Encoding $false)); $saved++
+        } catch { }
+    }
+    if ($global:PDCtx) { $global:PDCtx.Lang = $Lang }
+    return $saved
+}
+function Get-PDLang {
+    $l = if ($global:PDCtx -and $global:PDCtx.Lang) { [string]$global:PDCtx.Lang } else { [string]$global:PDLang }
+    if ($script:LangNames.Contains($l)) { return $l }
+    return 'mr'
+}
+# L 'English' 'मराठी' 'हिन्दी' - text in the user's language (falls back to English)
+function L {
+    param([string]$En, [string]$Mr, [string]$Hi)
+    switch (Get-PDLang) {
+        'mr' { if ($Mr) { return $Mr } }
+        'hi' { if ($Hi) { return $Hi } }
+    }
+    return $En
+}
+# picks .en / .mr / .hi from a data object (problems.json, toolguide.json ...)
+function Get-PDText {
+    param($Obj)
+    if ($null -eq $Obj) { return $null }
+    $l = Get-PDLang
+    foreach ($k in @($l, 'en', 'mr')) { $v = $Obj.$k; if ($v) { return $v } }
+    return $null
 }
 
 function Write-PDLog {
@@ -109,7 +168,7 @@ function Invoke-PDProcess {
             if (((Get-Date) - $lastBeat).TotalSeconds -ge 60) {
                 $lastBeat = Get-Date
                 $pctTxt = if ($lastPct -ge 0) { " ($lastPct%)" } else { '' }
-                Write-PDLog ("अजून चालू आहे{0} - {1:N0} मिनिटे झाली. PC बंद करू नका." -f $pctTxt, ((Get-Date) - $started).TotalMinutes)
+                Write-PDLog ("Still running{0} - {1:N0} minutes so far. Do not switch the PC off." -f $pctTxt, ((Get-Date) - $started).TotalMinutes)
             }
             continue
         }
@@ -147,7 +206,7 @@ function Invoke-PDProcess {
 
 function New-PDRestorePoint {
     param([string]$Description = 'Sanjeevani PC Doctor')
-    Write-PDLog 'System Restore point तयार करत आहे...' 'STEP'
+    Write-PDLog 'Creating a System Restore point ...' 'STEP'
     $key = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore'
     $old = $null
     try {
@@ -155,10 +214,10 @@ function New-PDRestorePoint {
         Set-ItemProperty -Path $key -Name SystemRestorePointCreationFrequency -Value 0 -Type DWord -ErrorAction SilentlyContinue
         Enable-ComputerRestore -Drive ($env:SystemDrive + '\') -ErrorAction SilentlyContinue
         Checkpoint-Computer -Description $Description -RestorePointType MODIFY_SETTINGS -ErrorAction Stop
-        Write-PDLog 'Restore point तयार झाला.' 'OK'
+        Write-PDLog 'Restore point created.' 'OK'
         return $true
     } catch {
-        Write-PDLog ('Restore point तयार झाला नाही: ' + $_.Exception.Message) 'WARN'
+        Write-PDLog ('Restore point not created: ' + $_.Exception.Message) 'WARN'
         return $false
     } finally {
         if ($null -eq $old) {

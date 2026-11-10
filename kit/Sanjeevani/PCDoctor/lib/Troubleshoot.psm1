@@ -11,7 +11,7 @@ function New-TSCheck($Found, $Text, $Data = $null) { [pscustomobject]@{ Found = 
 function New-TSFix([object]$Fixed, $Text, [switch]$Restart, $Manual = $null) { [pscustomobject]@{ Fixed = $Fixed; Text = $Text; Restart = [bool]$Restart; Manual = $Manual } }
 
 function Get-TSDataDir { return (Join-Path $global:PDCtx.KitRoot 'PCDoctor\data') }
-function Step([string]$En, [string]$Mr) { Write-PDLog $(if ($Mr) { $Mr } else { $En }) 'STEP'; Set-PDProgress -1 $En }
+function Step([string]$En, [string]$Mr) { Write-PDLog $En 'STEP'; Set-PDProgress -1 $(if ((Get-PDLang) -eq 'mr' -and $Mr) { $Mr } else { $En }) }
 $script:RpDone = $false
 function New-TSRestorePointOnce { if (-not $script:RpDone) { $script:RpDone = $true; [void](New-PDRestorePoint 'Sanjeevani: auto troubleshoot') } }
 
@@ -517,13 +517,13 @@ function Invoke-PDTroubleshoot {
         $p = $Problems | Where-Object { $_.id -eq $id } | Select-Object -First 1
         $d = $script:D[$id]
         if (-not $d) { $res.Guide += [pscustomobject]@{ Id = $id; Problem = $p; Text = (Get-TSManual $p) }; continue }
-        Write-PDLog "तपासत आहे: $($p.mr.title)" 'STEP'
+        Write-PDLog "Checking: $($p.en.title)" 'STEP'
         $chk = $null
         try { $chk = & $d.Check } catch { Write-PDLog "check $id failed: $($_.Exception.Message)" 'WARN'; continue }
         $res.Checked += [pscustomobject]@{ Id = $id; Problem = $p; Check = $chk }
-        if ($chk.Found -eq $false) { Write-PDLog ("  ठीक: " + $chk.Text.mr) 'OK'; continue }
+        if ($chk.Found -eq $false) { Write-PDLog ("  OK: " + $chk.Text.en) 'OK'; continue }
         if ($null -eq $chk.Found -and -not $d.FixEvenIfUnknown) { $res.Guide += [pscustomobject]@{ Id = $id; Problem = $p; Text = $chk.Text }; continue }
-        Write-PDLog ("  सापडले: " + $chk.Text.mr) 'WARN'
+        Write-PDLog ("  Found: " + $chk.Text.en) 'WARN'
         $fix = $null
         try { $fix = & $d.Fix $chk } catch { $fix = New-TSFix $false (TT "Repair failed: $($_.Exception.Message)" "दुरुस्ती अयशस्वी: $($_.Exception.Message)" $null) }
         if ($fix.Fixed -eq $true -and -not $d.NoVerify -and -not $fix.Restart) {

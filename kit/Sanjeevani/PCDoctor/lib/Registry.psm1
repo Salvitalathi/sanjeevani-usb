@@ -56,24 +56,24 @@ function Get-PDRegistryIssues {
     $out = New-Object System.Collections.ArrayList
     $domain = $false
     try { $domain = [bool](Get-CimInstance Win32_ComputerSystem -ErrorAction Stop).PartOfDomain } catch { }
-    $orgNote = if ($domain) { ' (हा PC office domain मध्ये आहे - IT ने मुद्दाम लावले असू शकते.)' } else { '' }
+    $orgNote = if ($domain) { L ' (This PC is in an office domain - IT may have set this on purpose.)' ' (हा PC office domain मध्ये आहे - IT ने मुद्दाम लावले असू शकते.)' ' (यह PC office domain में है - IT ने जानबूझकर लगाया हो सकता है।)' } else { '' }
 
     # --- blocked tools (policies viruses set)
     $pol = @(
-        @('Software\Microsoft\Windows\CurrentVersion\Policies\System', 'DisableTaskMgr', 'Task Manager बंद केलेला आहे'),
-        @('Software\Microsoft\Windows\CurrentVersion\Policies\System', 'DisableRegistryTools', 'Registry Editor बंद केलेला आहे'),
-        @('Software\Policies\Microsoft\Windows\System', 'DisableCMD', 'Command Prompt बंद केलेला आहे'),
-        @('Software\Microsoft\Windows\CurrentVersion\Policies\Explorer', 'NoRun', 'Start → Run बंद केलेले आहे'),
-        @('Software\Microsoft\Windows\CurrentVersion\Policies\Explorer', 'NoFolderOptions', 'Folder Options बंद (लपवलेल्या files दाखवता येत नाहीत)'),
-        @('Software\Microsoft\Windows\CurrentVersion\Policies\Explorer', 'NoControlPanel', 'Control Panel / Settings बंद केलेले आहे'),
-        @('Software\Microsoft\Windows\CurrentVersion\Policies\Explorer', 'NoDrives', 'Drives लपवलेले आहेत'),
-        @('Software\Microsoft\Windows\CurrentVersion\Policies\Explorer', 'NoViewOnDrive', 'Drives उघडता येत नाहीत')
+        @('Software\Microsoft\Windows\CurrentVersion\Policies\System', 'DisableTaskMgr', (L 'Task Manager is disabled' 'Task Manager बंद केलेला आहे' 'Task Manager बंद किया गया है')),
+        @('Software\Microsoft\Windows\CurrentVersion\Policies\System', 'DisableRegistryTools', (L 'Registry Editor is disabled' 'Registry Editor बंद केलेला आहे' 'Registry Editor बंद किया गया है')),
+        @('Software\Policies\Microsoft\Windows\System', 'DisableCMD', (L 'Command Prompt is disabled' 'Command Prompt बंद केलेला आहे' 'Command Prompt बंद किया गया है')),
+        @('Software\Microsoft\Windows\CurrentVersion\Policies\Explorer', 'NoRun', (L 'Start → Run is disabled' 'Start → Run बंद केलेले आहे' 'Start → Run बंद किया गया है')),
+        @('Software\Microsoft\Windows\CurrentVersion\Policies\Explorer', 'NoFolderOptions', (L 'Folder Options disabled (hidden files cannot be shown)' 'Folder Options बंद (लपवलेल्या files दाखवता येत नाहीत)' 'Folder Options बंद (छिपी files नहीं दिखा सकते)')),
+        @('Software\Microsoft\Windows\CurrentVersion\Policies\Explorer', 'NoControlPanel', (L 'Control Panel / Settings are disabled' 'Control Panel / Settings बंद केलेले आहे' 'Control Panel / Settings बंद किए गए हैं')),
+        @('Software\Microsoft\Windows\CurrentVersion\Policies\Explorer', 'NoDrives', (L 'Drives are hidden' 'Drives लपवलेले आहेत' 'Drives छिपाए गए हैं')),
+        @('Software\Microsoft\Windows\CurrentVersion\Policies\Explorer', 'NoViewOnDrive', (L 'Drives cannot be opened' 'Drives उघडता येत नाहीत' 'Drives खुल नहीं सकते'))
     )
     foreach ($root in 'HKCU:', 'HKLM:') {
         foreach ($p in $pol) {
             $k = "$root\$($p[0])"; $v = Get-PDRegValue $k $p[1]
             if ($v -and (ConvertTo-PDInt $v) -ne 0) {
-                [void]$out.Add((New-PDRegIssue 'malware' 'Critical' $p[2] ("$k\$($p[1]) = $v. बहुतेक virus हे बंद करतात म्हणजे user त्यांना काढू शकत नाही." + $orgNote) $k $p[1] 'removevalue' -Selected (-not $domain)))
+                [void]$out.Add((New-PDRegIssue 'malware' 'Critical' $p[2] ("$k\$($p[1]) = $v. " + (L 'Viruses usually disable this so that the user cannot remove them.' 'बहुतेक virus हे बंद करतात म्हणजे user त्यांना काढू शकत नाही.' 'ज़्यादातर virus इसे बंद करते हैं ताकि user उन्हें हटा न सके।') + $orgNote) $k $p[1] 'removevalue' -Selected (-not $domain)))
             }
         }
     }
@@ -83,56 +83,56 @@ function Get-PDRegistryIssues {
     foreach ($d in @(@('HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender', 'DisableAntiSpyware'), @('HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection', 'DisableRealtimeMonitoring'))) {
         $v = Get-PDRegValue $d[0] $d[1]
         if ($v -and (ConvertTo-PDInt $v) -ne 0) {
-            $det = if ($thirdAv) { 'दुसरा antivirus install आहे - त्याने बंद केले असेल तर ठीक.' } else { 'दुसरा antivirus नाही - virus ने Defender बंद केल्याची शक्यता.' }
-            [void]$out.Add((New-PDRegIssue 'malware' $(if ($thirdAv) { 'Warning' } else { 'Critical' }) 'Microsoft Defender policy ने बंद केलेला आहे' ("$($d[0])\$($d[1]) = $v. $det" + $orgNote) $d[0] $d[1] 'removevalue' -Selected (-not $thirdAv -and -not $domain)))
+            $det = if ($thirdAv) { L 'Another antivirus is installed - fine if it turned Defender off.' 'दुसरा antivirus install आहे - त्याने बंद केले असेल तर ठीक.' 'दूसरा antivirus install है - उसने बंद किया हो तो ठीक।' } else { L 'No other antivirus - a virus has probably turned Defender off.' 'दुसरा antivirus नाही - virus ने Defender बंद केल्याची शक्यता.' 'दूसरा antivirus नहीं - virus ने Defender बंद किया होगा।' }
+            [void]$out.Add((New-PDRegIssue 'malware' $(if ($thirdAv) { 'Warning' } else { 'Critical' }) (L 'Microsoft Defender is disabled by policy' 'Microsoft Defender policy ने बंद केलेला आहे' 'Microsoft Defender policy से बंद किया गया है') ("$($d[0])\$($d[1]) = $v. $det" + $orgNote) $d[0] $d[1] 'removevalue' -Selected (-not $thirdAv -and -not $domain)))
         }
     }
     # --- Winlogon hijack
     $wl = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
     $shell = [string](Get-PDRegValue $wl 'Shell')
     if ($shell -and $shell.Trim() -ine 'explorer.exe') {
-        [void]$out.Add((New-PDRegIssue 'malware' 'Critical' 'Windows सुरू होताना दुसरा program चालतो (Winlogon Shell)' "Shell = `"$shell`" - असायला हवे explorer.exe" $wl 'Shell' 'setvalue' 'explorer.exe' 'String'))
+        [void]$out.Add((New-PDRegIssue 'malware' 'Critical' (L 'Another program runs when Windows starts (Winlogon Shell)' 'Windows सुरू होताना दुसरा program चालतो (Winlogon Shell)' 'Windows शुरू होते समय दूसरा program चलता है (Winlogon Shell)') ("Shell = `"$shell`" - " + (L 'should be' 'असायला हवे' 'होना चाहिए') + ' explorer.exe') $wl 'Shell' 'setvalue' 'explorer.exe' 'String'))
     }
     $ui = [string](Get-PDRegValue $wl 'Userinit')
     if ($ui -and ([Environment]::ExpandEnvironmentVariables($ui).Trim().TrimEnd(',') -ine "$env:WINDIR\system32\userinit.exe")) {
-        [void]$out.Add((New-PDRegIssue 'malware' 'Critical' 'Login नंतर अनोळखी program चालतो (Winlogon Userinit)' "Userinit = `"$ui`"" $wl 'Userinit' 'setvalue' "$env:WINDIR\system32\userinit.exe," 'String'))
+        [void]$out.Add((New-PDRegIssue 'malware' 'Critical' (L 'An unknown program runs after login (Winlogon Userinit)' 'Login नंतर अनोळखी program चालतो (Winlogon Userinit)' 'Login के बाद अनजान program चलता है (Winlogon Userinit)') "Userinit = `"$ui`"" $wl 'Userinit' 'setvalue' "$env:WINDIR\system32\userinit.exe," 'String'))
     }
     $hcuShell = Get-PDRegValue 'HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon' 'Shell'
-    if ($hcuShell) { [void]$out.Add((New-PDRegIssue 'malware' 'Critical' 'या user साठी Windows shell बदललेला आहे' "HKCU Winlogon Shell = `"$hcuShell`"" 'HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon' 'Shell' 'removevalue')) }
+    if ($hcuShell) { [void]$out.Add((New-PDRegIssue 'malware' 'Critical' (L 'The Windows shell is changed for this user' 'या user साठी Windows shell बदललेला आहे' 'इस user के लिए Windows shell बदला गया है') "HKCU Winlogon Shell = `"$hcuShell`"" 'HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon' 'Shell' 'removevalue')) }
     # --- IFEO debugger hijack: opening program X really starts program Y
     $ifeo = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options'
     foreach ($k in @(Get-ChildItem -LiteralPath $ifeo -ErrorAction SilentlyContinue)) {
         $dbg = $k.GetValue('Debugger', $null)
         if (-not $dbg) { continue }
         if ($dbg -match '(?i)procexp|vsjitdebugger|windbg|ntsd\.exe|cdb\.exe') { continue }   # Process Explorer replacing Task Manager, developer debuggers
-        [void]$out.Add((New-PDRegIssue 'malware' 'Critical' ("{0} उघडल्यावर दुसरेच काहीतरी चालते" -f $k.PSChildName) "Debugger = `"$dbg`" (Image File Execution Options) - virus antivirus / tools अडवण्यासाठी हे वापरतात." $k.PSPath 'Debugger' 'removevalue'))
+        [void]$out.Add((New-PDRegIssue 'malware' 'Critical' ((L 'Opening {0} runs something else' '{0} उघडल्यावर दुसरेच काहीतरी चालते' '{0} खोलने पर कुछ और ही चलता है') -f $k.PSChildName) ("Debugger = `"$dbg`" (Image File Execution Options) - " + (L 'viruses use this to block antivirus / tools.' 'virus antivirus / tools अडवण्यासाठी हे वापरतात.' 'virus antivirus / tools रोकने के लिए यह इस्तेमाल करते हैं।')) $k.PSPath 'Debugger' 'removevalue'))
     }
     # --- file type hijacks
     $assoc = @(@('.exe', 'exefile'), @('.lnk', 'lnkfile'), @('.bat', 'batfile'), @('.cmd', 'cmdfile'), @('.com', 'comfile'))
     foreach ($a in $assoc) {
         $v = Get-PDRegValue "HKLM:\SOFTWARE\Classes\$($a[0])" ''
-        if ($v -and $v -ine $a[1]) { [void]$out.Add((New-PDRegIssue 'malware' 'Critical' ("{0} files चा प्रकार बदललेला आहे" -f $a[0]) "HKLM\SOFTWARE\Classes\$($a[0]) = `"$v`" - असायला हवे $($a[1])" "HKLM:\SOFTWARE\Classes\$($a[0])" '' 'setvalue' $a[1] 'String')) }
+        if ($v -and $v -ine $a[1]) { [void]$out.Add((New-PDRegIssue 'malware' 'Critical' ((L 'The file type of {0} files is changed' '{0} files चा प्रकार बदललेला आहे' '{0} files का प्रकार बदला गया है') -f $a[0]) ("HKLM\SOFTWARE\Classes\$($a[0]) = `"$v`" - " + (L 'should be' 'असायला हवे' 'होना चाहिए') + " $($a[1])") "HKLM:\SOFTWARE\Classes\$($a[0])" '' 'setvalue' $a[1] 'String')) }
         if (Test-Path -LiteralPath "HKCU:\Software\Classes\$($a[0])") {
-            [void]$out.Add((New-PDRegIssue 'malware' 'Critical' ("{0} files साठी या user चा वेगळा प्रकार" -f $a[0]) "HKCU\Software\Classes\$($a[0]) - programs / shortcuts उघडताना virus चालू शकतो." "HKCU:\Software\Classes\$($a[0])" '' 'removekey'))
+            [void]$out.Add((New-PDRegIssue 'malware' 'Critical' ((L 'This user has a different file type for {0} files' '{0} files साठी या user चा वेगळा प्रकार' '{0} files के लिए इस user का अलग प्रकार') -f $a[0]) ("HKCU\Software\Classes\$($a[0]) - " + (L 'a virus can run when programs / shortcuts open.' 'programs / shortcuts उघडताना virus चालू शकतो.' 'programs / shortcuts खोलते समय virus चल सकता है।')) "HKCU:\Software\Classes\$($a[0])" '' 'removekey'))
         }
     }
     $exeCmd = Get-PDRegValue 'HKLM:\SOFTWARE\Classes\exefile\shell\open\command' ''
     if ($exeCmd -and $exeCmd -notmatch '^"%1"\s*%\*$') {
-        [void]$out.Add((New-PDRegIssue 'malware' 'Critical' 'Programs (.exe) उघडण्याची पद्धत बदललेली आहे' "exefile\shell\open\command = `"$exeCmd`" - असायला हवे `"%1`" %*" 'HKLM:\SOFTWARE\Classes\exefile\shell\open\command' '' 'setvalue' '"%1" %*' 'String'))
+        [void]$out.Add((New-PDRegIssue 'malware' 'Critical' (L 'The way programs (.exe) open is changed' 'Programs (.exe) उघडण्याची पद्धत बदललेली आहे' 'Programs (.exe) खुलने का तरीका बदला गया है') ("exefile\shell\open\command = `"$exeCmd`" - " + (L 'should be' 'असायला हवे' 'होना चाहिए') + ' "%1" %*') 'HKLM:\SOFTWARE\Classes\exefile\shell\open\command' '' 'setvalue' '"%1" %*' 'String'))
     }
     # --- "show hidden files" switch broken (viruses hide themselves this way)
     $hk = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced\Folder\Hidden\SHOWALL'
     $cv = Get-PDRegValue $hk 'CheckedValue'
     if ($null -ne $cv -and (ConvertTo-PDInt $cv) -ne 1) {
-        [void]$out.Add((New-PDRegIssue 'malware' 'Warning' '"Hidden files दाखवा" option काम करत नाही' "SHOWALL\CheckedValue = $cv - असायला हवे 1" $hk 'CheckedValue' 'setvalue' 1 'DWord'))
+        [void]$out.Add((New-PDRegIssue 'malware' 'Warning' (L 'The "Show hidden files" option does not work' '"Hidden files दाखवा" option काम करत नाही' '"Hidden files दिखाएँ" option काम नहीं करता') ("SHOWALL\CheckedValue = $cv - " + (L 'should be' 'असायला हवे' 'होना चाहिए') + ' 1') $hk 'CheckedValue' 'setvalue' 1 'DWord'))
     }
     # --- proxy behind the user's back (adware) - not selected by default: offices use proxies
     $is = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings'
     if ((ConvertTo-PDInt (Get-PDRegValue $is 'ProxyEnable')) -eq 1) {
-        [void]$out.Add((New-PDRegIssue 'malware' 'Warning' 'Internet proxy चालू आहे' ("Proxy = $(Get-PDRegValue $is 'ProxyServer'). Office मध्ये proxy नसेल तर adware ने लावले असू शकते - internet हळू / ads." ) $is 'ProxyEnable' 'setvalue' 0 'DWord' -Selected $false))
+        [void]$out.Add((New-PDRegIssue 'malware' 'Warning' (L 'An internet proxy is on' 'Internet proxy चालू आहे' 'Internet proxy चालू है') ("Proxy = $(Get-PDRegValue $is 'ProxyServer'). " + (L 'Without an office proxy, adware may have set it - slow internet / ads.' 'Office मध्ये proxy नसेल तर adware ने लावले असू शकते - internet हळू / ads.' 'Office में proxy न हो तो adware ने लगाया हो सकता है - internet धीमा / ads.')) $is 'ProxyEnable' 'setvalue' 0 'DWord' -Selected $false))
     }
     $pac = Get-PDRegValue $is 'AutoConfigURL'
-    if ($pac) { [void]$out.Add((New-PDRegIssue 'malware' 'Warning' 'Internet auto-config (PAC) script लावलेला आहे' "AutoConfigURL = $pac" $is 'AutoConfigURL' 'removevalue' -Selected $false)) }
+    if ($pac) { [void]$out.Add((New-PDRegIssue 'malware' 'Warning' (L 'An internet auto-config (PAC) script is set' 'Internet auto-config (PAC) script लावलेला आहे' 'Internet auto-config (PAC) script लगा है') "AutoConfigURL = $pac" $is 'AutoConfigURL' 'removevalue' -Selected $false)) }
 
     # --- startup entries whose program is gone
     $runKeys = @('HKCU:\Software\Microsoft\Windows\CurrentVersion\Run', 'HKCU:\Software\Microsoft\Windows\CurrentVersion\RunOnce',
@@ -146,7 +146,7 @@ function Get-PDRegistryIssues {
             $cmd = [string]$k.GetValue($n, $null, 'DoNotExpandEnvironmentNames')
             $t = Get-PDCommandTarget $cmd
             if ($t -and -not (Test-PDTargetExists $t)) {
-                [void]$out.Add((New-PDRegIssue 'broken' 'Info' "Startup entry चा program नाही: $n" "$cmd - program काढलेला आहे, पण Windows प्रत्येक start ला तो शोधतो." $rk $n 'removevalue'))
+                [void]$out.Add((New-PDRegIssue 'broken' 'Info' ((L 'Startup entry without its program: ' 'Startup entry चा program नाही: ' 'Startup entry का program नहीं: ') + $n) ("$cmd - " + (L 'the program is gone, but Windows looks for it at every start.' 'program काढलेला आहे, पण Windows प्रत्येक start ला तो शोधतो.' 'program हटा दिया गया है, पर Windows हर start पर उसे ढूँढता है।')) $rk $n 'removevalue'))
             }
         }
     }
@@ -161,7 +161,7 @@ function Get-PDRegistryIssues {
             if (-not $t -or (Test-PDTargetExists $t)) { continue }
             $loc = [string]$k.GetValue('InstallLocation')
             if ($loc -and (Test-Path -LiteralPath ([Environment]::ExpandEnvironmentVariables($loc).Trim('"')))) { continue }   # program folder still there
-            [void]$out.Add((New-PDRegIssue 'broken' 'Info' "Programs यादीतील तुटलेली entry: $name" "Uninstall program ($t) आणि folder दोन्ही नाहीत - यादीतून काढल्यास गोंधळ कमी." $k.PSPath '' 'removekey'))
+            [void]$out.Add((New-PDRegIssue 'broken' 'Info' ((L 'Broken entry in the programs list: ' 'Programs यादीतील तुटलेली entry: ' 'Programs सूची की टूटी entry: ') + $name) ((L 'Neither the uninstaller ({0}) nor the folder exists - removing it from the list avoids confusion.' 'Uninstall program ({0}) आणि folder दोन्ही नाहीत - यादीतून काढल्यास गोंधळ कमी.' 'Uninstall program ({0}) और folder दोनों नहीं हैं - सूची से हटाने पर गड़बड़ कम।') -f $t) $k.PSPath '' 'removekey'))
         }
     }
     # --- App Paths to missing programs
@@ -171,7 +171,7 @@ function Get-PDRegistryIssues {
             if (-not $v) { continue }
             $t = [Environment]::ExpandEnvironmentVariables($v.Trim().Trim('"'))
             if ($t -match '^[A-Za-z]:\\' -and -not (Test-Path -LiteralPath $t)) {
-                [void]$out.Add((New-PDRegIssue 'broken' 'Info' "App Path चा program नाही: $($k.PSChildName)" "$t नाही." $k.PSPath '' 'removekey'))
+                [void]$out.Add((New-PDRegIssue 'broken' 'Info' ((L 'App Path without its program: ' 'App Path चा program नाही: ' 'App Path का program नहीं: ') + $k.PSChildName) ("$t " + (L 'is missing.' 'नाही.' 'नहीं है।')) $k.PSPath '' 'removekey'))
             }
         }
     }
@@ -200,7 +200,7 @@ function Repair-PDRegistryIssues {
                     Set-ItemProperty -LiteralPath $key -Name $nm -Value $i.Value -Type $i.Type -ErrorAction Stop
                 }
             }
-            Write-PDLog "Registry दुरुस्त: $($i.Title)" 'OK'
+            Write-PDLog "Registry fixed: $($i.Title)" 'OK'
             $done++
         } catch { $failed++; Write-PDLog ("Registry: {0} - {1}" -f $i.Title, $_.Exception.Message) 'WARN' }
     }

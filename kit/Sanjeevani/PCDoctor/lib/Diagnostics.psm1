@@ -2,7 +2,7 @@
 Set-StrictMode -Off
 
 function Get-PDSystemInfo {
-    Write-PDLog 'System माहिती गोळा करत आहे...' 'STEP'
+    Write-PDLog 'Collecting system information ...' 'STEP'
     $os = Get-CimInstance Win32_OperatingSystem
     $cs = Get-CimInstance Win32_ComputerSystem
     $cpu = @(Get-CimInstance Win32_Processor)[0]
@@ -191,7 +191,7 @@ function Get-PDInstalledApps {
 
 function Get-PDLoadSnapshot {
     param([int]$Samples = 3)
-    Write-PDLog 'CPU / RAM / Disk वापर मोजत आहे...' 'STEP'
+    Write-PDLog 'Measuring CPU / RAM / disk load ...' 'STEP'
     $cpu = @(); $disk = @()
     for ($i = 0; $i -lt $Samples; $i++) {
         $cpu += (Get-CimInstance Win32_Processor | Measure-Object LoadPercentage -Average).Average
@@ -237,7 +237,7 @@ function Get-PDDiskEventCounts {
 
 function Get-PDEventSummary {
     param([int]$Days = 14)
-    Write-PDLog "मागील $Days दिवसांचे error logs तपासत आहे..." 'STEP'
+    Write-PDLog "Checking the error logs of the last $Days days ..." 'STEP'
     $since = (Get-Date).AddDays(-$Days)
     function _count($filter) {
         try { return @(Get-WinEvent -FilterHashtable $filter -MaxEvents 500 -ErrorAction Stop).Count } catch { return 0 }
@@ -254,14 +254,24 @@ function Get-PDEventSummary {
     }
 }
 
-# Device Manager problem codes, in plain Marathi
+# Device Manager problem codes, in plain words (en / mr / hi)
 $script:CmCodes = @{
-    1 = 'device नीट configure झाले नाही'; 3 = 'driver खराब आहे किंवा memory कमी पडते'; 10 = 'device सुरू होत नाही'
-    12 = 'दुसऱ्या device शी resources चा संघर्ष'; 14 = 'PC restart करावा लागेल'; 18 = 'driver पुन्हा install करा'
-    19 = 'registry मध्ये चूक'; 24 = 'device नीट जोडलेले नाही'; 28 = 'driver install केलेला नाही'
-    31 = 'driver load होत नाही'; 32 = 'driver बंद (disabled) आहे'; 37 = 'driver सुरू होत नाही'
-    39 = 'driver खराब आहे किंवा सापडत नाही'; 43 = 'hardware ने बिघाड कळवला (device / cable तपासा)'
-    48 = 'हा driver Windows ने block केला आहे'; 52 = 'driver ची digital signature पडताळता येत नाही'
+    1 = @('the device is not configured correctly', 'device नीट configure झाले नाही', 'device ठीक से configure नहीं हुआ')
+    3 = @('the driver is damaged or memory is short', 'driver खराब आहे किंवा memory कमी पडते', 'driver खराब है या memory कम पड़ती है')
+    10 = @('the device cannot start', 'device सुरू होत नाही', 'device शुरू नहीं होता')
+    12 = @('a resource conflict with another device', 'दुसऱ्या device शी resources चा संघर्ष', 'दूसरे device से resources का टकराव')
+    14 = @('the PC must be restarted', 'PC restart करावा लागेल', 'PC restart करना होगा')
+    18 = @('reinstall the driver', 'driver पुन्हा install करा', 'driver फिर से install करें')
+    19 = @('a registry error', 'registry मध्ये चूक', 'registry में गड़बड़')
+    24 = @('the device is not connected properly', 'device नीट जोडलेले नाही', 'device ठीक से जुड़ा नहीं है')
+    28 = @('no driver installed', 'driver install केलेला नाही', 'driver install नहीं है')
+    31 = @('the driver does not load', 'driver load होत नाही', 'driver load नहीं होता')
+    32 = @('the driver is disabled', 'driver बंद (disabled) आहे', 'driver बंद (disabled) है')
+    37 = @('the driver does not start', 'driver सुरू होत नाही', 'driver शुरू नहीं होता')
+    39 = @('the driver is damaged or missing', 'driver खराब आहे किंवा सापडत नाही', 'driver खराब है या नहीं मिलता')
+    43 = @('the hardware reported a fault (check the device / cable)', 'hardware ने बिघाड कळवला (device / cable तपासा)', 'hardware ने खराबी बताई (device / cable जाँचें)')
+    48 = @('Windows has blocked this driver', 'हा driver Windows ने block केला आहे', 'यह driver Windows ने block किया है')
+    52 = @('the driver''s digital signature cannot be verified', 'driver ची digital signature पडताळता येत नाही', 'driver की digital signature जाँची नहीं जा सकती')
 }
 
 function Get-PDDriverProblems {
@@ -271,7 +281,7 @@ function Get-PDDriverProblems {
             $c = [int]$_.ConfigManagerErrorCode
             [pscustomobject]@{
                 Name = $(if ($_.Name) { $_.Name } else { $_.DeviceID }); Code = $c; Class = [string]$_.PNPClass
-                Meaning = $(if ($script:CmCodes[$c]) { $script:CmCodes[$c] } else { "समस्या code $c" })
+                Meaning = $(if ($script:CmCodes[$c]) { $m = $script:CmCodes[$c]; L $m[0] $m[1] $m[2] } else { (L 'problem code ' 'समस्या code ' 'समस्या code ') + $c })
                 HardwareId = @($_.HardwareID)[0]
             }
         })
@@ -299,7 +309,7 @@ function Get-PDDriverAge {
 
 # Driver updates Microsoft offers for this PC (Windows Update "Optional updates"). Read-only; installs nothing.
 function Get-PDWindowsUpdateDrivers {
-    Write-PDLog 'Windows Update वर drivers शोधत आहे (1-2 मिनिटे, internet लागते)...' 'STEP'
+    Write-PDLog 'Looking for drivers on Windows Update (1-2 minutes, needs internet) ...' 'STEP'
     try {
         $session = New-Object -ComObject Microsoft.Update.Session
         $searcher = $session.CreateUpdateSearcher()
@@ -308,10 +318,10 @@ function Get-PDWindowsUpdateDrivers {
         foreach ($u in $res.Updates) {
             $list += [pscustomobject]@{ Title = [string]$u.Title; Class = [string]$u.DriverClass; Date = $u.DriverVerDate }
         }
-        Write-PDLog ("Windows Update: {0} driver updates उपलब्ध" -f $list.Count) 'OK'
+        Write-PDLog ("Windows Update: {0} driver updates available" -f $list.Count) 'OK'
         return $list
     } catch {
-        Write-PDLog ('Windows Update शी संपर्क झाला नाही: ' + $_.Exception.Message) 'WARN'
+        Write-PDLog ('Windows Update could not be reached: ' + $_.Exception.Message) 'WARN'
         return $null
     }
 }
@@ -341,7 +351,7 @@ function Test-PDPendingReboot {
 }
 
 function Get-PDImageHealth {
-    Write-PDLog 'Windows image (component store) तपासत आहे...' 'STEP'
+    Write-PDLog 'Checking the Windows image (component store) ...' 'STEP'
     try {
         $r = Repair-WindowsImage -Online -CheckHealth -ErrorAction Stop
         Write-PDLog ('Image health: ' + $r.ImageHealthState)
@@ -354,9 +364,9 @@ function Get-PDImageHealth {
 
 # Deep check: sfc /verifyonly (read-only), then read CBS.log for violations.
 function Test-PDSystemFiles {
-    Write-PDLog 'System files तपासत आहे (sfc /verifyonly) - 10 ते 20 मिनिटे लागू शकतात...' 'STEP'
+    Write-PDLog 'Checking system files (sfc /verifyonly) - can take 10 to 20 minutes ...' 'STEP'
     $start = Get-Date
-    $null = Invoke-PDProcess -FilePath "$env:WINDIR\System32\sfc.exe" -Arguments '/verifyonly' -Unicode -ProgressLabel 'System files तपासणी'
+    $null = Invoke-PDProcess -FilePath "$env:WINDIR\System32\sfc.exe" -Arguments '/verifyonly' -Unicode -ProgressLabel 'System files'
     return (Read-PDCbsResult -Since $start)
 }
 
@@ -377,7 +387,7 @@ function Read-PDCbsResult {
             }
         }
         $sr.Close(); $fs.Close()
-    } catch { Write-PDLog ('CBS.log वाचता आला नाही: ' + $_.Exception.Message) 'WARN' }
+    } catch { Write-PDLog ('CBS.log could not be read: ' + $_.Exception.Message) 'WARN' }
     foreach ($l in $lines) {
         if ($l -match 'Cannot repair member file') { $res.Unrepaired++ }
         elseif ($l -match 'Repairing corrupted file|Repaired file') { $res.Repaired++ }
@@ -415,13 +425,13 @@ function Test-PDVisualEffectsDefault {
 function Invoke-PDScan {
     param([switch]$Deep, [string]$DataDir)
     $t0 = Get-Date
-    Set-PDProgress 5 'System माहिती'
+    Set-PDProgress 5 (L 'System information' 'System माहिती' 'System जानकारी')
     $info = Get-PDSystemInfo
     Set-PDProgress 20 'Startup programs'
     $startup = @(Get-PDStartupItems)
     Set-PDProgress 30 'Installed apps'
     $apps = @(Get-PDInstalledApps)
-    Set-PDProgress 40 'वेग मोजणी'
+    Set-PDProgress 40 (L 'Measuring speed' 'वेग मोजणी' 'स्पीड माप')
     $load = Get-PDLoadSnapshot
     Set-PDProgress 55 'Error logs'
     $events = Get-PDEventSummary
@@ -435,7 +445,7 @@ function Invoke-PDScan {
     Set-PDProgress 72 'Temp files'
     $junkCats = @()
     if (Get-Command Get-PDJunkCategories -ErrorAction SilentlyContinue) {
-        $junkCats = @(Get-PDJunkCategories | Where-Object { $_.Id -ne 'winold' } | ForEach-Object { [pscustomobject]@{ Mr = $_.Mr; Bytes = (Get-PDPathBytes $_.Paths $_.Filter) } } | Where-Object { $_.Bytes -gt 0 } | Sort-Object Bytes -Descending)
+        $junkCats = @(Get-PDJunkCategories | Where-Object { $_.Id -ne 'winold' } | ForEach-Object { [pscustomobject]@{ Mr = $_.Mr; En = $_.En; Hi = $_.Hi; Bytes = (Get-PDPathBytes $_.Paths $_.Filter) } } | Where-Object { $_.Bytes -gt 0 } | Sort-Object Bytes -Descending)
         $tempBytes = [double]($junkCats | Measure-Object Bytes -Sum).Sum
     } else { $tempBytes = Get-PDTempSize }
     $winOld = Get-PDFolderSize "$env:SystemDrive\Windows.old"
@@ -444,7 +454,7 @@ function Invoke-PDScan {
     $image = Get-PDImageHealth
     $sfc = $null
     if ($Deep) { $sfc = Test-PDSystemFiles }
-    Set-PDProgress 95 'विश्लेषण'
+    Set-PDProgress 95 (L 'Analysis' 'विश्लेषण' 'विश्लेषण')
 
     $bloat = @()
     if ($DataDir -and (Test-Path (Join-Path $DataDir 'bloat.json'))) {
@@ -471,67 +481,67 @@ function Invoke-PDScan {
 
     # --- storage
     if ($info.SysFreeGB -lt 10 -or $info.SysFreePct -lt 10) {
-        add 'Critical' 'Storage' "$($info.SystemDrive) drive जवळजवळ भरला आहे" ("फक्त {0} GB ({1}%) जागा शिल्लक. यामुळे PC खूप slow होतो आणि updates fail होतात." -f $info.SysFreeGB, $info.SysFreePct) 'storage'
+        add 'Critical' 'Storage' ((L '{0} drive is almost full' '{0} drive जवळजवळ भरला आहे' '{0} drive लगभग भर गया है') -f $info.SystemDrive) ((L 'Only {0} GB ({1}%) left. This makes the PC very slow and updates fail.' 'फक्त {0} GB ({1}%) जागा शिल्लक. यामुळे PC खूप slow होतो आणि updates fail होतात.' 'सिर्फ़ {0} GB ({1}%) जगह बची है। इससे PC बहुत slow होता है और updates fail होते हैं।') -f $info.SysFreeGB, $info.SysFreePct) 'storage'
     } elseif ($info.SysFreePct -lt 20) {
-        add 'Warning' 'Storage' "$($info.SystemDrive) drive वर जागा कमी आहे" ("{0} GB ({1}%) शिल्लक. किमान 20% जागा मोकळी ठेवा." -f $info.SysFreeGB, $info.SysFreePct) 'storage'
+        add 'Warning' 'Storage' ((L 'Low space on the {0} drive' '{0} drive वर जागा कमी आहे' '{0} drive पर जगह कम है') -f $info.SystemDrive) ((L '{0} GB ({1}%) left. Keep at least 20% free.' '{0} GB ({1}%) शिल्लक. किमान 20% जागा मोकळी ठेवा.' '{0} GB ({1}%) बची है। कम से कम 20% जगह खाली रखें।') -f $info.SysFreeGB, $info.SysFreePct) 'storage'
     }
     if ($tempBytes -gt 1GB) {
-        $parts = ($junkCats | Select-Object -First 4 | ForEach-Object { "$($_.Mr -replace ' - .*$', '') $(Format-PDSize $_.Bytes)" }) -join ' · '
-        add 'Info' 'Storage' ("Junk files: {0}" -f (Format-PDSize $tempBytes)) ("One-Click Optimize ने मोकळे करता येतील. {0}" -f $parts) 'cleanup'
+        $parts = ($junkCats | Select-Object -First 4 | ForEach-Object { "$((Get-PDJunkName $_) -replace ' - .*$', '') $(Format-PDSize $_.Bytes)" }) -join ' · '
+        add 'Info' 'Storage' ("Junk files: {0}" -f (Format-PDSize $tempBytes)) ((L 'One-Click Optimize can free them. {0}' 'One-Click Optimize ने मोकळे करता येतील. {0}' 'One-Click Optimize से खाली हो सकती हैं। {0}') -f $parts) 'cleanup'
     }
-    if ($winOld -gt 1GB) { add 'Info' 'Storage' 'जुन्या Windows (Windows.old) च्या files आहेत' ("{0} जागा मोकळी करता येईल (पुन्हा जुन्या Windows वर जाता येणार नाही)." -f (Format-PDSize $winOld)) 'cleanup' }
+    if ($winOld -gt 1GB) { add 'Info' 'Storage' (L 'Files of the previous Windows (Windows.old) are present' 'जुन्या Windows (Windows.old) च्या files आहेत' 'पुराने Windows (Windows.old) की files हैं') ((L '{0} can be freed (going back to the old Windows will no longer be possible).' '{0} जागा मोकळी करता येईल (पुन्हा जुन्या Windows वर जाता येणार नाही).' '{0} जगह खाली हो सकती है (पुराने Windows पर वापस नहीं जा सकेंगे)।') -f (Format-PDSize $winOld)) 'cleanup' }
 
     # --- disks
     foreach ($d in $info.Disks) {
         if ($d.Health -ne 'Healthy') {
-            add 'Critical' 'Hardware' "Disk धोक्यात: $($d.Model)" "Disk health: $($d.Health). लगेच data backup घ्या आणि disk बदलण्याचा विचार करा." 'backup'
+            add 'Critical' 'Hardware' ((L 'Disk at risk: {0}' 'Disk धोक्यात: {0}' 'Disk खतरे में: {0}') -f $d.Model) ((L 'Disk health: {0}. Back up the data now and plan to replace the disk.' 'Disk health: {0}. लगेच data backup घ्या आणि disk बदलण्याचा विचार करा.' 'Disk health: {0}. तुरंत data का backup लें और disk बदलने की सोचें।') -f $d.Health) 'backup'
         }
-        if ($d.TempC -and $d.TempC -ge 55) { add 'Warning' 'Hardware' "Disk गरम आहे ($($d.TempC)°C): $($d.Model)" 'Cooling / fan / हवा खेळती आहे का ते तपासा.' $null }
-        if ($d.WearPct -and $d.WearPct -ge 80) { add 'Warning' 'Hardware' "SSD झिजली आहे ($($d.WearPct)% wear)" 'Backup ठेवा आणि लवकरच SSD बदलण्याची तयारी करा.' 'backup' }
+        if ($d.TempC -and $d.TempC -ge 55) { add 'Warning' 'Hardware' ((L 'Disk is hot ({0}°C): {1}' 'Disk गरम आहे ({0}°C): {1}' 'Disk गर्म है ({0}°C): {1}') -f $d.TempC, $d.Model) (L 'Check the cooling / fan / airflow.' 'Cooling / fan / हवा खेळती आहे का ते तपासा.' 'Cooling / fan / हवा का बहाव जाँचें।') $null }
+        if ($d.WearPct -and $d.WearPct -ge 80) { add 'Warning' 'Hardware' ((L 'SSD is worn ({0}% wear)' 'SSD झिजली आहे ({0}% wear)' 'SSD घिस गई है ({0}% wear)') -f $d.WearPct) (L 'Keep a backup and get ready to replace the SSD soon.' 'Backup ठेवा आणि लवकरच SSD बदलण्याची तयारी करा.' 'Backup रखें और जल्द SSD बदलने की तैयारी करें।') 'backup' }
     }
     $sysDisk = @($info.Disks | Where-Object { $_.IsSystem })[0]
     if ($sysDisk -and $sysDisk.MediaType -eq 'HDD') {
-        add 'Warning' 'Speed' 'Windows जुन्या Hard Disk (HDD) वर आहे' 'PC slow असण्याचे हे सर्वात मोठे कारण आहे. SSD लावल्यास PC 3 ते 5 पट वेगाने चालेल (सल्ला tab पहा).' 'advisor'
+        add 'Warning' 'Speed' (L 'Windows is on an old hard disk (HDD)' 'Windows जुन्या Hard Disk (HDD) वर आहे' 'Windows पुराने Hard Disk (HDD) पर है') (L 'This is the biggest reason for a slow PC. With an SSD the PC runs 3 to 5 times faster (see the advice page).' 'PC slow असण्याचे हे सर्वात मोठे कारण आहे. SSD लावल्यास PC 3 ते 5 पट वेगाने चालेल (सल्ला page पहा).' 'PC slow होने का यह सबसे बड़ा कारण है। SSD लगाने पर PC 3 से 5 गुना तेज़ चलेगा (सलाह page देखें)।') 'advisor'
     }
 
     # --- memory / load
-    if ($info.RAMGB -lt 3.5) { add 'Critical' 'Speed' "RAM फक्त $($info.RAMGB) GB आहे" 'Windows 10/11 साठी किमान 8 GB RAM योग्य. RAM वाढवा किंवा हलकी OS वापरा (सल्ला tab).' 'advisor' 'hw' }
-    elseif ($info.RAMGB -lt 7) { add 'Warning' 'Speed' "RAM $($info.RAMGB) GB आहे" 'आजच्या browsers/apps साठी 8 GB चांगली. Free slot असल्यास RAM वाढवा.' 'advisor' 'hw' }
-    if ($load.RAMPct -ge 85) { add 'Warning' 'Speed' "RAM $($load.RAMPct)% वापरली जात आहे" ("सर्वात जास्त RAM वापरणारे: " + (($load.TopRAM | Select-Object -First 3 | ForEach-Object { "$($_.Name) ($($_.RAMMB) MB)" }) -join ', ')) 'startup' }
-    if ($load.CPUPct -ge 60) { add 'Warning' 'Speed' "CPU सतत $($load.CPUPct)% busy आहे" ("सर्वात जास्त CPU: " + (($load.TopCPU | Select-Object -First 3 | ForEach-Object { "$($_.Name) ($($_.CPU)%)" }) -join ', ')) $null }
-    if ($load.DiskPct -ge 80) { add 'Warning' 'Speed' "Disk $($load.DiskPct)% busy आहे" 'HDD असल्यास हे slowness चे मुख्य कारण. Startup programs कमी करा / SSD लावा.' 'startup' }
+    if ($info.RAMGB -lt 3.5) { add 'Critical' 'Speed' ((L 'Only {0} GB RAM' 'RAM फक्त {0} GB आहे' 'RAM सिर्फ़ {0} GB है') -f $info.RAMGB) (L 'Windows 10/11 needs at least 8 GB RAM. Add RAM or use a light OS (advice page).' 'Windows 10/11 साठी किमान 8 GB RAM योग्य. RAM वाढवा किंवा हलकी OS वापरा (सल्ला page).' 'Windows 10/11 के लिए कम से कम 8 GB RAM सही है। RAM बढ़ाएँ या हल्का OS लें (सलाह page)।') 'advisor' 'hw' }
+    elseif ($info.RAMGB -lt 7) { add 'Warning' 'Speed' ((L '{0} GB RAM' 'RAM {0} GB आहे' 'RAM {0} GB है') -f $info.RAMGB) (L '8 GB is better for today''s browsers / apps. Add RAM if there is a free slot.' 'आजच्या browsers/apps साठी 8 GB चांगली. Free slot असल्यास RAM वाढवा.' 'आज के browsers/apps के लिए 8 GB अच्छी है। Free slot हो तो RAM बढ़ाएँ।') 'advisor' 'hw' }
+    if ($load.RAMPct -ge 85) { add 'Warning' 'Speed' ((L 'RAM {0}% in use' 'RAM {0}% वापरली जात आहे' 'RAM {0}% इस्तेमाल हो रही है') -f $load.RAMPct) ((L 'Using the most RAM: ' 'सर्वात जास्त RAM वापरणारे: ' 'सबसे ज़्यादा RAM लेने वाले: ') + (($load.TopRAM | Select-Object -First 3 | ForEach-Object { "$($_.Name) ($($_.RAMMB) MB)" }) -join ', ')) 'startup' }
+    if ($load.CPUPct -ge 60) { add 'Warning' 'Speed' ((L 'CPU constantly {0}% busy' 'CPU सतत {0}% busy आहे' 'CPU लगातार {0}% busy है') -f $load.CPUPct) ((L 'Most CPU: ' 'सर्वात जास्त CPU: ' 'सबसे ज़्यादा CPU: ') + (($load.TopCPU | Select-Object -First 3 | ForEach-Object { "$($_.Name) ($($_.CPU)%)" }) -join ', ')) $null }
+    if ($load.DiskPct -ge 80) { add 'Warning' 'Speed' ((L 'Disk {0}% busy' 'Disk {0}% busy आहे' 'Disk {0}% busy है') -f $load.DiskPct) (L 'On an HDD this is the main cause of slowness. Reduce startup programs / fit an SSD.' 'HDD असल्यास हे slowness चे मुख्य कारण. Startup programs कमी करा / SSD लावा.' 'HDD हो तो यह slowness का मुख्य कारण है। Startup programs कम करें / SSD लगाएँ।') 'startup' }
 
     $enabledStartup = @($startup | Where-Object { $_.Enabled }).Count
-    if ($enabledStartup -gt 6) { add 'Warning' 'Speed' "$enabledStartup programs Windows सोबत सुरू होतात" 'अनावश्यक startup programs बंद केल्यास PC लवकर सुरू होईल आणि RAM वाचेल.' 'startup' }
-    if ($power.Guid -eq 'a1841308-3541-4fab-bc81-f71556f20b4a') { add 'Info' 'Speed' 'Power plan "Power saver" वर आहे' 'यामुळे CPU मुद्दाम हळू चालतो.' 'power' }
-    if ((Test-PDVisualEffectsDefault) -and ($info.RAMGB -le 4 -or -not $info.HasDedicatedGPU)) { add 'Info' 'Speed' 'Animations / transparency effects चालू आहेत' 'हलक्या PC वर हे बंद केल्याने windows लवकर उघडतात.' 'visual' }
-    if ($bloat.Count -gt 0) { add 'Info' 'Speed' "$($bloat.Count) अनावश्यक pre-installed apps आहेत" (($bloat | Select-Object -First 5 | ForEach-Object { $_.Label }) -join ', ') 'debloat' }
+    if ($enabledStartup -gt 6) { add 'Warning' 'Speed' ((L '{0} programs start with Windows' '{0} programs Windows सोबत सुरू होतात' '{0} programs Windows के साथ शुरू होते हैं') -f $enabledStartup) (L 'Turning off unneeded startup programs makes the PC start faster and saves RAM.' 'अनावश्यक startup programs बंद केल्यास PC लवकर सुरू होईल आणि RAM वाचेल.' 'बेकार startup programs बंद करने से PC जल्दी शुरू होगा और RAM बचेगी।') 'startup' }
+    if ($power.Guid -eq 'a1841308-3541-4fab-bc81-f71556f20b4a') { add 'Info' 'Speed' (L 'Power plan is set to "Power saver"' 'Power plan "Power saver" वर आहे' 'Power plan "Power saver" पर है') (L 'This deliberately slows the CPU down.' 'यामुळे CPU मुद्दाम हळू चालतो.' 'इससे CPU जानबूझकर धीमा चलता है।') 'power' }
+    if ((Test-PDVisualEffectsDefault) -and ($info.RAMGB -le 4 -or -not $info.HasDedicatedGPU)) { add 'Info' 'Speed' (L 'Animations / transparency effects are on' 'Animations / transparency effects चालू आहेत' 'Animations / transparency effects चालू हैं') (L 'On a light PC, windows open faster with them off.' 'हलक्या PC वर हे बंद केल्याने windows लवकर उघडतात.' 'हल्के PC पर इन्हें बंद करने से windows जल्दी खुलती हैं।') 'visual' }
+    if ($bloat.Count -gt 0) { add 'Info' 'Speed' ((L '{0} unneeded pre-installed apps' '{0} अनावश्यक pre-installed apps आहेत' '{0} बेकार pre-installed apps हैं') -f $bloat.Count) (($bloat | Select-Object -First 5 | ForEach-Object { $_.Label }) -join ', ') 'debloat' }
     $pup = @($appAdvice | Where-Object { $_.Kind -eq 'pup' })
-    if ($pup.Count -gt 0) { add 'Warning' 'Software' "$($pup.Count) नको असलेले / धोकादायक programs सापडले" (($pup | ForEach-Object { $_.App }) -join ', ') 'advisor' }
+    if ($pup.Count -gt 0) { add 'Warning' 'Software' ((L '{0} unwanted / dangerous programs found' '{0} नको असलेले / धोकादायक programs सापडले' '{0} अनचाहे / खतरनाक programs मिले') -f $pup.Count) (($pup | ForEach-Object { $_.App }) -join ', ') 'advisor' }
 
     # --- system health
     switch ($image) {
-        'Repairable'    { add 'Critical' 'Repair' 'Windows system image खराब आहे (दुरुस्त होऊ शकतो)' 'DISM + SFC repair चालवा.' 'repair-os' }
-        'NonRepairable' { add 'Critical' 'Repair' 'Windows system image दुरुस्त होण्यापलीकडे खराब आहे' 'Windows 11 ISO वापरून "Repair install" करा (data राहतो) किंवा fresh install.' 'repair-os' }
+        'Repairable'    { add 'Critical' 'Repair' (L 'The Windows system image is damaged (repairable)' 'Windows system image खराब आहे (दुरुस्त होऊ शकतो)' 'Windows system image खराब है (ठीक हो सकता है)') (L 'Run the DISM + SFC repair.' 'DISM + SFC repair चालवा.' 'DISM + SFC repair चलाएँ।') 'repair-os' }
+        'NonRepairable' { add 'Critical' 'Repair' (L 'The Windows system image is damaged beyond repair' 'Windows system image दुरुस्त होण्यापलीकडे खराब आहे' 'Windows system image मरम्मत से परे खराब है') (L 'Do a "Repair install" from a Windows 11 ISO (data stays) or a fresh install.' 'Windows 11 ISO वापरून "Repair install" करा (data राहतो) किंवा fresh install.' 'Windows 11 ISO से "Repair install" करें (data रहता है) या fresh install.') 'repair-os' }
     }
-    if ($sfc -and ($sfc.Corrupt + $sfc.Unrepaired) -gt 0) { add 'Critical' 'Repair' 'खराब (corrupt) system files सापडल्या' ("{0} files. Repair tab मधून दुरुस्त करा." -f ($sfc.Corrupt + $sfc.Unrepaired)) 'repair-os' }
-    if ($events.DiskErrors -gt 0) { add 'Critical' 'Hardware' "Windows disk वर errors: मागील $($events.Days) दिवसांत $($events.DiskErrors) वेळा" 'Disk check (chkdsk) चालवा, Tools मार्गदर्शक → CrystalDiskInfo ने health पहा, आणि आधी backup घ्या.' 'chkdsk' }
-    if ($events.OtherDiskErrors -gt 0) { add 'Info' 'Hardware' "दुसऱ्या disk / pendrive वर errors: $($events.OtherDiskErrors) वेळा" 'USB pendrive / card reader / external disk चे errors. "Safely remove" न करता काढल्यास असे येतात. Windows disk ला धोका नाही.' $null 'none' }
-    if ($events.BlueScreens -gt 0) { add 'Warning' 'Stability' "Blue screen crash: $($events.BlueScreens) वेळा" 'Tools मार्गदर्शक → BlueScreenView ने कारण (driver) शोधा. RAM test (MemTest86) चालवा.' 'bsod' }
-    if ($events.UnexpectedShutdown -gt 2) { add 'Warning' 'Stability' "अचानक बंद पडणे: $($events.UnexpectedShutdown) वेळा" 'Power supply / battery / overheating तपासा (Tools मार्गदर्शक → HWiNFO, Prime95).' $null 'hw' }
-    if ($events.HardwareErrors -gt 0) { add 'Warning' 'Hardware' "Hardware (WHEA) errors: $($events.HardwareErrors)" 'CPU/RAM/PCIe hardware त्रास. Stress test आणि RAM test चालवा (Tools मार्गदर्शक).' $null 'hw' }
-    if ($drivers.Count -gt 0) { add 'Warning' 'Drivers' "$($drivers.Count) devices चे drivers नीट नाहीत" (($drivers | Select-Object -First 4 | ForEach-Object { "$($_.Name): $($_.Meaning)" }) -join ' · ') 'drivers' }
+    if ($sfc -and ($sfc.Corrupt + $sfc.Unrepaired) -gt 0) { add 'Critical' 'Repair' (L 'Corrupt system files found' 'खराब (corrupt) system files सापडल्या' 'खराब (corrupt) system files मिलीं') ((L '{0} files. Repair them from the Repair page.' '{0} files. Repair page मधून दुरुस्त करा.' '{0} files. Repair page से ठीक करें।') -f ($sfc.Corrupt + $sfc.Unrepaired)) 'repair-os' }
+    if ($events.DiskErrors -gt 0) { add 'Critical' 'Hardware' ((L 'Errors on the Windows disk: {1} times in the last {0} days' 'Windows disk वर errors: मागील {0} दिवसांत {1} वेळा' 'Windows disk पर errors: पिछले {0} दिनों में {1} बार') -f $events.Days, $events.DiskErrors) (L 'Run a disk check (chkdsk), see the health in Tools guide → CrystalDiskInfo, and back up first.' 'Disk check (chkdsk) चालवा, Tools मार्गदर्शक → CrystalDiskInfo ने health पहा, आणि आधी backup घ्या.' 'Disk check (chkdsk) चलाएँ, Tools गाइड → CrystalDiskInfo से health देखें, और पहले backup लें।') 'chkdsk' }
+    if ($events.OtherDiskErrors -gt 0) { add 'Info' 'Hardware' ((L 'Errors on another disk / pendrive: {0} times' 'दुसऱ्या disk / pendrive वर errors: {0} वेळा' 'दूसरे disk / pendrive पर errors: {0} बार') -f $events.OtherDiskErrors) (L 'Errors of a USB pendrive / card reader / external disk - they appear when it is unplugged without "Safely remove". No risk to the Windows disk.' 'USB pendrive / card reader / external disk चे errors. "Safely remove" न करता काढल्यास असे येतात. Windows disk ला धोका नाही.' 'USB pendrive / card reader / external disk के errors। "Safely remove" किए बिना निकालने पर ऐसे आते हैं। Windows disk को खतरा नहीं।') $null 'none' }
+    if ($events.BlueScreens -gt 0) { add 'Warning' 'Stability' ((L 'Blue screen crash: {0} times' 'Blue screen crash: {0} वेळा' 'Blue screen crash: {0} बार') -f $events.BlueScreens) (L 'Find the cause (driver) with Tools guide → BlueScreenView. Run a RAM test (MemTest86).' 'Tools मार्गदर्शक → BlueScreenView ने कारण (driver) शोधा. RAM test (MemTest86) चालवा.' 'Tools गाइड → BlueScreenView से कारण (driver) खोजें। RAM test (MemTest86) चलाएँ।') 'bsod' }
+    if ($events.UnexpectedShutdown -gt 2) { add 'Warning' 'Stability' ((L 'Sudden shutdowns: {0} times' 'अचानक बंद पडणे: {0} वेळा' 'अचानक बंद होना: {0} बार') -f $events.UnexpectedShutdown) (L 'Check the power supply / battery / overheating (Tools guide → HWiNFO, Prime95).' 'Power supply / battery / overheating तपासा (Tools मार्गदर्शक → HWiNFO, Prime95).' 'Power supply / battery / overheating जाँचें (Tools गाइड → HWiNFO, Prime95)।') $null 'hw' }
+    if ($events.HardwareErrors -gt 0) { add 'Warning' 'Hardware' "Hardware (WHEA) errors: $($events.HardwareErrors)" (L 'CPU / RAM / PCIe hardware trouble. Run a stress test and a RAM test (Tools guide).' 'CPU/RAM/PCIe hardware त्रास. Stress test आणि RAM test चालवा (Tools मार्गदर्शक).' 'CPU/RAM/PCIe hardware की दिक्कत। Stress test और RAM test चलाएँ (Tools गाइड)।') $null 'hw' }
+    if ($drivers.Count -gt 0) { add 'Warning' 'Drivers' ((L 'Drivers of {0} devices are not right' '{0} devices चे drivers नीट नाहीत' '{0} devices के drivers ठीक नहीं हैं') -f $drivers.Count) (($drivers | Select-Object -First 4 | ForEach-Object { "$($_.Name): $($_.Meaning)" }) -join ' · ') 'drivers' }
     $unsigned = @($drvAge | Where-Object { $_.Unsigned })
-    if ($unsigned.Count -gt 0) { add 'Warning' 'Drivers' "Signature नसलेले drivers: $($unsigned.Count)" ((($unsigned | Select-Object -First 3 | ForEach-Object { $_.Name }) -join ', ') + ' - कोणी तपासलेले नाहीत; निर्मात्याच्या site वरचा driver लावा.') 'drivers' }
+    if ($unsigned.Count -gt 0) { add 'Warning' 'Drivers' ((L 'Unsigned drivers: {0}' 'Signature नसलेले drivers: {0}' 'बिना signature के drivers: {0}') -f $unsigned.Count) ((($unsigned | Select-Object -First 3 | ForEach-Object { $_.Name }) -join ', ') + (L ' - nobody has verified them; install the driver from the maker''s site.' ' - कोणी तपासलेले नाहीत; निर्मात्याच्या site वरचा driver लावा.' ' - किसी ने जाँचे नहीं; निर्माता की site का driver लगाएँ।')) 'drivers' }
     $old = @($drvAge | Where-Object { $_.Old })
-    if ($old.Count -gt 0) { add 'Info' 'Drivers' "$($old.Count) महत्त्वाचे drivers 3 वर्षांपेक्षा जुने" ((($old | Select-Object -First 4 | ForEach-Object { "$($_.Name) ($(if ($_.Date) { $_.Date.Year }))" }) -join ', ') + '. Device नीट चालत असेल तर बदलायची गरज नाही.') 'drivers' 'none' }
-    if ($wuDrivers -and $wuDrivers.Count -gt 0) { add 'Info' 'Drivers' "Windows Update मध्ये $($wuDrivers.Count) driver updates उपलब्ध" ((($wuDrivers | Select-Object -First 3 | ForEach-Object { $_.Title }) -join ' · ') + ' - Microsoft ने तपासलेले, सर्वात सुरक्षित.') 'drivers' }
+    if ($old.Count -gt 0) { add 'Info' 'Drivers' ((L '{0} important drivers older than 3 years' '{0} महत्त्वाचे drivers 3 वर्षांपेक्षा जुने' '{0} ज़रूरी drivers 3 साल से पुराने') -f $old.Count) ((($old | Select-Object -First 4 | ForEach-Object { "$($_.Name) ($(if ($_.Date) { $_.Date.Year }))" }) -join ', ') + (L '. If the device works well there is no need to change them.' '. Device नीट चालत असेल तर बदलायची गरज नाही.' '। Device ठीक चल रहा हो तो बदलने की ज़रूरत नहीं।')) 'drivers' 'none' }
+    if ($wuDrivers -and $wuDrivers.Count -gt 0) { add 'Info' 'Drivers' ((L '{0} driver updates available in Windows Update' 'Windows Update मध्ये {0} driver updates उपलब्ध' 'Windows Update में {0} driver updates उपलब्ध') -f $wuDrivers.Count) ((($wuDrivers | Select-Object -First 3 | ForEach-Object { $_.Title }) -join ' · ') + (L ' - checked by Microsoft, the safest.' ' - Microsoft ने तपासलेले, सर्वात सुरक्षित.' ' - Microsoft द्वारा जाँचे, सबसे सुरक्षित।')) 'drivers' }
 
     # --- security
     $avs = @($sec.AntivirusProducts | Where-Object { $_ -notmatch 'Windows Defender|Microsoft Defender' })
-    if ($avs.Count -gt 1) { add 'Warning' 'Security' 'एकापेक्षा जास्त antivirus install आहेत' (($avs -join ', ') + ' - दोन antivirus एकमेकांशी भांडतात आणि PC slow करतात. एकच ठेवा.') 'advisor' }
-    if ($avs.Count -eq 0 -and $sec.DefenderRealtime -eq $false) { add 'Critical' 'Security' 'Antivirus protection बंद आहे' 'Microsoft Defender real-time protection चालू करा.' 'defender' }
-    if ($sec.SignatureAgeDays -gt 7 -and $avs.Count -eq 0) { add 'Warning' 'Security' "Defender definitions $($sec.SignatureAgeDays) दिवस जुने आहेत" 'Update करा.' 'defender' }
+    if ($avs.Count -gt 1) { add 'Warning' 'Security' (L 'More than one antivirus is installed' 'एकापेक्षा जास्त antivirus install आहेत' 'एक से ज़्यादा antivirus install हैं') (($avs -join ', ') + (L ' - two antivirus programs fight each other and slow the PC. Keep one.' ' - दोन antivirus एकमेकांशी भांडतात आणि PC slow करतात. एकच ठेवा.' ' - दो antivirus आपस में टकराते हैं और PC slow करते हैं। एक ही रखें।')) 'advisor' }
+    if ($avs.Count -eq 0 -and $sec.DefenderRealtime -eq $false) { add 'Critical' 'Security' (L 'Antivirus protection is off' 'Antivirus protection बंद आहे' 'Antivirus protection बंद है') (L 'Turn on Microsoft Defender real-time protection.' 'Microsoft Defender real-time protection चालू करा.' 'Microsoft Defender real-time protection चालू करें।') 'defender' }
+    if ($sec.SignatureAgeDays -gt 7 -and $avs.Count -eq 0) { add 'Warning' 'Security' ((L 'Defender definitions are {0} days old' 'Defender definitions {0} दिवस जुने आहेत' 'Defender definitions {0} दिन पुरानी हैं') -f $sec.SignatureAgeDays) (L 'Update them.' 'Update करा.' 'Update करें।') 'defender' }
 
     # --- registry (targeted checks only - see Registry.psm1)
     $regIssues = @()
@@ -539,27 +549,27 @@ function Invoke-PDScan {
         try { $regIssues = @(Get-PDRegistryIssues) } catch { }
         $mal = @($regIssues | Where-Object { $_.Kind -eq 'malware' -and $_.Severity -eq 'Critical' })
         $brk = @($regIssues | Where-Object { $_.Kind -eq 'broken' })
-        if ($mal.Count) { add 'Critical' 'Security' "Registry मध्ये virus सारखे बदल: $($mal.Count)" (($mal | Select-Object -First 3 | ForEach-Object { $_.Title }) -join ' · ') 'registry' }
-        if ($brk.Count) { add 'Info' 'Registry' "$($brk.Count) तुटलेल्या registry entries" (($brk | Select-Object -First 3 | ForEach-Object { $_.Title }) -join ' · ') 'registry' }
+        if ($mal.Count) { add 'Critical' 'Security' ((L 'Virus-like changes in the registry: {0}' 'Registry मध्ये virus सारखे बदल: {0}' 'Registry में virus जैसे बदलाव: {0}') -f $mal.Count) (($mal | Select-Object -First 3 | ForEach-Object { $_.Title }) -join ' · ') 'registry' }
+        if ($brk.Count) { add 'Info' 'Registry' ((L '{0} broken registry entries' '{0} तुटलेल्या registry entries' '{0} टूटी registry entries') -f $brk.Count) (($brk | Select-Object -First 3 | ForEach-Object { $_.Title }) -join ' · ') 'registry' }
     }
 
     # --- OS lifecycle
-    if ($info.OSBuild -lt 10240) { add 'Critical' 'OS' "$($info.OSCaption) ला आता security updates मिळत नाहीत" 'सल्ला tab मध्ये या PC साठी योग्य OS पहा.' 'advisor' 'hw' }
-    elseif ($info.OSBuild -lt 22000) { add 'Warning' 'OS' 'Windows 10 चा support संपला आहे (14 Oct 2025)' 'फक्त ESU मध्ये enroll केलेल्या PC ना updates मिळतात. सल्ला tab पहा.' 'advisor' 'hw' }
-    if ($pending) { add 'Info' 'OS' 'Restart बाकी आहे' 'Updates पूर्ण करण्यासाठी PC restart करा.' $null 'restart' }
-    if ($info.UptimeDays -gt 7) { add 'Info' 'OS' "PC $($info.UptimeDays) दिवसांपासून restart झालेला नाही" 'आठवड्यातून एकदा restart केल्यास memory leaks साफ होतात.' $null 'restart' }
+    if ($info.OSBuild -lt 10240) { add 'Critical' 'OS' ((L '{0} no longer gets security updates' '{0} ला आता security updates मिळत नाहीत' '{0} को अब security updates नहीं मिलते') -f $info.OSCaption) (L 'See the right OS for this PC on the advice page.' 'सल्ला page मध्ये या PC साठी योग्य OS पहा.' 'सलाह page पर इस PC के लिए सही OS देखें।') 'advisor' 'hw' }
+    elseif ($info.OSBuild -lt 22000) { add 'Warning' 'OS' (L 'Windows 10 support has ended (14 Oct 2025)' 'Windows 10 चा support संपला आहे (14 Oct 2025)' 'Windows 10 का support खत्म हो गया है (14 Oct 2025)') (L 'Only PCs enrolled in ESU get updates. See the advice page.' 'फक्त ESU मध्ये enroll केलेल्या PC ना updates मिळतात. सल्ला page पहा.' 'सिर्फ़ ESU में enroll PC को updates मिलते हैं। सलाह page देखें।') 'advisor' 'hw' }
+    if ($pending) { add 'Info' 'OS' (L 'A restart is pending' 'Restart बाकी आहे' 'Restart बाकी है') (L 'Restart the PC to finish the updates.' 'Updates पूर्ण करण्यासाठी PC restart करा.' 'Updates पूरे करने के लिए PC restart करें।') $null 'restart' }
+    if ($info.UptimeDays -gt 7) { add 'Info' 'OS' ((L 'The PC has not been restarted for {0} days' 'PC {0} दिवसांपासून restart झालेला नाही' 'PC {0} दिनों से restart नहीं हुआ') -f $info.UptimeDays) (L 'A restart once a week clears memory leaks.' 'आठवड्यातून एकदा restart केल्यास memory leaks साफ होतात.' 'हफ़्ते में एक बार restart करने से memory leaks साफ़ होते हैं।') $null 'restart' }
     $wu = Get-Service wuauserv -ErrorAction SilentlyContinue
-    if ($wu -and $wu.StartType -eq 'Disabled') { add 'Warning' 'OS' 'Windows Update service बंद (Disabled) आहे' 'Security updates मिळत नाहीत.' 'wureset' }
+    if ($wu -and $wu.StartType -eq 'Disabled') { add 'Warning' 'OS' (L 'The Windows Update service is off (Disabled)' 'Windows Update service बंद (Disabled) आहे' 'Windows Update service बंद (Disabled) है') (L 'No security updates arrive.' 'Security updates मिळत नाहीत.' 'Security updates नहीं मिलते।') 'wureset' }
 
     # --- score
     $score = 100 - (($f | Measure-Object Points -Sum).Sum)
     $score = [math]::Max(5, $score)
     # the best score software alone can reach (hardware / OS-support problems stay)
     $reach = [math]::Max(5, 100 - (($f | Where-Object { $_.Kind -eq 'hw' } | Measure-Object Points -Sum).Sum))
-    if ($f.Count -eq 0) { add 'OK' 'All' 'कोणतीही मोठी समस्या सापडली नाही' 'PC चांगल्या स्थितीत आहे.' $null }
+    if ($f.Count -eq 0) { add 'OK' 'All' (L 'No major problems found' 'कोणतीही मोठी समस्या सापडली नाही' 'कोई बड़ी समस्या नहीं मिली') (L 'The PC is in good shape.' 'PC चांगल्या स्थितीत आहे.' 'PC अच्छी हालत में है।') $null }
 
     Set-PDProgress -1
-    Write-PDLog ("Scan पूर्ण - {0} findings, score {1}/100 ({2:N0} sec)" -f $f.Count, $score, ((Get-Date) - $t0).TotalSeconds) 'OK'
+    Write-PDLog ("Scan finished - {0} findings, score {1}/100 ({2:N0} sec)" -f $f.Count, $score, ((Get-Date) - $t0).TotalSeconds) 'OK'
     $sevOrder = @{ Critical = 0; Warning = 1; Info = 2; OK = 3 }
     [pscustomobject]@{
         Time = Get-Date; Score = $score; Reachable = $reach; Info = $info; Load = $load; Events = $events

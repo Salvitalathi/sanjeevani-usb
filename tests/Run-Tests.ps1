@@ -142,17 +142,33 @@ Test-Case 'Boot menu config: no \u0026 escapes, per-tool icons win' {
     $true
 }
 
-Test-Case 'PC Doctor window (XAML) loads' {
-    Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
-    $src = Get-Content (Join-Path $Kit 'Sanjeevani\PCDoctor\PCDoctor.ps1') -Raw -Encoding UTF8
-    $m = [regex]::Match($src, "(?s)\[xml\]\`$xaml = @'\r?\n(.*?)\r?\n'@")
-    Assert $m.Success 'XAML block not found'
-    [xml]$x = $m.Groups[1].Value
-    $win = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $x))
-    foreach ($n in 'FindingsList', 'StartupList', 'BloatList', 'FolderList', 'LogBox', 'Progress', 'TargetCombo', 'Win11List', 'AppList', 'TgList', 'TgDetail', 'TgSearch', 'StopBtn', 'LangMr', 'LangEn', 'RegList', 'RegInfo', 'OptCard', 'OptPanel', 'AskBox', 'ChatPanel', 'ChatScroll', 'AskGoBtn', 'AiMode', 'AiStatus', 'AiSettings', 'AiKey', 'AiProvider') {
-        Assert ($null -ne $win.FindName($n)) "element $n missing"
+Test-Case 'PC Doctor window builds and shows every page in English, Marathi and Hindi' {
+    $ps1 = Join-Path $Kit 'Sanjeevani\PCDoctor\PCDoctor.ps1'
+    foreach ($l in 'en', 'mr', 'hi') {
+        $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File $ps1 -SelfTest -Lang $l 2>&1 | Out-String
+        Assert ($LASTEXITCODE -eq 0 -and $out -match "SELFTEST OK \($l\)") "PC Doctor ($l): $out"
     }
-    $win.Close()
+    $true
+}
+
+Test-Case 'Every translated text has English, Marathi and Hindi (L / TT calls)' {
+    $bad = @()
+    foreach ($f in @(Get-ChildItem (Join-Path $Kit 'Sanjeevani\PCDoctor') -Recurse -Include *.ps1, *.psm1)) {
+        $tok = $null; $err = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$tok, [ref]$err)
+        foreach ($c in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.CommandAst] -and $n.GetCommandName() -in 'L', 'TT' }, $true)) {
+            if ($c.CommandElements.Count -lt 4) { $bad += "$($f.Name):$($c.Extent.StartLineNumber)" }
+        }
+    }
+    # UI text table: three non-empty entries per key
+    $src = Get-Content (Join-Path $Kit 'Sanjeevani\PCDoctor\PCDoctor.ps1') -Raw -Encoding UTF8
+    foreach ($m in [regex]::Matches($src, "(?m)^\s+'([a-z0-9.]+)'\s+= @\(('(?:[^']|'')*'),\s*('(?:[^']|'')*'),\s*('(?:[^']|'')*')\)")) {
+        if ($m.Groups[2].Value -eq "''" -or $m.Groups[3].Value -eq "''" -or $m.Groups[4].Value -eq "''") { $bad += "UiText $($m.Groups[1].Value)" }
+    }
+    foreach ($k in [regex]::Matches($src, '\{\{([a-zA-Z0-9.]+)\}\}') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique) {
+        if ($src -notmatch ("(?m)^\s+'" + [regex]::Escape($k) + "'\s+= @\(")) { $bad += "XAML text without translation: $k" }
+    }
+    Assert (-not $bad.Count) ('missing translations: ' + ($bad -join ', '))
     $true
 }
 

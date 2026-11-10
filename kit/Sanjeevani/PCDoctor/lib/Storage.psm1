@@ -29,7 +29,6 @@ $script:KnownFolders = [ordered]@{
     Videos    = '18989B1D-99B5-455B-841C-AB7C74E4DDFC'
     Music     = '4BD8D571-6D19-48D3-BE97-422220080E43'
 }
-$script:MarathiNames = @{ Desktop = 'Desktop'; Documents = 'Documents (कागदपत्रे)'; Downloads = 'Downloads'; Pictures = 'Pictures (फोटो)'; Videos = 'Videos'; Music = 'Music (गाणी)' }
 
 # Never offered for moving from the root of C:
 $script:SystemRootFolders = @(
@@ -55,7 +54,7 @@ function Test-PDSameUserAsDesktop {
 }
 
 function Get-PDStorageAnalysis {
-    Write-PDLog "$env:SystemDrive drive चे विश्लेषण करत आहे..." 'STEP'
+    Write-PDLog "Analyzing the $env:SystemDrive drive ..." 'STEP'
     $sys = $env:SystemDrive
     $vol = Get-Volume -DriveLetter $sys.TrimEnd(':')
     $folders = @()
@@ -66,7 +65,7 @@ function Get-PDStorageAnalysis {
         if (-not $p) { continue }
         $onSys = $p.StartsWith($sys, [StringComparison]::OrdinalIgnoreCase)
         $folders += [pscustomobject]@{
-            Kind = 'Known'; Name = $n; Label = $script:MarathiNames[$n]; Path = $p
+            Kind = 'Known'; Name = $n; Label = $n; Path = $p
             SizeBytes = (Get-PDFolderSize $p); OnSystem = $onSys; OneDrive = ($p -match 'OneDrive')
         }
     }
@@ -134,22 +133,22 @@ function New-PDDataPartition {
     $part = Get-Partition -DriveLetter $l
     $disk = Get-Disk -Number $part.DiskNumber
     $need = [uint64]([math]::Floor($SizeGB) * 1GB)
-    if ($need -lt 10GB) { throw 'नवीन partition किमान 10 GB हवा.' }
+    if ($need -lt 10GB) { throw (L 'The new partition must be at least 10 GB.' 'नवीन partition किमान 10 GB हवा.' 'नया partition कम से कम 10 GB होना चाहिए।') }
     $primaryCount = @(Get-Partition -DiskNumber $disk.Number | Where-Object { $_.Type -ne 'Logical' }).Count
-    if ($disk.PartitionStyle -eq 'MBR' -and $primaryCount -ge 4) { throw 'या disk वर (MBR) आधीच 4 partitions आहेत; नवीन partition बनवता येणार नाही.' }
+    if ($disk.PartitionStyle -eq 'MBR' -and $primaryCount -ge 4) { throw (L 'This (MBR) disk already has 4 partitions; a new partition cannot be created.' 'या disk वर (MBR) आधीच 4 partitions आहेत; नवीन partition बनवता येणार नाही.' 'इस disk (MBR) पर पहले से 4 partitions हैं; नया partition नहीं बन सकता।') }
 
     $shrunk = $false
     $origSize = $part.Size
     if ([uint64]$disk.LargestFreeExtent -lt $need) {
         $can = Get-PDShrinkable
         if ($need -gt $can) {
-            throw ("C: मधून फक्त {0} पर्यंत जागा सुरक्षितपणे काढता येईल (C: वर किमान 20 GB / 15% मोकळे राहिले पाहिजे). आधी Cleanup करा किंवा size कमी द्या." -f (Format-PDSize $can))
+            throw ((L 'Only {0} can be taken from C: safely (C: must keep at least 20 GB / 15% free). Clean up first or choose a smaller size.' 'C: मधून फक्त {0} पर्यंत जागा सुरक्षितपणे काढता येईल (C: वर किमान 20 GB / 15% मोकळे राहिले पाहिजे). आधी Cleanup करा किंवा size कमी द्या.' 'C: से सिर्फ़ {0} तक जगह सुरक्षित निकाली जा सकती है (C: पर कम से कम 20 GB / 15% खाली रहना चाहिए)। पहले Cleanup करें या size कम दें।') -f (Format-PDSize $can))
         }
-        Write-PDLog ("C: partition {0} ने लहान करत आहे (data सुरक्षित राहतो)..." -f (Format-PDSize $need)) 'STEP'
+        Write-PDLog ("Shrinking the C: partition by {0} (data stays safe) ..." -f (Format-PDSize $need)) 'STEP'
         Set-PDProgress 30 'C: shrink'
         Resize-Partition -DriveLetter $l -Size ($part.Size - $need) -ErrorAction Stop
         $shrunk = $true
-        Write-PDLog 'C: shrink पूर्ण.' 'OK'
+        Write-PDLog 'C: shrink finished.' 'OK'
     }
     Set-PDProgress 70 'New partition'
     try {
@@ -160,15 +159,15 @@ function New-PDDataPartition {
     } catch {
         $msg = $_.Exception.Message
         if ($shrunk) {
-            Write-PDLog 'नवीन partition बनला नाही - C: पूर्वीच्या size वर परत आणत आहे...' 'WARN'
-            try { Resize-Partition -DriveLetter $l -Size $origSize -ErrorAction Stop; Write-PDLog 'C: परत पूर्वीसारखा केला.' 'OK' }
-            catch { Write-PDLog ('C: परत मोठा करता आला नाही - Disk Management मध्ये C: > Extend Volume करा: ' + $_.Exception.Message) 'ERR' }
+            Write-PDLog 'The new partition was not created - returning C: to its previous size ...' 'WARN'
+            try { Resize-Partition -DriveLetter $l -Size $origSize -ErrorAction Stop; Write-PDLog 'C: is back to its previous size.' 'OK' }
+            catch { Write-PDLog ('C: could not be enlarged again - use Disk Management > C: > Extend Volume: ' + $_.Exception.Message) 'ERR' }
         }
-        throw "नवीन partition बनवता आला नाही: $msg"
+        throw ((L 'The new partition could not be created: ' 'नवीन partition बनवता आला नाही: ' 'नया partition नहीं बन सका: ') + $msg)
     }
     $np = Get-Partition -DiskNumber $disk.Number -PartitionNumber $np.PartitionNumber
     Set-PDProgress -1
-    Write-PDLog ("नवीन drive तयार: {0}: ({1}, {2})" -f $np.DriveLetter, $Label, (Format-PDSize $size)) 'OK'
+    Write-PDLog ("New drive ready: {0}: ({1}, {2})" -f $np.DriveLetter, $Label, (Format-PDSize $size)) 'OK'
     return [string]$np.DriveLetter
 }
 
@@ -183,10 +182,10 @@ function Move-PDTree {
     $srcRoot = (Get-Item -LiteralPath $Source -Force).FullName.TrimEnd('\')
     $files = @(Get-ChildItem -LiteralPath $srcRoot -Recurse -Force -File -ErrorAction SilentlyContinue)
     if ($code -lt 0 -or $code -ge 8) {
-        Write-PDLog "Copy पूर्ण झाली नाही (robocopy $code). काहीही delete केले नाही." 'WARN'
+        Write-PDLog "The copy did not finish (robocopy $code). Nothing was deleted." 'WARN'
         if ($AllOrNothing) { return $files.Count }
     }
-    Write-PDLog 'Copy तपासून मूळ files काढत आहे...' 'STEP'
+    Write-PDLog 'Verifying the copy and removing the originals ...' 'STEP'
     # a file counts as safely copied only if size AND modified time match
     $ok = New-Object System.Collections.ArrayList
     foreach ($f in $files) {
@@ -196,7 +195,7 @@ function Move-PDTree {
     }
     $left = $files.Count - $ok.Count
     if ($AllOrNothing -and $left -gt 0) {
-        Write-PDLog "$left files जुळल्या नाहीत (वापरात / destination वर वेगळी file). Folder जसाच्या तसा C: वर ठेवला." 'WARN'
+        Write-PDLog "$left files did not match (in use / a different file at the destination). The folder was left on C: as it was." 'WARN'
         return $left
     }
     if ($code -lt 0 -or $code -ge 8) { return $files.Count }
@@ -210,7 +209,7 @@ function Move-PDTree {
 
 function Move-PDUserFolders {
     param([Parameter(Mandatory)][string[]]$Names, [Parameter(Mandatory)][string]$TargetDrive)
-    if (-not (Test-PDSameUserAsDesktop)) { throw 'PC Doctor दुसऱ्या admin account ने चालू आहे. ज्या user चे folders हलवायचे त्याच user ने (admin म्हणून) चालवा.' }
+    if (-not (Test-PDSameUserAsDesktop)) { throw (L 'PC Doctor is running under another admin account. Run it as the user whose folders should move (as admin).' 'PC Doctor दुसऱ्या admin account ने चालू आहे. ज्या user चे folders हलवायचे त्याच user ने (admin म्हणून) चालवा.' 'PC Doctor दूसरे admin account से चल रहा है। जिस user के folders ले जाने हैं उसी user से (admin के रूप में) चलाएँ।') }
     $root = Join-Path ($TargetDrive.TrimEnd(':\') + ':\') ('Users\' + $env:USERNAME)
     $report = @()
     $i = 0
@@ -218,22 +217,22 @@ function Move-PDUserFolders {
         $i++
         $src = Get-PDKnownFolderPath $n
         if (-not $src) { continue }
-        if (-not $src.StartsWith($env:SystemDrive, [StringComparison]::OrdinalIgnoreCase)) { $report += "$n : आधीच दुसऱ्या drive वर आहे ($src)"; continue }
-        if ($src -match 'OneDrive') { $report += "$n : OneDrive backup मध्ये आहे - OneDrive settings मधूनच बदला"; continue }
+        if (-not $src.StartsWith($env:SystemDrive, [StringComparison]::OrdinalIgnoreCase)) { $report += "$n : " + (L 'already on another drive' 'आधीच दुसऱ्या drive वर आहे' 'पहले से दूसरे drive पर है') + " ($src)"; continue }
+        if ($src -match 'OneDrive') { $report += "$n : " + (L 'in OneDrive backup - change it from the OneDrive settings' 'OneDrive backup मध्ये आहे - OneDrive settings मधूनच बदला' 'OneDrive backup में है - OneDrive settings से ही बदलें'); continue }
         $dest = Join-Path $root $n
         Write-PDLog ("[{0}/{1}] {2}: {3} -> {4}" -f $i, $Names.Count, $n, $src, $dest) 'STEP'
         New-Item -ItemType Directory -Path $dest -Force | Out-Null
         $code = Invoke-PDProcess -FilePath "$env:WINDIR\System32\robocopy.exe" -Arguments ('"{0}" "{1}" /E /COPY:DAT /DCOPY:DAT /XJ /XC /XN /XO /R:1 /W:1 /MT:8 /NP /NFL /NDL' -f $src.TrimEnd('\'), $dest) -ProgressLabel "Copy $n"
-        if ($code -lt 0 -or $code -ge 8) { $report += "$n : copy पूर्ण झाली नाही (काही files उघड्या असतील) - हलवले नाही"; continue }
+        if ($code -lt 0 -or $code -ge 8) { $report += "$n : " + (L 'copy incomplete (some files may be open) - not moved' 'copy पूर्ण झाली नाही (काही files उघड्या असतील) - हलवले नाही' 'copy पूरी नहीं हुई (कुछ files खुली होंगी) - नहीं ले जाया'); continue }
         $hr = [PDKnownFolder]::Set([guid]$script:KnownFolders[$n], $dest)
-        if ($hr -ne 0) { $report += ("$n : Windows ने नवीन location स्वीकारले नाही (0x{0:X})" -f $hr); continue }
+        if ($hr -ne 0) { $report += ("$n : " + (L 'Windows did not accept the new location' 'Windows ने नवीन location स्वीकारले नाही' 'Windows ने नया location स्वीकार नहीं किया') + " (0x{0:X})" -f $hr); continue }
         Add-PDUndo @{ Type = 'Note'; Text = "$n moved from $src to $dest (to undo: right-click folder > Properties > Location > Restore Default)" }
         $left = Move-PDTree -Source $src -Dest $dest
         if (-not (Get-ChildItem -LiteralPath $src -Force -ErrorAction SilentlyContinue)) { Remove-Item -LiteralPath $src -Force -ErrorAction SilentlyContinue }
-        if ($left -gt 0) { $report += "$n : हलवले. $left files (उघड्या / वापरात) जुन्या जागी राहिल्या - restart नंतर पुन्हा चालवा" }
-        else { $report += "$n : यशस्वीरित्या $dest येथे हलवले" }
+        if ($left -gt 0) { $report += "$n : " + ((L 'moved. {0} files (open / in use) stayed in the old place - run again after a restart' 'हलवले. {0} files (उघड्या / वापरात) जुन्या जागी राहिल्या - restart नंतर पुन्हा चालवा' 'ले जाया गया। {0} files (खुली / उपयोग में) पुरानी जगह रहीं - restart के बाद फिर चलाएँ') -f $left) }
+        else { $report += "$n : " + ((L 'moved to {0}' 'यशस्वीरित्या {0} येथे हलवले' 'सफलतापूर्वक {0} पर ले जाया गया') -f $dest) }
     }
-    Write-PDLog 'Explorer restart करत आहे...' 'STEP'
+    Write-PDLog 'Restarting Explorer ...' 'STEP'
     Get-Process explorer -ErrorAction SilentlyContinue | Stop-Process -Force
     for ($w = 0; $w -lt 10 -and -not (Get-Process explorer -ErrorAction SilentlyContinue); $w++) { Start-Sleep 1 }
     if (-not (Get-Process explorer -ErrorAction SilentlyContinue)) {
@@ -250,7 +249,7 @@ function Move-PDRootFolders {
     $report = @()
     foreach ($p in $Paths) {
         $name = Split-Path $p -Leaf
-        if ($script:SystemRootFolders -contains $name) { $report += "$name : system folder - हलवले नाही"; continue }
+        if ($script:SystemRootFolders -contains $name) { $report += "$name : system folder - " + (L 'not moved' 'हलवले नाही' 'नहीं ले जाया'); continue }
         $dest = Join-Path ($TargetDrive.TrimEnd(':\') + ':\') $name
         Write-PDLog "$p -> $dest" 'STEP'
         $left = Move-PDTree -Source $p -Dest $dest -AllOrNothing
@@ -259,10 +258,10 @@ function Move-PDRootFolders {
             if (-not (Test-Path -LiteralPath $p)) {
                 $null = & cmd.exe /c mklink /J "$p" "$dest" 2>&1
                 $it = Get-Item -LiteralPath $p -Force -ErrorAction SilentlyContinue
-                if ($it -and ($it.Attributes -band [IO.FileAttributes]::ReparsePoint)) { $report += "$name : $dest येथे हलवले (जुना path अजूनही चालतो - junction)" }
-                else { $report += "$name : $dest येथे हलवले, पण junction बनले नाही - program चा path बदलावा लागेल" }
-            } else { $report += "$name : हलवले, पण जुना रिकामा folder काढता आला नाही" }
-        } else { $report += "$name : $left files वापरात / वेगळ्या असल्याने काहीच हलवले नाही. Program बंद करून पुन्हा करा." }
+                if ($it -and ($it.Attributes -band [IO.FileAttributes]::ReparsePoint)) { $report += "$name : " + ((L 'moved to {0} (the old path still works - junction)' '{0} येथे हलवले (जुना path अजूनही चालतो - junction)' '{0} पर ले जाया (पुराना path अब भी चलता है - junction)') -f $dest) }
+                else { $report += "$name : " + ((L 'moved to {0}, but no junction was created - the program''s path must be changed' '{0} येथे हलवले, पण junction बनले नाही - program चा path बदलावा लागेल' '{0} पर ले जाया, पर junction नहीं बना - program का path बदलना होगा') -f $dest) }
+            } else { $report += "$name : " + (L 'moved, but the old empty folder could not be removed' 'हलवले, पण जुना रिकामा folder काढता आला नाही' 'ले जाया, पर पुराना खाली folder नहीं हटा') }
+        } else { $report += "$name : " + ((L 'nothing moved because {0} files are in use / different. Close the program and try again.' '{0} files वापरात / वेगळ्या असल्याने काहीच हलवले नाही. Program बंद करून पुन्हा करा.' '{0} files उपयोग में / अलग होने से कुछ नहीं ले जाया। Program बंद करके फिर करें।') -f $left) }
         Add-PDUndo @{ Type = 'Note'; Text = "$p moved to $dest" }
     }
     foreach ($r in $report) { Write-PDLog $r 'OK' }

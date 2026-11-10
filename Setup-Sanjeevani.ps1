@@ -20,6 +20,7 @@ param(
     [switch]$WithMint,            # also download Linux Mint XFCE (~3 GB)
     [switch]$WithDrivers,         # also download ALL Snappy Driver Installer driver packs (~70 GB, offline drivers)
     [switch]$WithAI,              # also download the offline AI for PC Doctor's Assistant (llama.cpp + Gemma 4 E2B, ~3.2 GB)
+    [ValidateSet('', 'en', 'mr', 'hi')][string]$Lang = '',   # language of PC Doctor, the guides and (in Windows Terminal) these messages
     [switch]$SkipDownloads,
     [string[]]$Only,              # only these ids, e.g. -Only hbcd,cpuz
     [switch]$ResolveOnly,         # CI / check: only find the latest download link of every item, download nothing
@@ -47,6 +48,63 @@ function Step([string]$m) { Write-Host ''; Write-Host "==> $m" -ForegroundColor 
 function Ok([string]$m) { Write-Host "    [OK]  $m" -ForegroundColor Green }
 function Warn([string]$m) { Write-Host "    [!!]  $m" -ForegroundColor Yellow }
 function Fail([string]$m) { Write-Host "    [XX]  $m" -ForegroundColor Red }
+# T 'English' 'मराठी' 'हिन्दी': the classic console window (Windows 10) cannot draw Marathi / Hindi letters,
+# so the translations are shown only in Windows Terminal; PC Doctor and the guides always use the chosen language.
+$script:RichConsole = [bool]$env:WT_SESSION
+function T([string]$en, [string]$mr, [string]$hi) {
+    if ($script:RichConsole) { if ($Lang -eq 'mr' -and $mr) { return $mr }; if ($Lang -eq 'hi' -and $hi) { return $hi } }
+    return $en
+}
+
+# language picker (small window with the Sanjeevani logo); console fallback
+function Select-SJLanguage {
+    try {
+        Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase -ErrorAction Stop
+        [xml]$x = @'
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Sanjeevani Rescue USB" Width="560" SizeToContent="Height" WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        Background="#0B1220" FontFamily="Segoe UI, Nirmala UI" Topmost="True">
+  <Window.Resources>
+    <Style TargetType="Button">
+      <Setter Property="Foreground" Value="#E2E8F0"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Margin" Value="0,0,0,10"/>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+        <Border x:Name="b" Background="#121C30" BorderBrush="#22304D" BorderThickness="1" CornerRadius="10" Padding="18,12">
+          <ContentPresenter HorizontalAlignment="Left"/></Border>
+        <ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="b" Property="BorderBrush" Value="#2DD4BF"/><Setter TargetName="b" Property="Background" Value="#13233F"/></Trigger></ControlTemplate.Triggers>
+      </ControlTemplate></Setter.Value></Setter>
+    </Style>
+  </Window.Resources>
+  <StackPanel Margin="30,26,30,20">
+    <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
+      <Viewbox Width="46" Height="50" Margin="0,0,14,0">
+        <Canvas Width="120" Height="128">
+          <Path Data="M60,0 L116,20 L110,84 L60,128 L10,84 L4,20 Z"><Path.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#5EEAD4" Offset="0"/><GradientStop Color="#0D9488" Offset="1"/></LinearGradientBrush></Path.Fill></Path>
+          <Polyline Points="18,62 42,62 52,38 66,88 78,52 86,62 104,62" Stroke="#0B1220" StrokeThickness="9" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+        </Canvas>
+      </Viewbox>
+      <StackPanel VerticalAlignment="Center">
+        <TextBlock Text="संजीवनी Rescue USB" FontSize="24" FontWeight="SemiBold" Foreground="#F1F5F9"/>
+        <TextBlock Text="Choose your language  ·  भाषा निवडा  ·  भाषा चुनें" FontSize="13" Foreground="#94A3B8"/>
+      </StackPanel>
+    </StackPanel>
+    <Button Tag="en"><StackPanel><TextBlock Text="English" FontSize="18" FontWeight="SemiBold"/><TextBlock Text="PC Doctor, guides and messages in English" Foreground="#94A3B8" FontSize="12"/></StackPanel></Button>
+    <Button Tag="mr"><StackPanel><TextBlock Text="मराठी" FontSize="18" FontWeight="SemiBold" FontFamily="Nirmala UI"/><TextBlock Text="PC Doctor आणि मार्गदर्शक मराठीत" Foreground="#94A3B8" FontSize="12" FontFamily="Nirmala UI"/></StackPanel></Button>
+    <Button Tag="hi"><StackPanel><TextBlock Text="हिन्दी" FontSize="18" FontWeight="SemiBold" FontFamily="Nirmala UI"/><TextBlock Text="PC Doctor और गाइड हिन्दी में" Foreground="#94A3B8" FontSize="12" FontFamily="Nirmala UI"/></StackPanel></Button>
+    <TextBlock Text="You can change it later in PC Doctor." Foreground="#64748B" FontSize="11" Margin="2,4,0,0"/>
+  </StackPanel>
+</Window>
+'@
+        $w = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $x))
+        $script:picked = ''
+        $w.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent, [Windows.RoutedEventHandler] { param($s, $e) $script:picked = [string]$e.OriginalSource.Tag; $w.Close() })
+        [void]$w.ShowDialog()
+        if ($script:picked) { return $script:picked }
+    } catch { }
+    Write-Host ''
+    Write-Host '    Language / भाषा:   1 = English    2 = मराठी (Marathi)    3 = हिन्दी (Hindi)' -ForegroundColor White
+    $c = Read-Host '    1 / 2 / 3'
+    switch ($c.Trim()) { '2' { return 'mr' } '3' { return 'hi' } default { return 'en' } }
+}
 
 # ------------------------------------------------------------------ admin
 $admin = $ResolveOnly -or ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -77,6 +135,15 @@ if (-not (Test-Path (Join-Path $KitDir 'Sanjeevani\tools.json'))) {
     if (Test-Path (Join-Path $cand 'Sanjeevani\tools.json')) { $KitDir = $cand; $RunningFromUsb = $true }
     else { Fail 'Kit files not found next to this script.'; Read-Host 'Press Enter'; exit 1 }
 }
+# ------------------------------------------------------------------ language (asked first; an update keeps the USB's language)
+if (-not $Lang -and -not $ResolveOnly) {
+    $sf = Join-Path $KitDir 'Sanjeevani\settings.json'
+    if ($RunningFromUsb -and (Test-Path -LiteralPath $sf)) { try { $Lang = [string](Get-Content -LiteralPath $sf -Raw -Encoding UTF8 | ConvertFrom-Json).lang } catch { } }
+    if ($Lang -notin 'en', 'mr', 'hi') { $Lang = Select-SJLanguage }
+}
+if ($Lang -notin 'en', 'mr', 'hi') { $Lang = 'en' }
+Ok ("Language: " + @{ en = 'English'; mr = 'Marathi (मराठी)'; hi = 'Hindi (हिन्दी)' }[$Lang])
+
 $Work = Join-Path $env:TEMP 'SanjeevaniSetup'
 New-Item -ItemType Directory -Path $Work -Force | Out-Null
 $haveCurl = [bool](Get-Command curl.exe -ErrorAction SilentlyContinue)
@@ -397,18 +464,18 @@ if ($Usb) {
     $UpdateOnly = $true
     Ok "Updating this Sanjeevani USB: $UsbRoot"
 } else {
-    Step 'USB disks connected to this PC'
+    Step (T 'USB disks connected to this PC' 'या PC ला लावलेले USB disks' 'इस PC से जुड़े USB disks')
     $disks = @(Get-Disk | Where-Object { $_.BusType -eq 'USB' } | Sort-Object Number)
-    if (-not $disks.Count) { Fail 'No USB disk found. Insert the pendrive and run again.'; Read-Host 'Press Enter'; exit 1 }
+    if (-not $disks.Count) { Fail (T 'No USB disk found. Insert the pendrive and run again.' 'USB disk सापडला नाही. Pendrive लावून पुन्हा चालवा.' 'USB disk नहीं मिला। Pendrive लगाकर फिर से चलाएँ।'); Read-Host 'Press Enter'; exit 1 }
     foreach ($d in $disks) {
         $vt = Get-VentoyVolume $d.Number
         $tag = if ($vt) { "  [Ventoy already installed - $($vt.Volume.DriveLetter):]" } else { '' }
         Say ("    Disk {0}:  {1,-34} {2,8:N1} GB{3}" -f $d.Number, $d.FriendlyName, ($d.Size / 1GB), $tag) White
     }
-    $n = Read-Host "`n    Type the Disk number of your pendrive"
+    $n = Read-Host ("`n    " + (T 'Type the Disk number of your pendrive' 'तुमच्या pendrive चा Disk number टाका' 'अपने pendrive का Disk number लिखें'))
     $disk = $disks | Where-Object { [string]$_.Number -eq $n.Trim() }
-    if (-not $disk) { Fail 'Invalid disk number.'; Read-Host 'Press Enter'; exit 1 }
-    if ($disk.Size -lt 30GB) { Warn 'This pendrive is smaller than 32 GB - not everything will fit. 64-128 GB recommended.' }
+    if (-not $disk) { Fail (T 'Invalid disk number.' 'चुकीचा disk number.' 'गलत disk number.'); Read-Host 'Press Enter'; exit 1 }
+    if ($disk.Size -lt 30GB) { Warn (T 'This pendrive is smaller than 32 GB - not everything will fit. 64-128 GB recommended.' 'हा pendrive 32 GB पेक्षा लहान आहे - सगळे बसणार नाही. 64-128 GB योग्य.' 'यह pendrive 32 GB से छोटा है - सब कुछ नहीं आएगा। 64-128 GB सही रहेगा।') }
     # another Sanjeevani USB plugged in? offer to copy from it instead of downloading
     if (-not $CopyFrom) {
         foreach ($v in @(Get-Volume -ErrorAction SilentlyContinue | Where-Object { $_.DriveLetter })) {
@@ -416,7 +483,7 @@ if ($Usb) {
             if (-not (Test-SanjeevaniSource $root)) { continue }
             $dn = $null; try { $dn = (Get-Partition -DriveLetter $v.DriveLetter -ErrorAction Stop).DiskNumber } catch { }
             if ($dn -eq $disk.Number) { continue }
-            $c = Read-Host ("    {0} is a ready Sanjeevani USB ({1} GB of tools). Copy everything from it instead of downloading? Y/N" -f $root, (Get-SourceSizeGB $root))
+            $c = Read-Host ("    " + ((T '{0} is a ready Sanjeevani USB ({1} GB of tools). Copy everything from it instead of downloading? Y/N' '{0} हा तयार Sanjeevani USB आहे ({1} GB tools). Download ऐवजी त्यातून सगळे copy करायचे? Y/N' '{0} एक तैयार Sanjeevani USB है ({1} GB tools)। Download के बजाय उससे सब copy करें? Y/N') -f $root, (Get-SourceSizeGB $root)))
             if ($c -match '^[Yy]') { $CopyFrom = $root }
             break
         }
@@ -431,14 +498,14 @@ if ($Usb) {
     $vt = Get-VentoyVolume $disk.Number
     $doInstall = $true; $isUpdate = $false
     if ($vt) {
-        $c = Read-Host "    Ventoy is already on this disk. [U]pdate (keeps files) or [R]einstall (ERASES everything)?  U/R"
+        $c = Read-Host ("    " + (T 'Ventoy is already on this disk. [U]pdate (keeps files) or [R]einstall (ERASES everything)?  U/R' 'या disk वर Ventoy आधीच आहे. [U]pdate (files राहतील) की [R]einstall (सगळे पुसले जाईल)?  U/R' 'इस disk पर Ventoy पहले से है। [U]pdate (files रहेंगी) या [R]einstall (सब मिट जाएगा)?  U/R'))
         if ($c -match '^[Uu]') { $isUpdate = $true }
     }
     if (-not $isUpdate) {
         Say ''
-        Say "    !!! ALL DATA on  Disk $($disk.Number) - $($disk.FriendlyName) ($([math]::Round($disk.Size/1GB,1)) GB)  WILL BE ERASED !!!" Red
-        $c = Read-Host '    Type ERASE to continue'
-        if ($c -cne 'ERASE') { Say 'Cancelled.'; exit 0 }
+        Say ("    !!! " + ((T 'ALL DATA on  Disk {0} - {1} ({2} GB)  WILL BE ERASED' 'Disk {0} - {1} ({2} GB) वरचा सगळा DATA पुसला जाईल' 'Disk {0} - {1} ({2} GB) का सारा DATA मिट जाएगा') -f $disk.Number, $disk.FriendlyName, [math]::Round($disk.Size/1GB,1)) + " !!!") Red
+        $c = Read-Host ("    " + (T 'Type ERASE to continue' 'पुढे जाण्यासाठी ERASE टाइप करा' 'आगे बढ़ने के लिए ERASE लिखें'))
+        if ($c -cne 'ERASE') { Say (T 'Cancelled.' 'रद्द केले.' 'रद्द किया।'); exit 0 }
     }
     # the disk number can change if something is plugged/unplugged meanwhile: verify identity again
     $now = Get-Disk -Number $disk.Number -ErrorAction SilentlyContinue
@@ -465,7 +532,7 @@ if ($Usb) {
 $wt = Join-Path $UsbRoot ('.sjw-' + [guid]::NewGuid().ToString('N').Substring(0, 6))
 try { [IO.File]::WriteAllText($wt, 'x'); Remove-Item -LiteralPath $wt -Force }
 catch {
-    Fail 'The USB is write-protected (lock switch ON). Slide the switch to unlock, plug it in again and run Setup / UPDATE.cmd again.'
+    Fail (T 'The USB is write-protected (lock switch ON). Slide the switch to unlock, plug it in again and run Setup / UPDATE.cmd again.' 'USB lock आहे (write-protect switch ON). Switch unlock करा, pendrive पुन्हा लावा आणि Setup / UPDATE.cmd पुन्हा चालवा.' 'USB lock है (write-protect switch ON)। Switch unlock करें, pendrive फिर लगाएँ और Setup / UPDATE.cmd फिर चलाएँ।')
     Say '    (Keep it locked when you use it on other PCs, unlock it only on your own clean PC for updates.)' DarkGray
     Read-Host 'Press Enter to close'; exit 1
 }
@@ -481,7 +548,7 @@ if ((Test-Path -LiteralPath (Join-Path $UsbRoot 'Sanjeevani\integrity.json')) -a
         $quarMy = $false
         if (@($chk.NewMyTools).Count) {
             # recorded automatically at the end of Setup when the user confirms them
-            $a = Read-Host '    Did YOU put these programs in MyTools? Y = keep them (recorded as trusted), N = quarantine them'
+            $a = Read-Host ("    " + (T 'Did YOU put these programs in MyTools? Y = keep them (recorded as trusted), N = quarantine them' 'हे programs MyTools मध्ये तुम्ही टाकले का? Y = ठेवा (विश्वासू म्हणून नोंद), N = quarantine करा' 'ये programs MyTools में आपने रखे? Y = रखें (भरोसेमंद), N = quarantine करें'))
             $quarMy = $a -notmatch '^[yY]'
         }
         if ((Get-SJIssueCount $chk) -or $quarMy) {
@@ -515,7 +582,7 @@ if ($CopyFrom) {
     Copy-SanjeevaniContent -From $CopyFrom -To $UsbRoot
     Ok 'Tools copied'
     if (-not $SkipDownloads -and -not $Only) {
-        $c = Read-Host '    Also check the internet now for newer versions of the tools? Y/N  (N = finished in a few minutes)'
+        $c = Read-Host ("    " + (T 'Also check the internet now for newer versions of the tools? Y/N  (N = finished in a few minutes)' 'Tools च्या नवीन versions साठी internet वर तपासायचे? Y/N  (N = काही मिनिटांत पूर्ण)' 'Tools के नए versions के लिए internet पर जाँचें? Y/N  (N = कुछ मिनटों में पूरा)'))
         if ($c -notmatch '^[Yy]') { $SkipDownloads = $true }
     }
 }
@@ -543,20 +610,20 @@ $failed = New-Object System.Collections.ArrayList
 
 if (-not $SkipDownloads -and -not $Only) {
     if (-not $WithWindows -and -not ($installed['win11'])) {
-        $c = Read-Host "`n    Also download the official Windows 11 ISO from Microsoft (~7.5 GB)? Y/N"
+        $c = Read-Host ("`n    " + (T 'Also download the official Windows 11 ISO from Microsoft (~7.5 GB)? Y/N' 'Microsoft चा official Windows 11 ISO पण download करायचा (~7.5 GB)? Y/N' 'Microsoft का official Windows 11 ISO भी download करें (~7.5 GB)? Y/N'))
         $WithWindows = $c -match '^[Yy]'
     }
     if (-not $WithMint -and -not ($installed['mint-xfce'])) {
-        $c = Read-Host '    Also download Linux Mint XFCE for old PCs (~3 GB)? Y/N'
+        $c = Read-Host ("    " + (T 'Also download Linux Mint XFCE for old PCs (~3 GB)? Y/N' 'जुन्या PC साठी Linux Mint XFCE पण download करायचा (~3 GB)? Y/N' 'पुराने PC के लिए Linux Mint XFCE भी download करें (~3 GB)? Y/N'))
         $WithMint = $c -match '^[Yy]'
     }
     if (-not $WithAI -and -not ($installed['ai-model'])) {
-        $c = Read-Host '    Also download the offline AI for PC Doctor''s Assistant - understands problems in Marathi / Hindi / English without internet (~3.2 GB, needs a PC with 6 GB+ RAM)? Y/N'
+        $c = Read-Host ("    " + (T 'Also download the offline AI for PC Doctor''s Assistant - understands problems in Marathi / Hindi / English without internet (~3.2 GB, needs a PC with 6 GB+ RAM)? Y/N' 'PC Doctor Assistant साठी offline AI download करायचा? Internet शिवाय मराठी / हिंदी / English समस्या समजतो (~3.2 GB, 6 GB+ RAM असलेला PC लागतो). Y/N' 'PC Doctor Assistant के लिए offline AI download करें? बिना internet के हिंदी / मराठी / English समस्या समझता है (~3.2 GB, 6 GB+ RAM वाला PC चाहिए)। Y/N'))
         $WithAI = $c -match '^[Yy]'
     }
     $sdioDrv = Join-Path $UsbRoot 'Tools\Drivers\Snappy Driver Installer Origin\drivers'
     if (-not $WithDrivers -and -not (Test-Path $sdioDrv)) {
-        $c = Read-Host '    Also download ALL offline driver packs for any PC (~70 GB; needs ~145 GB free while downloading, so a 256 GB pendrive; takes hours)? Y/N'
+        $c = Read-Host ("    " + (T 'Also download ALL offline driver packs for any PC (~70 GB; needs ~145 GB free while downloading, so a 256 GB pendrive; takes hours)? Y/N' 'कोणत्याही PC साठी सगळे offline driver packs download करायचे? (~70 GB; download करताना ~145 GB मोकळी जागा, म्हणजे 256 GB pendrive; काही तास लागतात) Y/N' 'किसी भी PC के लिए सारे offline driver packs download करें? (~70 GB; download के समय ~145 GB खाली जगह, यानी 256 GB pendrive; कुछ घंटे लगेंगे) Y/N'))
         $WithDrivers = $c -match '^[Yy]'
     }
 }
@@ -946,16 +1013,27 @@ $manualFile = Join-Path $UsbRoot 'Sanjeevani\Docs\manual-downloads.html'
 [IO.File]::WriteAllText($manualFile, $html, (New-Object System.Text.UTF8Encoding($true)))
 
 Get-ChildItem (Join-Path $UsbRoot 'Sanjeevani'), (Join-Path $UsbRoot 'Tools'), (Join-Path $UsbRoot 'Installers') -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue
-Copy-Item (Join-Path $UsbRoot 'Sanjeevani\Docs\guide-mr.html') (Join-Path $UsbRoot 'READ-ME-मार्गदर्शक.html') -Force -ErrorAction SilentlyContinue
+# ------------------------------------------------------------------ language: PC Doctor + the guide on the USB root
+try {
+    $sf = Join-Path $UsbRoot 'Sanjeevani\settings.json'
+    $o = [ordered]@{}
+    if (Test-Path -LiteralPath $sf) { (Get-Content -LiteralPath $sf -Raw -Encoding UTF8 | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $o[$_.Name] = $_.Value } }
+    $o['lang'] = $Lang
+    [IO.File]::WriteAllText($sf, ($o | ConvertTo-Json), (New-Object System.Text.UTF8Encoding($false)))
+} catch { Warn ('language not saved: ' + $_.Exception.Message) }
+$guideNames = @{ en = 'READ-ME - Guide.html'; mr = 'READ-ME - मार्गदर्शक.html'; hi = 'READ-ME - गाइड.html' }
+foreach ($old in @($guideNames.Values) + 'READ-ME-मार्गदर्शक.html') { Remove-Item -LiteralPath (Join-Path $UsbRoot $old) -Force -ErrorAction SilentlyContinue }
+Copy-Item (Join-Path $UsbRoot "Sanjeevani\Docs\guide-$Lang.html") (Join-Path $UsbRoot $guideNames[$Lang]) -Force -ErrorAction SilentlyContinue
 
-Step 'Finished'
+Step (T 'Finished' 'पूर्ण झाले' 'पूरा हुआ')
 Ok "USB: $UsbRoot   (free: $(Get-FreeGB) GB)"
-if (-not $failed.Count -and -not $manual.Count) { Ok 'All essential tools are on the USB.' }
+if (-not $failed.Count -and -not $manual.Count) { Ok (T 'All essential tools are on the USB.' 'सगळे आवश्यक tools pendrive वर आहेत.' 'सारे ज़रूरी tools pendrive पर हैं।') }
 if ($failed.Count) { Warn ("{0} item(s) could not be downloaded this time ({1}) - run UPDATE.cmd again later" -f $failed.Count, (($failed | ForEach-Object { $_.id }) -join ', ')) }
 if ($manual.Count) { Warn ("{0} item(s) need a manual download - see Docs\manual-downloads.html" -f $manual.Count) }
 if ($optionalList.Count) { Say ("    {0} optional extras skipped (their work is covered by other tools) - list in Docs\manual-downloads.html" -f $optionalList.Count) DarkGray }
 Say ''
-Say '  To boot: plug the USB, press the Boot Menu key (F12/F9/F11/Esc), choose the USB.' DarkCyan
+Say ('  ' + (T 'To boot: plug the USB, press the Boot Menu key (F12/F9/F11/Esc), choose the USB.' 'Boot साठी: USB लावा, Boot Menu key (F12/F9/F11/Esc) दाबा आणि USB निवडा.' 'Boot के लिए: USB लगाएँ, Boot Menu key (F12/F9/F11/Esc) दबाएँ और USB चुनें।')) DarkCyan
+Say ('  ' + (T 'Inside Windows: open the USB and double-click START-Sanjeevani.cmd (PC Doctor).' 'Windows मध्ये: USB उघडा आणि START-Sanjeevani.cmd वर double-click करा (PC Doctor).' 'Windows में: USB खोलें और START-Sanjeevani.cmd पर double-click करें (PC Doctor)।')) DarkCyan
 Say ''
 if ($manual.Count -or $failed.Count) { Start-Process $manualFile }
-Read-Host 'Press Enter to close'
+Read-Host (T 'Press Enter to close' 'बंद करण्यासाठी Enter दाबा' 'बंद करने के लिए Enter दबाएँ')
