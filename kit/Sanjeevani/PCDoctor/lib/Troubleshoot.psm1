@@ -95,6 +95,7 @@ $script:D['lan'] = $script:D['no-internet']
 $script:D['slow-internet'] = @{
     Check = {
         $t = @(Test-Connection -ComputerName 8.8.8.8 -Count 6 -ErrorAction SilentlyContinue)
+        if (-not $t.Count -and (Test-TSWeb)) { return (New-TSCheck $null (TT 'The internet works; this network blocks ping, so the speed cannot be measured here.' 'Internet चालते; हे network ping अडवते, त्यामुळे वेग इथे मोजता येत नाही.' 'इंटरनेट चल रहा है; यह नेटवर्क ping रोकता है।')) }
         if (-not $t.Count) { return (New-TSCheck $true (TT 'The internet does not answer at all.' 'Internet अजिबात उत्तर देत नाही.' 'इंटरनेट बिल्कुल जवाब नहीं दे रहा।') @{ Down = $true }) }
         $ms = [math]::Round(($t | Measure-Object ResponseTime -Average).Average); $lost = 6 - $t.Count
         $proxy = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings' -Name ProxyEnable -ErrorAction SilentlyContinue).ProxyEnable -eq 1
@@ -347,6 +348,12 @@ $script:D['printer'] = @{
         return (New-TSFix $r.Ok (TT ($r.En + $(if (@($chk.Data.Off).Count) { ' Offline printers set back online.' })) ($r.Mr + $(if (@($chk.Data.Off).Count) { ' Offline printer पुन्हा online केले.' })) 'प्रिंट कतार साफ कर सर्विस फिर चालू की।'))
     }
 }
+$script:D['printer'].Verify = {
+    $sp = Get-Service Spooler -ErrorAction SilentlyContinue
+    $jobs = @(); try { $jobs = @(Get-Printer -ErrorAction Stop | ForEach-Object { Get-PrintJob -PrinterName $_.Name -ErrorAction SilentlyContinue } | Where-Object { $_.JobStatus -match 'Error|Paused|Blocked' }) } catch { }
+    if (-not $sp -or $sp.Status -ne 'Running' -or $jobs.Count) { return (New-TSCheck $true (TT 'Print service / queue still not working.' 'Print service / queue अजून चालत नाही.' 'प्रिंट सर्विस अभी भी नहीं चल रही।')) }
+    return (New-TSCheck $false (TT 'Print service running, queue clear.' 'Print service चालू, queue रिकामी.' 'प्रिंट सर्विस चालू।'))
+}
 $script:D['sound'] = @{
     Check = {
         $why = @()
@@ -519,7 +526,7 @@ function Invoke-PDTroubleshoot {
         $fix = $null
         try { $fix = & $d.Fix $chk } catch { $fix = New-TSFix $false (TT "Repair failed: $($_.Exception.Message)" "दुरुस्ती अयशस्वी: $($_.Exception.Message)" $null) }
         if ($fix.Fixed -eq $true -and -not $d.NoVerify -and -not $fix.Restart) {
-            try { $v = & $d.Check; if ($v.Found -eq $true) { $fix.Fixed = $false; $fix.Text = TT ($fix.Text.en + ' (still present after the repair)') ($fix.Text.mr + ' (दुरुस्तीनंतरही समस्या आहे)') $fix.Text.hi } } catch { }
+            try { $v = if ($d.Verify) { & $d.Verify } else { & $d.Check }; if ($v.Found -eq $true) { $fix.Fixed = $false; $fix.Text = TT ($fix.Text.en + ' (still present after the repair)') ($fix.Text.mr + ' (दुरुस्तीनंतरही समस्या आहे)') $fix.Text.hi } } catch { }
         }
         $res.Issue = $p; $res.Check = $chk; $res.Fix = $fix; $res.Restart = $fix.Restart
         $res.Resolved = ($fix.Fixed -eq $true) -or ($null -eq $fix.Fixed -and $fix.Restart)
