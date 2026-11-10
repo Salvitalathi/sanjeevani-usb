@@ -220,7 +220,7 @@ function S([string]$key) {
     return $v[0]
 }
 
-# ---------------------------------------------------------------- XAML  ({{key}} = UI text in the chosen language)
+# ---------------------------------------------------------------- XAML  (double-brace placeholders = UI text in the chosen language)
 $xamlText = @'
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"

@@ -169,7 +169,7 @@ Test-Case 'Every translated text has English, Marathi and Hindi (L / TT calls)' 
         if ($m.Groups[2].Value -eq "''" -or $m.Groups[3].Value -eq "''" -or $m.Groups[4].Value -eq "''") { $bad += "UiText $($m.Groups[1].Value)" }
     }
     foreach ($k in [regex]::Matches($src, '\{\{([a-zA-Z0-9.]+)\}\}') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique) {
-        if ($src -notmatch ("(?m)^\s+'" + [regex]::Escape($k) + "'\s+= @\(")) { $bad += "XAML text without translation: $k" }
+        if ($src -notmatch ("(?m)^\s+'" + [regex]::Escape($k) + "'\s*= @\(")) { $bad += "XAML text without translation: $k" }
     }
     Assert (-not $bad.Count) ('missing translations: ' + ($bad -join ', '))
     $true
