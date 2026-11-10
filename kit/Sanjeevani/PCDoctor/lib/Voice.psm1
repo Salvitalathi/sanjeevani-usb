@@ -428,6 +428,25 @@ function Get-PDVoiceCachePath([string]$UsbRoot, [string]$Lang, [string]$Text) {
     try { New-Item -ItemType Directory -Path $d -Force -ErrorAction Stop | Out-Null; $t = Join-Path $d '.w'; [IO.File]::WriteAllText($t, 'x'); Remove-Item -LiteralPath $t -Force } catch { $d = Join-Path $env:LOCALAPPDATA 'Sanjeevani\voice-cache' }
     return (Join-Path $d "$key.wav")
 }
+# The Piper engine for Windows (2023) reads only one-letter sounds; newer voice files also list combined sounds
+# ("aɪ"). Those entries are dropped (a backup of the original is kept) - the engine then uses the single letters.
+function Repair-PDPiperConfig([string]$Json) {
+    try {
+        Add-Type -AssemblyName System.Web.Extensions -ErrorAction Stop
+        $ser = New-Object System.Web.Script.Serialization.JavaScriptSerializer; $ser.MaxJsonLength = 64MB
+        $raw = [IO.File]::ReadAllText($Json, [Text.Encoding]::UTF8)
+        $cfg = $ser.DeserializeObject($raw)
+        $map = $cfg['phoneme_id_map']
+        if (-not $map) { return $false }
+        $drop = @($map.Keys | Where-Object { ($_.ToCharArray() | Where-Object { -not [char]::IsLowSurrogate($_) }).Count -ne 1 })
+        if (-not $drop.Count) { return $false }
+        foreach ($k in $drop) { [void]$map.Remove($k) }
+        if (-not (Test-Path -LiteralPath ($Json + '.orig'))) { Copy-Item -LiteralPath $Json -Destination ($Json + '.orig') -Force }
+        [IO.File]::WriteAllText($Json, $ser.Serialize($cfg), (New-Object Text.UTF8Encoding $false))
+        Write-PDLog ("voice: made " + (Split-Path $Json -Leaf) + " compatible (" + $drop.Count + " combined sounds)") 'INFO'
+        return $true
+    } catch { Write-PDLog "voice: could not adapt the voice file: $($_.Exception.Message)" 'WARN'; return $false }
+}
 function New-PDSpeech {
     param([string]$Text, [string]$Lang = 'mr', [string]$Out, [string]$UsbRoot, [string]$Mode = 'auto')
     $Text = ConvertTo-PDSpeakable $Text
@@ -441,6 +460,7 @@ function New-PDSpeech {
     if ($voices.Count -and $Lang -ne 'en') { $Text = ConvertTo-PDIndianSpeech $Text }
     if ($a.Piper) {
         foreach ($voice in $voices) {
+          for ($try = 0; $try -lt 2; $try++) {
             try {
                 Remove-Item -LiteralPath $Out -Force -ErrorAction SilentlyContinue
                 $psi = New-Object Diagnostics.ProcessStartInfo $a.Piper
@@ -453,8 +473,12 @@ function New-PDSpeech {
                 $err = $p.StandardError.ReadToEnd()
                 if (-not $p.WaitForExit(30000)) { try { $p.Kill() } catch { } }
                 if ((Test-Path -LiteralPath $Out) -and (Get-Item -LiteralPath $Out).Length -gt 2000) { & $keep; return 'piper' }
+                # newer voices list multi-letter sounds ("aɪ") the Windows Piper engine cannot read: make the voice file compatible once, then retry
+                if ($try -eq 0 -and $err -match 'not a single codepoint' -and (Repair-PDPiperConfig ($voice + '.json'))) { continue }
                 Write-PDLog ("voice: piper could not use " + (Split-Path $voice -Leaf) + ': ' + $(if ($err.Length -gt 200) { $err.Substring($err.Length - 200) } else { $err })) 'WARN'
             } catch { Write-PDLog "voice: piper failed: $($_.Exception.Message)" 'WARN' }
+            break
+          }
         }
     }
     $cfg = Get-PDAiConfig $UsbRoot
