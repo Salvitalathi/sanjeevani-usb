@@ -278,17 +278,18 @@ function Invoke-PDAiAsk {
 function Resolve-PDProblemIds {
     param([Parameter(Mandatory)][string]$Text, [Parameter(Mandatory)][object[]]$Problems, [Parameter(Mandatory)][string]$UsbRoot,
         [string]$Mode = 'auto', [string]$PcInfo, $Config)
-    $notes = @(); $ids = @(); $source = 'basic'; $model = $null; $und = $null; $sure = $false; $cor = ''; $reply = ''
+    $notes = @(); $ids = @(); $source = 'basic'; $model = $null; $und = $null; $sure = $false; $cor = ''; $reply = ''; $onlineOk = $false
 
     if (-not $Config) { $Config = Get-PDAiConfig $UsbRoot }
     if ($Mode -in 'auto', 'online' -and $Config.key) {
         try {
             Write-PDLog 'Asking the online AI ...' 'STEP'
             $r = Invoke-PDAiAsk -Text $Text -Config $Config -Problems $Problems -PcInfo $PcInfo
-            $ids = @($r.ProblemIds); $source = 'online'; $model = $r.Model; $und = $r.UnderstoodEn; $sure = $r.Sure; $cor = $r.Corrected; $reply = $r.Reply
+            $ids = @($r.ProblemIds); $source = 'online'; $model = $r.Model; $und = $r.UnderstoodEn; $sure = $r.Sure; $cor = $r.Corrected; $reply = $r.Reply; $onlineOk = $true
         } catch { $notes += "online AI: $($_.Exception.Message)" }
     }
-    if (-not $ids.Count -and $Mode -in 'auto', 'offline' -and (Get-Command Find-PDLocalAI -ErrorAction SilentlyContinue)) {
+    # the offline AI (30-90 s to start) only when the online AI could not be asked - not when it answered "no PC problem"
+    if (-not $ids.Count -and -not $onlineOk -and $Mode -in 'auto', 'offline' -and (Get-Command Find-PDLocalAI -ErrorAction SilentlyContinue)) {
         $ai = Find-PDLocalAI $UsbRoot
         if ($ai) {
             $fit = Test-PDLocalAIFit $ai

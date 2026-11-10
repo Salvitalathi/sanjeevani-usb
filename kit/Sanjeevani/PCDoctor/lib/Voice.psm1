@@ -608,6 +608,24 @@ function ConvertFrom-PDSpeech {
 
 # With an online key: Sanjeevani's usual sentences are fetched once in the online voice, slowly (free keys allow only a
 # few voice requests a minute), and kept - after that every usual sentence is in the same natural voice.
+# Makes every usual sentence once with the offline Indian voice (Piper) and keeps it - later they play instantly
+function Invoke-PDVoiceWarm {
+    param([string]$UsbRoot, [string]$Lang = 'mr')
+    $a = Get-PDVoiceAssets $UsbRoot
+    if (-not $a.Piper -or -not ($a.Voices[$Lang] -or ($Lang -eq 'mr' -and $a.Voices['hi']))) { return 0 }
+    $n = 0
+    foreach ($k in @($script:Lines.Keys)) {
+        $l = if ($k -eq 'welcome') { 'en' } else { $Lang }
+        $text = Get-PDVoiceLine $k $l
+        if (-not $text -or $text -match '\{0\}') { continue }
+        $c = Get-PDVoiceCachePath $UsbRoot $l (ConvertTo-PDSpeakable $text)
+        if (Test-Path -LiteralPath $c) { continue }
+        $tmp = Join-Path $env:TEMP ('sjv-warm-' + [guid]::NewGuid().ToString('N').Substring(0, 8) + '.wav')
+        if ((New-PDSpeech -Text $text -Lang $l -Out $tmp -UsbRoot $UsbRoot -Mode 'basic') -eq 'piper') { $n++ }
+        Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+    }
+    return $n
+}
 function Invoke-PDVoicePrefetch {
     param([string]$UsbRoot, [string]$Lang = 'mr')
     $cfg = Get-PDAiConfig $UsbRoot
@@ -682,4 +700,4 @@ function Test-PDCanListen([string]$UsbRoot, [string]$Mode = 'auto') {
     return [bool]($a.Whisper -and $a.WhisperModel -and $Mode -ne 'online')
 }
 
-Export-ModuleMember -Function Invoke-PDVoicePrefetch, Get-PDVoiceCachePath, Test-PDYes, Test-PDNo, ConvertTo-PDRoman, Install-PDVoicePack, New-PDSpeechGemini, Get-PDVoiceLine, Get-PDVoiceKeys, Get-PDTextLang, Test-PDGoodbye, Get-PDVoiceAssets, Initialize-PDVoiceNative, Enable-PDMicrophone, Invoke-PDRecord, ConvertTo-PDSpeakable, New-PDSpeech, ConvertFrom-PDSpeech, Test-PDCanListen
+Export-ModuleMember -Function Invoke-PDVoiceWarm, Invoke-PDVoicePrefetch, Get-PDVoiceCachePath, Test-PDYes, Test-PDNo, ConvertTo-PDRoman, Install-PDVoicePack, New-PDSpeechGemini, Get-PDVoiceLine, Get-PDVoiceKeys, Get-PDTextLang, Test-PDGoodbye, Get-PDVoiceAssets, Initialize-PDVoiceNative, Enable-PDMicrophone, Invoke-PDRecord, ConvertTo-PDSpeakable, New-PDSpeech, ConvertFrom-PDSpeech, Test-PDCanListen

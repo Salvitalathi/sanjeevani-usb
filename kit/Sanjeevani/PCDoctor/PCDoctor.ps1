@@ -1213,9 +1213,9 @@ function Say([string]$text, [string]$icon = 'Information') {
 }
 
 # ---------------------------------------------------------------- background jobs
-function Start-PDJob {
-    param([string]$Title, [scriptblock]$Work, [hashtable]$Params = @{}, [scriptblock]$OnDone)
-    if ($script:Job) { Say (L 'Another task is already running. Let it finish.' 'एक काम आधीच चालू आहे. ते पूर्ण होऊ द्या.' 'एक काम पहले से चल रहा है। उसे पूरा होने दें।') 'Warning'; return }
+# A background worker with every module already loaded waits for the next task (loading the modules takes a few
+# seconds - the user should not wait for that on every question).
+function New-PDJobRunspace {
     $rs = [runspacefactory]::CreateRunspace()
     $rs.ApartmentState = 'STA'
     $rs.Open()
@@ -1223,12 +1223,32 @@ function Start-PDJob {
     $rs.SessionStateProxy.SetVariable('PDState', $global:PDState)
     $rs.SessionStateProxy.SetVariable('PDCtx', $global:PDCtx)
     $rs.SessionStateProxy.SetVariable('PDLang', $Lang)
+    return $rs
+}
+function Start-PDWarmWorker {
+    if ($script:WarmRS -or $Headless) { return }
+    try {
+        $rs = New-PDJobRunspace
+        $ps = [powershell]::Create(); $ps.Runspace = $rs
+        [void]$ps.AddScript({ param($Mods) foreach ($m in $Mods) { Import-Module $m -Global -DisableNameChecking }; $global:SJWarm = $true }.ToString()).AddArgument($Modules)
+        $script:WarmRS = @{ RS = $rs; PS = $ps; H = $ps.BeginInvoke() }
+    } catch { $script:WarmRS = $null }
+}
+function Start-PDJob {
+    param([string]$Title, [scriptblock]$Work, [hashtable]$Params = @{}, [scriptblock]$OnDone)
+    if ($script:Job) { Say (L 'Another task is already running. Let it finish.' 'एक काम आधीच चालू आहे. ते पूर्ण होऊ द्या.' 'एक काम पहले से चल रहा है। उसे पूरा होने दें।') 'Warning'; return }
+    $rs = $null
+    if ($script:WarmRS) {
+        $w = $script:WarmRS; $script:WarmRS = $null
+        try { [void]$w.H.AsyncWaitHandle.WaitOne(20000); $null = $w.PS.EndInvoke($w.H); $w.PS.Dispose(); $rs = $w.RS } catch { try { $w.RS.Dispose() } catch { }; $rs = $null }
+    }
+    if (-not $rs) { $rs = New-PDJobRunspace }
     $ps = [powershell]::Create()
     $ps.Runspace = $rs
     $wrapper = {
         param($Mods, $WorkText, $P)
         $ErrorActionPreference = 'Continue'
-        foreach ($m in $Mods) { Import-Module $m -Force -DisableNameChecking }
+        if (-not $global:SJWarm) { foreach ($m in $Mods) { Import-Module $m -Force -DisableNameChecking } }
         $sb = [scriptblock]::Create($WorkText)
         try { & $sb $P }
         catch { Write-PDLog ((L 'Error: ' 'त्रुटी: ' 'त्रुटि: ') + $_.Exception.Message) 'ERR'; [pscustomobject]@{ Error = $_.Exception.Message } }
@@ -1252,6 +1272,7 @@ function Complete-PDJob {
     } catch { $global:PDLogQueue.Enqueue('[ERR] ' + $_.Exception.Message) }
     $j.PS.Dispose(); $j.RS.Close(); $j.RS.Dispose()
     $script:Job = $null
+    Start-PDWarmWorker          # the next task starts without loading the modules again
     $ui.StopBtn.Visibility = 'Collapsed'
     Set-Busy $false
     Flush-Log
@@ -2398,6 +2419,8 @@ function Open-Voice {
         if ($script:V.GreetDone) { Invoke-VAfterGreet }
     } }
     Request-VVoicePack $script:V.Lang
+    # the online AI: find the model and open the connection now, so the first question is answered quickly
+    Start-VTask -Pool 'audio' { param($P) $c = Get-PDAiConfig $P.Root; if ($c.key -and $c.provider -ne 'anthropic') { try { $null = Resolve-PDGeminiModel $c { param($u, $h, $b, $m) Invoke-PDHttpJson -Url $u -Headers $h -Body $b -Method $m } } catch { } } } @{ Root = $UsbRoot } $null
     if ($script:V.Lang -eq 'mr') { Request-VVoicePack 'hi' }      # the Hindi Indian voice is the stand-by for Marathi
     if (-not $script:V.Welcomed) { Say-V (Get-PDVoiceLine 'welcome' 'en') }      # English words, said by the same Indian voice
     Say-V (VL 'greet') -Then { $script:V.GreetDone = $true; if ($script:V.Mic) { Invoke-VAfterGreet } }
@@ -2407,7 +2430,10 @@ function Request-VVoicePack([string]$l) {
     if (-not $script:V.PackTried) { $script:V.PackTried = @{} }
     if ($script:V.PackTried[$l]) { return }
     $script:V.PackTried[$l] = $true
-    Start-VTask -Pool 'bg' { param($P) Install-PDVoicePack -UsbRoot $P.Root -Lang $P.Lang } @{ Root = $UsbRoot; Lang = $l } { param($r, $c) if ($r -eq 'installed') { Add-VStep "voice $($c) installed" '#2DD4BF' } } $l
+    # voice pack, then all of Sanjeevani's usual sentences made once in the Indian voice and kept (instant afterwards)
+    Start-VTask -Pool 'bg' { param($P) $r = Install-PDVoicePack -UsbRoot $P.Root -Lang $P.Lang; $n = Invoke-PDVoiceWarm -UsbRoot $P.Root -Lang $P.Lang; "$r|$n" } @{ Root = $UsbRoot; Lang = $l } {
+        param($r, $c) if ("$r" -like 'installed*') { Add-VStep "voice $($c) installed" '#2DD4BF' }
+        if ("$r" -match '\|(\d+)$' -and [int]$Matches[1] -gt 0) { $global:PDLogQueue.Enqueue("[INFO] voice: $($Matches[1]) sentences prepared in the $c voice") } } $l
     if ((Get-PDSetting $UsbRoot 'onlineVoice' $false) -eq $true) { Start-VTask -Pool 'bg' { param($P) Invoke-PDVoicePrefetch -UsbRoot $P.Root -Lang $P.Lang } @{ Root = $UsbRoot; Lang = $l } { param($r, $c) if ($r) { $global:PDLogQueue.Enqueue("[INFO] voice: $r sentences saved in the online voice") } } $l }
 }
 function Invoke-VAfterGreet {
