@@ -578,10 +578,54 @@ if ((Test-Path -LiteralPath (Join-Path $UsbRoot 'Sanjeevani\integrity.json')) -a
 }
 
 # ------------------------------------------------------------------ copy kit
+# Copies the kit onto the USB. If some files cannot be written: stops what runs from the USB (PC Doctor, offline AI,
+# voice), clears read-only flags and tries again; if it still fails, shows which files and why.
+function Copy-SJKit {
+    $src = $KitDir.TrimEnd('\'); $dst = $UsbRoot.TrimEnd('\')
+    $log = Join-Path $env:TEMP 'sanjeevani-copy.log'
+    for ($try = 1; $try -le 2; $try++) {
+        Remove-Item -LiteralPath $log -Force -ErrorAction SilentlyContinue
+        & robocopy.exe $src $dst /E /R:2 /W:2 /NDL /NJH /NJS /NP /XJ "/UNILOG:$log" | Out-Null
+        $rc = $LASTEXITCODE
+        if ($rc -lt 8) { return }
+        if ($try -eq 2) { break }
+        Warn (T 'Some files could not be written - closing programs that run from the USB and trying again ...' 'काही files लिहिता आल्या नाहीत - USB वरून चालू असलेले programs बंद करून पुन्हा प्रयत्न करत आहे...' 'कुछ files लिखी नहीं जा सकीं - USB से चल रहे programs बंद करके फिर कोशिश कर रहे हैं...')
+        # programs started from the USB (PC Doctor windows, offline AI, voice engine, tools) keep their files locked
+        $drv = $dst.Substring(0, 2)
+        foreach ($p in @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessId -ne $PID -and (($_.ExecutablePath -and $_.ExecutablePath.StartsWith($drv, [StringComparison]::OrdinalIgnoreCase)) -or ($_.CommandLine -and $_.CommandLine -match [regex]::Escape($drv + '\Sanjeevani'))) })) {
+            try { Stop-Process -Id $p.ProcessId -Force -ErrorAction Stop; Say "     closed: $($p.Name)" DarkGray } catch { }
+        }
+        # files on the USB marked read-only / hidden / system by earlier tools or malware fixes
+        Get-ChildItem -LiteralPath $src -Recurse -File -Force -ErrorAction SilentlyContinue | ForEach-Object {
+            $d = $dst + $_.FullName.Substring($src.Length)
+            if (Test-Path -LiteralPath $d -PathType Leaf) { try { [IO.File]::SetAttributes($d, [IO.FileAttributes]::Normal) } catch { } }
+        }
+        Start-Sleep 3
+    }
+    # still failing: say which files and why
+    $errs = @()
+    if (Test-Path -LiteralPath $log) { $errs = @(Get-Content -LiteralPath $log -Encoding Unicode | Where-Object { $_ -match 'ERROR\s+(\d+)\s' }) }
+    $codes = @($errs | ForEach-Object { if ($_ -match 'ERROR\s+(\d+)\s') { [int]$Matches[1] } } | Select-Object -Unique)
+    foreach ($l in ($errs | Where-Object { $_ -match 'Copying File|Creating Destination' } | Select-Object -First 8)) { Say ('     ' + ($l -replace '^\S+\s+\S+\s+', '')) DarkGray }
+    foreach ($c in $codes) {
+        $why = switch ($c) {
+            5 { T 'Access denied: an antivirus may be blocking the file, or the USB is write-protected (lock switch).' 'Access denied: antivirus file अडवत असेल, किंवा USB write-protected (lock switch) आहे.' 'Access denied: antivirus file रोक रहा होगा, या USB write-protected (lock switch) है।' }
+            19 { T 'The USB is write-protected: slide its lock switch off.' 'USB write-protected आहे: त्याचा lock switch बंद करा.' 'USB write-protected है: उसका lock switch बंद करें।' }
+            32 { T 'A program is still using the file: close PC Doctor and other programs running from the USB.' 'File अजून कोणता तरी program वापरत आहे: PC Doctor आणि USB वरून चालणारे programs बंद करा.' 'File अभी कोई program इस्तेमाल कर रहा है: PC Doctor और USB से चल रहे programs बंद करें।' }
+            112 { T 'The USB is full.' 'USB भरला आहे.' 'USB भर गया है।' }
+            225 { T 'The antivirus blocked a file (false alarm on a repair script). Allow the Sanjeevani folder in the antivirus, then run Setup again.' 'Antivirus ने एक file अडवली (repair script वर चुकीचा alarm). Antivirus मध्ये Sanjeevani folder ला परवानगी (exclusion) द्या आणि Setup पुन्हा चालवा.' 'Antivirus ने एक file रोकी (repair script पर गलत alarm)। Antivirus में Sanjeevani folder को अनुमति (exclusion) दें और Setup फिर चलाएँ।' }
+            { $_ -in 23, 1117, 1392, 483 } { T 'Read / write error: the USB may be failing. Try another USB port, or check the pendrive.' 'Read / write error: USB खराब होत असू शकतो. दुसरा USB port वापरा किंवा pendrive तपासा.' 'Read / write error: USB खराब हो रहा हो सकता है। दूसरा USB port लगाएँ या pendrive जाँचें।' }
+            default { "Windows error $c" }
+        }
+        Warn "error $c - $why"
+    }
+    if (-not $codes.Count) { Warn (T "Copy log: $log" "Copy log: $log" "Copy log: $log") }
+    throw "copy failed (robocopy $rc)"
+}
+
 if (-not $RunningFromUsb) {
     Step 'Copying Sanjeevani kit (theme, PC Doctor, docs)'
-    & robocopy.exe $KitDir.TrimEnd('\') $UsbRoot.TrimEnd('\') /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
-    if ($LASTEXITCODE -ge 8) { throw "copy failed (robocopy $LASTEXITCODE)" }
+    Copy-SJKit
     $setupDir = Join-Path $UsbRoot 'Sanjeevani\Setup'
     New-Item -ItemType Directory -Path $setupDir -Force | Out-Null
     Copy-Item -LiteralPath $PSCommandPath -Destination $setupDir -Force

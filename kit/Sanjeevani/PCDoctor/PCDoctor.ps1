@@ -34,7 +34,12 @@ $Assets  = Join-Path $Here 'assets'
 $Modules = @('Common', 'Diagnostics', 'Repair', 'Speed', 'Storage', 'Advisor', 'Report', 'ToolGuide', 'Integrity', 'Registry', 'Ask', 'LocalAI', 'Troubleshoot', 'Voice') | ForEach-Object { Join-Path $Here "lib\$_.psm1" }
 
 try {
-    foreach ($m in $Modules) { Import-Module $m -Force -DisableNameChecking -ErrorAction Stop }
+    foreach ($m in $Modules) {
+        # the voice is optional: if an antivirus removed / blocked Voice.psm1, PC Doctor still works without it
+        if ($m -match '\\Voice\.psm1$') { try { Import-Module $m -Force -DisableNameChecking -ErrorAction Stop } catch { $script:NoVoice = $true }; continue }
+        Import-Module $m -Force -DisableNameChecking -ErrorAction Stop
+    }
+    if ($script:NoVoice) { $Modules = @($Modules | Where-Object { $_ -notmatch '\\Voice\.psm1$' }) }
     $null = Initialize-PDContext -UsbRoot $UsbRoot
 } catch {
     if ($Headless) { Write-Host "SELFTEST FAILED: $($_.Exception.Message)"; exit 1 }
@@ -2346,6 +2351,7 @@ function Stop-VMusic { $script:V.MusicTarget = 0.0 }
 # ---- open / close
 function Open-Voice {
     if ($script:V.Open) { return }
+    if ($script:NoVoice) { Say (L 'The voice part of PC Doctor (Voice.psm1) is missing - an antivirus may have blocked it. Run UPDATE again, or allow the Sanjeevani folder in the antivirus.' 'PC Doctor चा आवाजाचा भाग (Voice.psm1) सापडला नाही - antivirus ने अडवला असेल. UPDATE पुन्हा चालवा, किंवा antivirus मध्ये Sanjeevani folder ला परवानगी द्या.' 'PC Doctor का आवाज़ वाला हिस्सा (Voice.psm1) नहीं मिला - antivirus ने रोका होगा। UPDATE फिर चलाएँ, या antivirus में Sanjeevani folder को अनुमति दें।') 'Warning'; return }
     if (-not $script:VPlayer) {
         $script:VPlayer = New-Object Windows.Media.MediaPlayer
         $script:VPlayer.Add_MediaEnded({ End-VSpeech })
@@ -2928,7 +2934,7 @@ function Start-Startup {
 function Invoke-AfterStartup {
     if (-not $script:StartupDone -or -not $script:SplashDone -or $script:Greeted -or $Headless) { return }
     $script:Greeted = $true
-    if ((Get-PDSetting $UsbRoot 'voice' $true) -ne $false) { Open-Voice }
+    if (-not $script:NoVoice -and (Get-PDSetting $UsbRoot 'voice' $true) -ne $false) { Open-Voice }
 }
 function Start-Splash {
     Start-Startup                     # reads the PC while the logo animates, so the tiles are filled when the dashboard appears
