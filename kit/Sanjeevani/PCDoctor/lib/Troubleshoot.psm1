@@ -94,7 +94,8 @@ $script:D['no-internet'] = @{
 $script:D['lan'] = $script:D['no-internet']
 $script:D['slow-internet'] = @{
     Check = {
-        $t = @(Test-Connection -ComputerName 8.8.8.8 -Count 6 -ErrorAction SilentlyContinue)
+        $pingHost = '8.8.8.8'
+        $t = @(Test-Connection -ComputerName $pingHost -Count 6 -ErrorAction SilentlyContinue)
         if (-not $t.Count -and (Test-TSWeb)) { return (New-TSCheck $null (TT 'The internet works; this network blocks ping, so the speed cannot be measured here.' 'Internet चालते; हे network ping अडवते, त्यामुळे वेग इथे मोजता येत नाही.' 'इंटरनेट चल रहा है; यह नेटवर्क ping रोकता है।')) }
         if (-not $t.Count) { return (New-TSCheck $true (TT 'The internet does not answer at all.' 'Internet अजिबात उत्तर देत नाही.' 'इंटरनेट बिल्कुल जवाब नहीं दे रहा।') @{ Down = $true }) }
         $ms = [math]::Round(($t | Measure-Object ResponseTime -Average).Average); $lost = 6 - $t.Count
