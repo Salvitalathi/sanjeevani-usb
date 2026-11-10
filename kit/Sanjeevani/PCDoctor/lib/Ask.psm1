@@ -11,6 +11,23 @@ function Get-PDProblems([string]$DataDir) {
     return @((Get-Content -LiteralPath (Join-Path $DataDir 'problems.json') -Raw -Encoding UTF8 | ConvertFrom-Json).problems)
 }
 
+# Spelling / accent-tolerant form of a text, so speech-to-text spellings and regional pronunciations still match:
+# Devanagari: no nukta, half-nasal -> anusvara, long = short vowels, aspirated = plain consonants, ळ/ण/श/ष -> ल/न/स;
+# Roman: doubled letters and common spelling variants folded.
+function ConvertTo-PDLoose([string]$Text) {
+    if (-not $Text) { return '' }
+    $t = $Text.ToLowerInvariant().Normalize([Text.NormalizationForm]::FormC)
+    $t = $t -replace '़', '' -replace 'ँ', 'ं'
+    $t = $t -replace '[ङञणनम]्(?=[क-ह])', 'ं'
+    $map = @{ 'ी' = 'ि'; 'ू' = 'ु'; 'ई' = 'इ'; 'ऊ' = 'उ'; 'ॅ' = 'े'; 'ॉ' = 'ो'; 'ऑ' = 'ओ'; 'ख' = 'क'; 'घ' = 'ग'; 'छ' = 'च'; 'झ' = 'ज'; 'ठ' = 'ट'; 'ढ' = 'ड'
+              'थ' = 'त'; 'ध' = 'द'; 'फ' = 'प'; 'भ' = 'ब'; 'ळ' = 'ल'; 'ण' = 'न'; 'श' = 'स'; 'ष' = 'स'; 'ञ' = 'न'; 'ङ' = 'न' }
+    $sb = New-Object Text.StringBuilder
+    foreach ($ch in $t.ToCharArray()) { $s = [string]$ch; if ($map.ContainsKey($s)) { [void]$sb.Append($map[$s]) } else { [void]$sb.Append($s) } }
+    $t = $sb.ToString()
+    $t = $t -replace 'aa', 'a' -replace 'ee', 'i' -replace 'oo', 'u' -replace '([kgcjtdpb])h', '$1' -replace 'sh', 's' -replace 'w', 'v' -replace 'z', 'j' -replace '([a-z])\1', '$1'
+    return $t
+}
+
 function Test-PDKeyword([string]$Text, [string]$Kw) {
     $k = $Kw.ToLower()
     $short = ($k -match '^[a-z0-9 .:%\-]+$') -and $k.Length -lt 5
@@ -22,14 +39,17 @@ function Test-PDKeyword([string]$Text, [string]$Kw) {
 function Find-PDProblem {
     param([Parameter(Mandatory)][string]$Text, [Parameter(Mandatory)][object[]]$Problems, [int]$Max = 3)
     $t = $Text.ToLower()
+    $tl = ConvertTo-PDLoose $t
     $res = @()
     foreach ($p in $Problems) {
         $score = 0
-        foreach ($k in $p.kw) {
+        foreach ($k0 in $p.kw) {
+            $k = $k0
+            if (-not (Test-PDKeyword $t ($k0 -replace '\+.*$', '')) -and $k0 -notmatch '^[a-z0-9 .:%+\-]{1,4}$') { $k = ConvertTo-PDLoose $k0; $t2 = $tl } else { $t2 = $t }
             $parts = $k.Split('+')
             if ($parts.Count -eq 2 -and $parts[0] -and $parts[1] -and $k -notmatch 'c\+\+') {
-                if ((Test-PDKeyword $t $parts[0]) -and (Test-PDKeyword $t $parts[1])) { $score += 2 }
-            } elseif (Test-PDKeyword $t $k) { $score += ($k.Trim() -split '\s+').Count }
+                if ((Test-PDKeyword $t2 $parts[0]) -and (Test-PDKeyword $t2 $parts[1])) { $score += 2 }
+            } elseif (Test-PDKeyword $t2 $k) { $score += ($k.Trim() -split '\s+').Count }
         }
         if ($score -gt 0) { $res += [pscustomobject]@{ Score = $score; Problem = $p } }
     }
@@ -143,12 +163,14 @@ function New-PDAiPrompt {
     $list = ($Problems | ForEach-Object { "- $($_.id): $($_.en.title)" }) -join "`n"
     $sys = @"
 You are the assistant inside "Sanjeevani PC Doctor", a free Windows repair tool used by computer technicians and ordinary users in Maharashtra, India.
-The user describes a PC / laptop problem in Marathi or Hindi (Devanagari or Roman letters) or English, sometimes spoken and transcribed (expect small speech-to-text errors).
+The user describes a PC / laptop problem in Marathi or Hindi (Devanagari or Roman letters) or English. Often it was SPOKEN and turned into text by speech recognition, by people with regional accents or dialects:
+expect wrong spellings, Hindi-looking spellings of Marathi words, missing or wrong words (e.g. "पिस्टी" = PC, "माजा" = माझा, "बन्द बरतो" = बंद पडतो). Work out what the person most likely meant.
 1. Understand the problem. 2. Pick up to 3 problem ids from the list below that PC Doctor can check or fix (most likely first).
 3. Give short practical steps for a non-expert (max 6), in Marathi (Devanagari) and in English.
+Set "sure" to false when the text is too garbled or vague to be confident.
 Rules: never give commands to type, registry edits, cracks, activators or downloads from unofficial sites; say when a technician / hardware repair is needed.
 Reply with ONLY this JSON (no markdown):
-{"understood_mr":"...","understood_en":"...","problem_ids":["..."],"steps_mr":["..."],"steps_en":["..."],"hardware_likely":false,"note_mr":"","note_en":""}
+{"understood_mr":"...","understood_en":"...","corrected_text":"the user's sentence as they most likely said it, in their language","sure":true,"problem_ids":["..."],"steps_mr":["..."],"steps_en":["..."],"hardware_likely":false,"note_mr":"","note_en":""}
 Problem ids PC Doctor knows:
 $list
 "@
@@ -197,7 +219,8 @@ function ConvertFrom-PDAiAnswer([string]$Text, [object[]]$Problems) {
     $j = $t.Substring($s, $e - $s + 1) | ConvertFrom-Json
     $known = @($Problems | ForEach-Object { $_.id })
     [pscustomobject]@{
-        UnderstoodMr = [string]$j.understood_mr; UnderstoodEn = [string]$j.understood_en
+        UnderstoodMr = [string]$j.understood_mr; UnderstoodEn = [string]$j.understood_en; Corrected = [string]$j.corrected_text
+        Sure = $(if ($null -eq $j.sure) { $true } else { [bool]$j.sure })
         ProblemIds = @(@($j.problem_ids) | Where-Object { $_ -in $known } | Select-Object -First 3)    # only ids PC Doctor knows
         StepsMr = @($j.steps_mr | Where-Object { $_ } | Select-Object -First 8); StepsEn = @($j.steps_en | Where-Object { $_ } | Select-Object -First 8)
         Hardware = [bool]$j.hardware_likely; NoteMr = [string]$j.note_mr; NoteEn = [string]$j.note_en
@@ -237,13 +260,14 @@ function Invoke-PDAiAsk {
 function Resolve-PDProblemIds {
     param([Parameter(Mandatory)][string]$Text, [Parameter(Mandatory)][object[]]$Problems, [Parameter(Mandatory)][string]$UsbRoot,
         [string]$Mode = 'auto', [string]$PcInfo, $Config)
-    $notes = @(); $ids = @(); $source = 'basic'; $model = $null; $und = $null
+    $notes = @(); $ids = @(); $source = 'basic'; $model = $null; $und = $null; $sure = $false; $cor = ''
+
     if (-not $Config) { $Config = Get-PDAiConfig $UsbRoot }
     if ($Mode -in 'auto', 'online' -and $Config.key) {
         try {
             Write-PDLog 'Asking the online AI ...' 'STEP'
             $r = Invoke-PDAiAsk -Text $Text -Config $Config -Problems $Problems -PcInfo $PcInfo
-            $ids = @($r.ProblemIds); $source = 'online'; $model = $r.Model; $und = $r.UnderstoodEn
+            $ids = @($r.ProblemIds); $source = 'online'; $model = $r.Model; $und = $r.UnderstoodEn; $sure = $r.Sure; $cor = $r.Corrected
         } catch { $notes += "online AI: $($_.Exception.Message)" }
     }
     if (-not $ids.Count -and $Mode -in 'auto', 'offline' -and (Get-Command Find-PDLocalAI -ErrorAction SilentlyContinue)) {
@@ -255,7 +279,7 @@ function Resolve-PDProblemIds {
                     Write-PDLog 'Starting the offline AI (30-90 seconds the first time) ...' 'STEP'
                     Set-PDProgress -1 'Offline AI'
                     $r = Invoke-PDLocalAIAsk -Text $Text -Problems $Problems -Ai $ai
-                    $ids = @($r.ProblemIds); $source = 'offline'; $model = $r.Model; $und = $r.UnderstoodEn
+                    $ids = @($r.ProblemIds); $source = 'offline'; $model = $r.Model; $und = $r.UnderstoodEn; $sure = $r.Sure; $cor = $r.Corrected
                 } catch { $notes += "offline AI: $($_.Exception.Message)" }
             } else { $notes += "offline AI: $($fit.Why)" }
         } elseif ($Mode -eq 'offline') { $notes += 'offline AI is not on this USB (run UPDATE.cmd and answer Y to "offline AI")' }
@@ -265,8 +289,9 @@ function Resolve-PDProblemIds {
     if (-not $ids.Count -and $kw.Count) { $source = 'basic' }
     $all = @($ids + $kw | Select-Object -Unique | Select-Object -First 4)
     foreach ($n in $notes) { Write-PDLog $n 'WARN' }
-    return [pscustomobject]@{ Ids = $all; Source = $source; Model = $model; UnderstoodEn = $und; Notes = $notes }
+    # Sure: an AI understood it with confidence (keyword matches alone are never "sure" - the voice asks "did you mean ...?")
+    return [pscustomobject]@{ Ids = $all; Source = $source; Model = $model; UnderstoodEn = $und; Corrected = $cor; Sure = [bool]($ids.Count -and $sure); Notes = $notes }
 }
 
-Export-ModuleMember -Function Resolve-PDProblemIds, Get-PDProblems, Test-PDKeyword, Find-PDProblem, Invoke-PDQuickFix, Get-PDAiConfig, Save-PDAiConfig,
+Export-ModuleMember -Function Resolve-PDProblemIds, Get-PDProblems, Test-PDKeyword, ConvertTo-PDLoose, Find-PDProblem, Invoke-PDQuickFix, Get-PDAiConfig, Save-PDAiConfig,
     New-PDAiPrompt, ConvertFrom-PDAiAnswer, Invoke-PDAiAsk, Invoke-PDHttpJson, Resolve-PDGeminiModel

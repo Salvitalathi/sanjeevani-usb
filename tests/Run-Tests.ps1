@@ -510,6 +510,11 @@ Test-Case 'Problem finder: Marathi / Hindi / English / Roman sentences find the 
     }
     Assert (-not $bad.Count) ($bad -join '; ')
     Assert (-not @(Find-PDProblem -Text 'hello how are you' -Problems $probs).Count) 'unrelated text matched a problem'
+    # misheard / accented speech (speech-to-text spellings) still finds the problem
+    foreach ($pair in @(@('ये संज्यूनी माजा पिस्टी मदी मदी बन्द बरतो का', 'shutdown'), @('मेरा कंप्यूटर बार बार बन्द हो जाता है', 'shutdown'), @('majha laptop khoop garam hoto', 'overheat'))) {
+        $m = @(Find-PDProblem -Text $pair[0] -Problems $probs)
+        Assert ($m.Count -and $m[0].Problem.id -eq $pair[1]) "accented '$($pair[0])' -> $(($m | ForEach-Object { $_.Problem.id }) -join ',')"
+    }
 }
 
 Test-Case 'Problem catalog: every button leads to a real PC Doctor action' {

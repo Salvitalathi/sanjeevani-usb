@@ -2497,7 +2497,8 @@ function Complete-VUnderstand($u) {
     $script:V.U = $u
     Add-VStep ('understood · ' + (Get-VTitle $u.Ids[0])) '#C4B5FD'
     # sure enough: typed text, or heard and understood online; otherwise ask first
-    $sure = (-not $script:V.Spoken) -or ($script:V.SttSource -eq 'online' -and $u.Source -eq 'online')
+    # (the online AI also says whether it is sure; keyword matching alone never is)
+    $sure = (-not $script:V.Spoken) -or ($u.Source -eq 'online' -and $u.Sure -ne $false -and ($script:V.SttSource -eq 'online' -or $u.Sure))
     if ($sure) { Start-VRepair; return }
     $script:V.Confirm = @{ Index = 0; Ids = @($u.Ids) }
     Say-V (VL 'confirm' @(Get-VTitle $u.Ids[0])) -Then { Start-VListen }

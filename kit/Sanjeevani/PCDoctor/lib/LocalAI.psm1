@@ -69,10 +69,11 @@ function Stop-PDLocalAI {
 function New-PDLocalPrompt([object[]]$Problems) {
     $list = ($Problems | ForEach-Object { "$($_.id): $($_.en.title)" }) -join "`n"
     return @"
-You classify computer problems. The user writes in Marathi, Hindi, English or Roman Marathi/Hindi.
+You classify computer problems. The user writes or SPEAKS (speech recognition, regional accents) in Marathi, Hindi, English or Roman Marathi/Hindi - expect misspelled or misheard words and work out what was meant.
 Pick the 1 to 3 ids from this list that best match the user's problem, most likely first.
 $list
-Answer with JSON only: {"problem_ids":["id1","id2"],"understood_en":"one short English sentence"}
+Answer with JSON only: {"problem_ids":["id1","id2"],"understood_en":"one short English sentence","corrected_text":"the user's sentence as most likely meant","sure":true}
+"sure" is false when the text is too garbled or vague.
 "@
 }
 
@@ -84,7 +85,7 @@ function Invoke-PDLocalAIAsk {
     }
     $body = ConvertTo-Json -Depth 6 -Compress -InputObject @{
         messages = @(@{ role = 'system'; content = (New-PDLocalPrompt $Problems) }, @{ role = 'user'; content = $Text })
-        temperature = 0.1; max_tokens = 200; response_format = @{ type = 'json_object' }; cache_prompt = $true
+        temperature = 0.1; max_tokens = 300; response_format = @{ type = 'json_object' }; cache_prompt = $true
         chat_template_kwargs = @{ enable_thinking = $false }
     }
     $t0 = Get-Date
