@@ -928,7 +928,8 @@
       "source": {
         "kind": "github",
         "repo": "ggml-org/llama.cpp",
-        "asset": "(?i)^llama-[^/]*win[^/]*cpu[^/]*x64[^/]*\\.zip$"
+        "asset": "(?i)^llama-[^/]*win[^/]*cpu[^/]*x64[^/]*\\.zip$",
+        "anyRelease": true
       },
       "page": "https://github.com/ggml-org/llama.cpp",
       "refreshDays": 60

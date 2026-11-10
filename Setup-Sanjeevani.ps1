@@ -184,6 +184,14 @@ function Resolve-Source($e) {
             try {
                 $j = Get-WebText "https://api.github.com/repos/$($s.repo)/releases/latest" @{ Accept = 'application/vnd.github+json' } | ConvertFrom-Json
                 $a = $j.assets | Where-Object { $_.name -match $s.asset } | Select-Object -First 1
+                if (-not $a -and $s.anyRelease) {
+                    # projects whose "latest" release is source-only (llama.cpp): newest release that carries the file
+                    foreach ($r in @(Get-WebText "https://api.github.com/repos/$($s.repo)/releases?per_page=20" @{ Accept = 'application/vnd.github+json' } | ConvertFrom-Json)) {
+                        if ($r.draft -or $r.prerelease) { continue }
+                        $a = $r.assets | Where-Object { $_.name -match $s.asset } | Select-Object -First 1
+                        if ($a) { $j = $r; break }
+                    }
+                }
                 if (-not $a) { throw "no asset matching '$($s.asset)' in $($s.repo) $($j.tag_name)" }
                 return @{ Url = $a.browser_download_url; Name = $a.name; Version = $j.tag_name }
             } catch {
@@ -191,9 +199,15 @@ function Resolve-Source($e) {
                 # GitHub API refused (60 requests/hour per IP, often hit on shared Indian ISP addresses): read the web page instead
                 $tag = (& curl.exe -sS -o NUL -w '%{redirect_url}' "https://github.com/$($s.repo)/releases/latest") -replace '.*/tag/', ''
                 if (-not $tag) { throw }
-                $html = Get-WebText "https://github.com/$($s.repo)/releases/expanded_assets/$tag"
-                $names = [regex]::Matches($html, 'href="(/[^"]+/releases/download/[^"]+)"') | ForEach-Object { $_.Groups[1].Value }
-                $hit = $names | Where-Object { [Uri]::UnescapeDataString(($_ -split '/')[-1]) -match $s.asset } | Select-Object -First 1
+                $tags = @($tag)
+                if ($s.anyRelease) { $tags += @([regex]::Matches((Get-WebText "https://github.com/$($s.repo)/releases"), '/releases/tag/([^"/?#]+)"') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique -First 8) }
+                $hit = $null
+                foreach ($tg in $tags) {
+                    $html = Get-WebText "https://github.com/$($s.repo)/releases/expanded_assets/$tg"
+                    $names = [regex]::Matches($html, 'href="(/[^"]+/releases/download/[^"]+)"') | ForEach-Object { $_.Groups[1].Value }
+                    $hit = $names | Where-Object { [Uri]::UnescapeDataString(($_ -split '/')[-1]) -match $s.asset } | Select-Object -First 1
+                    if ($hit) { $tag = $tg; break }
+                }
                 if (-not $hit) { throw "no asset matching '$($s.asset)' in $($s.repo) $tag" }
                 return @{ Url = "https://github.com$hit"; Name = [Uri]::UnescapeDataString(($hit -split '/')[-1]); Version = $tag }
             }
