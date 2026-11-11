@@ -20,6 +20,16 @@ PC तपासणी, दुरुस्ती आणि वेग वाढव
 
 पूर्ण मार्गदर्शक: [`kit/Sanjeevani/Docs/guide-mr.html`](kit/Sanjeevani/Docs/guide-mr.html) - Setup निवडलेल्या भाषेतले मार्गदर्शक pendrive वर पण ठेवतो.
 
+## Pendrive शिवाय PC Doctor चालवा
+
+Internet असलेल्या कोणत्याही Windows 10 / 11 PC वर **PowerShell (Administrator)** उघडा आणि ही एक ओळ टाका:
+
+```powershell
+irm https://raw.githubusercontent.com/Salvitalathi/sanjeevani-usb/main/run.ps1 | iex
+```
+
+नवीन PC Doctor (सुमारे 2 MB) `%LOCALAPPDATA%\Sanjeevani-Web` मध्ये download होऊन सुरू होतो. लागणारी tools त्यांच्या official site वरून त्याच वेळी येतात. हे repository public असेल तेव्हाच चालते.
+
 ## Pendrive वर काय असते
 
 | भाग | माहिती |

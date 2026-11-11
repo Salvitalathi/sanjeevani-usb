@@ -598,6 +598,29 @@ Test-Case 'Assistant: every problem can be checked automatically (or is advice-o
     Assert (-not $miss.Count) ('no automatic check for: ' + ($miss -join ', '))
 }
 
+Test-Case 'Stuck keys: Scancode Map is built correctly and typed symptoms find the check' {
+    $ts = Get-Module Troubleshoot
+    # new map: header, count = 3 (2 keys + terminator), LWin (E0 5B) and F1 (3B) mapped to 0, terminator
+    $m = & $ts { New-TSScancodeMap $null @(0xE05B, 0x3B) }
+    $want = [byte[]](0,0,0,0, 0,0,0,0, 3,0,0,0, 0,0,0x3B,0, 0,0,0x5B,0xE0, 0,0,0,0)
+    Assert ($m -is [byte[]]) "map is $($m.GetType().Name), not byte[]"
+    Assert (($m -join ',') -eq ($want -join ',')) "wrong map: $($m -join ',')"
+    # an existing remap (Caps Lock 3A -> Ctrl 1D) is kept, a key already in the map is not added twice
+    $old = [byte[]](0,0,0,0, 0,0,0,0, 2,0,0,0, 0x1D,0,0x3A,0, 0,0,0,0)
+    $m2 = & $ts { param($o) New-TSScancodeMap $o @(0x3B, 0x3A) } $old
+    Assert ([BitConverter]::ToInt32($m2, 8) -eq 3) "entry count $([BitConverter]::ToInt32($m2, 8))"
+    Assert ($m2.Length -eq 24) "length $($m2.Length)"
+    Assert ((& $ts { Get-TSKeyName 0x5B }) -eq 'Windows (left)' -and (& $ts { Get-TSKeyName 0x70 }) -eq 'F1' -and (& $ts { Get-TSKeyName 0x4C }) -eq 'L') 'key names'
+    $probs = Get-PDProblems $DataDir
+    foreach ($t in 'L key दाबली की PC lock होत आहे, B दाबले की help page open होते', 'keyboard ची windows key आपोआप दाबली जाते', 'L दबाते ही pc lock हो जाता है') {
+        $ids = @(Find-PDProblem -Text $t -Problems $probs | ForEach-Object { $_.Problem.id })
+        Assert ($ids -contains 'stuck-key') "'$t' -> $($ids -join ', ')"
+    }
+    $ids = @(Find-PDProblem -Text 'app uninstall होत नाही, delete केले तरी निघत नाही' -Problems $probs | ForEach-Object { $_.Problem.id })
+    Assert ($ids[0] -eq 'app-uninstall') "uninstall -> $($ids -join ', ')"
+    $null = & $ts { Get-TSBrokenUninstallers }
+}
+
 Test-Case 'Assistant: each check runs on a real Windows and reports in English / Marathi / Hindi' {
     $null = Initialize-PDContext -UsbRoot $fakeUsb
     $global:PDState = [hashtable]::Synchronized(@{ Progress = -1; Status = ''; Cancel = $false })

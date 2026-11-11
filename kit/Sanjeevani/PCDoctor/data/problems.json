@@ -1556,6 +1556,84 @@
    }
   },
   {
+   "id": "stuck-key",
+   "kw": [
+    "stuck key",
+    "key stuck",
+    "key अडकली",
+    "key adakli",
+    "key atakli",
+    "आपोआप दाबली",
+    "apoaap dabli",
+    "auto press",
+    "key auto",
+    "आपोआप type",
+    "apoap type",
+    "lock hot",
+    "lock होत",
+    "lock hote",
+    "pc lock",
+    "आपोआप lock",
+    "help page",
+    "help open",
+    "help उघडते",
+    "f1",
+    "windows key",
+    "win key",
+    "विंडोज key",
+    "shortcut उघडतात",
+    "दुसरेच उघडते",
+    "key+lock",
+    "key+help",
+    "दाबली+lock",
+    "दाबली+help",
+    "अपने आप दब",
+    "key अटकी",
+    "अपने आप lock",
+    "help खुलता"
+   ],
+   "mr": {
+    "title": "Key आपोआप दाबली जाते (L दाबले की PC lock, F1/help उघडते)",
+    "why": "Keyboard मधील एखादी key (बहुतेक Windows, F1, Ctrl, Shift) अडकली / short झाली आहे: पाणी, धूळ किंवा खराब keyboard. Windows मध्ये याची कुठेही error नोंद होत नाही.",
+    "steps": [
+     "\"समस्या तपासा\" दाबा आणि 5 सेकंद keyboard ला हात लावू नका - आपोआप दाबल्या जाणाऱ्या keys सापडतात.",
+     "सापडलेल्या keys PC Doctor बंद करू शकतो (restart नंतर लागू; \"वेग वाढवा → सर्व बदल Undo करा\" ने परत चालू).",
+     "Keyboard test: Tools मार्गदर्शक → \"Keyboard test\" - कोणती key स्वतःहून लाल / हिरवी होते ते पाहा.",
+     "कायमचा उपाय: keyboard साफ करा किंवा बदला; तोपर्यंत USB keyboard वापरा."
+    ]
+   },
+   "en": {
+    "title": "A key presses by itself (L locks the PC, F1 / Help opens)",
+    "why": "A key (usually Windows, F1, Ctrl or Shift) is stuck or shorted: water, dust or a failing keyboard. Windows logs no error for this.",
+    "steps": [
+     "Press \"Check the problem\" and do not touch the keyboard for 5 seconds - keys that press by themselves are found.",
+     "PC Doctor can switch those keys off (after a restart; \"Speed Up → Undo all changes\" turns them back on).",
+     "Keyboard test: Tools guide → \"Keyboard test\" - see which key lights up by itself.",
+     "Real fix: clean or replace the keyboard; use a USB keyboard meanwhile."
+    ]
+   },
+   "actions": [
+    {
+     "t": "page",
+     "id": "toolbox"
+    },
+    {
+     "t": "repair",
+     "id": "drivers"
+    }
+   ],
+   "hi": {
+    "title": "Key अपने आप दबती है (L दबाते ही PC lock, F1 / help खुलता है)",
+    "why": "Keyboard की कोई key (अक्सर Windows, F1, Ctrl, Shift) अटकी / short है: पानी, धूल या खराब keyboard. Windows में इसकी कोई error दर्ज नहीं होती।",
+    "steps": [
+     "\"समस्या जाँचें\" दबाएँ और 5 सेकंड keyboard को हाथ न लगाएँ - अपने आप दबने वाली keys मिल जाती हैं।",
+     "मिली keys PC Doctor बंद कर सकता है (restart के बाद; \"स्पीड बढ़ाएँ → सभी बदलाव Undo करें\" से फिर चालू)।",
+     "Keyboard test: Tools गाइड → \"Keyboard test\" - कौन सी key अपने आप जलती है देखें।",
+     "पक्का उपाय: keyboard साफ़ करें या बदलें; तब तक USB keyboard इस्तेमाल करें।"
+    ]
+   }
+  },
+  {
    "id": "usb",
    "kw": [
     "usb",
@@ -2204,6 +2282,74 @@
      "C: पर खाली जगह देखें।",
      "Microsoft Store apps: \"Store ठीक करें\" (cache reset).",
      "\"Windows system files मरम्मत\"।"
+    ]
+   }
+  },
+  {
+   "id": "app-uninstall",
+   "kw": [
+    "uninstall",
+    "अनइन्स्टॉल",
+    "uninstall hot nahi",
+    "uninstall होत नाही",
+    "delete hot nahi",
+    "remove hot nahi",
+    "app delete",
+    "app निघत नाही",
+    "app nighat nahi",
+    "software delete",
+    "program remove",
+    "नको असलेले app",
+    "unwanted app",
+    "force uninstall",
+    "app jat nahi",
+    "app+delete",
+    "software+remove",
+    "app+uninstall",
+    "अनइंस्टॉल",
+    "uninstall नहीं हो रहा",
+    "app नहीं हट रहा",
+    "software नहीं हटता"
+   ],
+   "mr": {
+    "title": "नको असलेले app / software uninstall होत नाही",
+    "why": "Uninstaller हरवलेला / तुटलेला, program चालू असल्याने files अडकल्या, किंवा adware स्वतःला पुन्हा install करतो.",
+    "steps": [
+     "\"समस्या तपासा\" - तुटलेले uninstaller असलेले programs शोधतो.",
+     "Bulk Crap Uninstaller (BCU) उघडा: program निवडा → Uninstall; न निघाल्यास right-click → \"Force uninstall\" (उरलेल्या files व registry सकट).",
+     "पुन्हा पुन्हा परत येत असेल तर तो adware आहे: \"Virus / adware तपासा\" चालवा."
+    ]
+   },
+   "en": {
+    "title": "An unwanted app / program will not uninstall",
+    "why": "Missing or broken uninstaller, files locked because the program is running, or adware that reinstalls itself.",
+    "steps": [
+     "\"Check the problem\" finds programs with a broken uninstaller.",
+     "Open Bulk Crap Uninstaller (BCU): select the program → Uninstall; if it fails, right-click → \"Force uninstall\" (removes leftover files and registry too).",
+     "If it keeps coming back it is adware: run \"Check for virus / adware\"."
+    ]
+   },
+   "actions": [
+    {
+     "t": "tool",
+     "id": "bcu"
+    },
+    {
+     "t": "tool",
+     "id": "autoruns"
+    },
+    {
+     "t": "fix",
+     "id": "registry"
+    }
+   ],
+   "hi": {
+    "title": "बेकार app / software uninstall नहीं हो रहा",
+    "why": "Uninstaller गायब / टूटा, program चालू होने से files अटकीं, या adware खुद को फिर install करता है।",
+    "steps": [
+     "\"समस्या जाँचें\" - टूटे uninstaller वाले programs ढूँढता है।",
+     "Bulk Crap Uninstaller (BCU) खोलें: program चुनें → Uninstall; न हटे तो right-click → \"Force uninstall\" (बची files और registry समेत)।",
+     "बार-बार वापस आए तो वह adware है: \"Virus / adware जाँचें\" चलाएँ।"
     ]
    }
   },
