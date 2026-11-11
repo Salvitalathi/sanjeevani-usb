@@ -594,7 +594,10 @@ Test-Case 'Quick fixes run (DNS, printer queue, USB rescan, time, search)' {
 Test-Case 'Assistant: every problem can be checked automatically (or is advice-only on purpose)' {
     $guideOnly = 'password', 'data-recovery', 'reinstall', 'old-pc', 'remote', 'no-boot'
     $have = Get-PDTroubleshootable
+    $guideOnly += @((Get-PDProblems $DataDir) | Where-Object { $_.guide } | ForEach-Object { $_.id })     # advice-only problems are marked in problems.json
     $miss = @((Get-PDProblems $DataDir) | Where-Object { $_.id -notin $have -and $_.id -notin $guideOnly } | ForEach-Object { $_.id })
+    $extra = @($have | Where-Object { $_ -notin @((Get-PDProblems $DataDir) | ForEach-Object { $_.id }) })
+    Assert (-not $extra.Count) ('checks without a problem entry: ' + ($extra -join ', '))
     Assert (-not $miss.Count) ('no automatic check for: ' + ($miss -join ', '))
 }
 
@@ -619,6 +622,33 @@ Test-Case 'Stuck keys: Scancode Map is built correctly and typed symptoms find t
     $ids = @(Find-PDProblem -Text 'app uninstall होत नाही, delete केले तरी निघत नाही' -Problems $probs | ForEach-Object { $_.Problem.id })
     Assert ($ids[0] -eq 'app-uninstall') "uninstall -> $($ids -join ', ')"
     $null = & $ts { Get-TSBrokenUninstallers }
+}
+
+Test-Case 'More checks: shortcut-virus finder, power index reader and RD probe work' {
+    $ts = Get-Module Troubleshoot
+    $root = Join-Path $env:TEMP ('sj-usb-' + [guid]::NewGuid().ToString('N').Substring(0, 6))
+    $null = New-Item -ItemType Directory -Path $root
+    try {
+        $real = New-Item -ItemType Directory -Path (Join-Path $root 'Photos')
+        $real.Attributes = 'Hidden, System, Directory'
+        Set-Content -LiteralPath (Join-Path $root 'x.vbs') -Value "' test"
+        $sh = New-Object -ComObject WScript.Shell
+        $l = $sh.CreateShortcut((Join-Path $root 'Photos.lnk')); $l.TargetPath = "$env:WINDIR\System32\wscript.exe"; $l.Arguments = 'x.vbs'; $l.Save()
+        $l2 = $sh.CreateShortcut((Join-Path $root 'Notepad.lnk')); $l2.TargetPath = "$env:WINDIR\notepad.exe"; $l2.Save()
+        $x = & $ts { param($r) Get-TXShortcutVirus $r } "$root\"
+        Assert ($x.Lnk.Count -eq 1 -and $x.Lnk[0].Name -eq 'Photos.lnk') "virus shortcuts: $(@($x.Lnk).Count)"
+        Assert ($x.Scripts.Count -eq 1) "scripts: $(@($x.Scripts).Count)"
+        Assert ($x.Hidden.Count -eq 1) "hidden: $(@($x.Hidden).Count)"
+    } finally { Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue }
+    $v = & $ts { Get-TXPowerIndex '2a737441-1930-4402-8d77-b2bebba308a3' '48e6b7a6-50f5-4782-a5d4-53bb8f07e226' }
+    Write-Host "      USB selective suspend: $(if ($v) { "AC=$($v.AC) DC=$($v.DC)" } else { 'not available' })" -ForegroundColor DarkGray
+    Assert ($null -eq $v -or ($v.AC -in 0, 1 -and $v.DC -in 0, 1)) 'power index out of range'
+    $t0 = Get-Date
+    $rd = & $ts { Get-TXRdStatus }
+    Assert ($null -eq $rd) 'RD probe answered on a PC without an Aadhaar device'
+    Assert (((Get-Date) - $t0).TotalSeconds -lt 40) 'RD probe too slow'
+    $vc = @(& $ts { Get-TXVcMissing })
+    Write-Host "      VC++ runtime missing: $($vc -join ', ')" -ForegroundColor DarkGray
 }
 
 Test-Case 'Assistant: each check runs on a real Windows and reports in English / Marathi / Hindi' {

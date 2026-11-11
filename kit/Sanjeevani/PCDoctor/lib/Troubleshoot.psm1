@@ -920,6 +920,9 @@ $script:D['app-uninstall'] = @{
     NoVerify = $true
 }
 
+# more checks (Windows, apps, hardware / storage, India) live in their own file, sharing $script:D
+. (Join-Path $PSScriptRoot 'Troubleshoot.More.ps1')
+
 # ------------------------------------------------------------------ runner
 function Get-PDTroubleshootable { return @($script:D.Keys) }
 
