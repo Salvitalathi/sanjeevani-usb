@@ -765,6 +765,164 @@ $script:D['activation'] = @{
     }
 }
 
+# ------------------------------------------------------------------ keys that press by themselves (stuck / shorted key)
+# A stuck Windows key turns L into "lock the PC" and other letters into Windows shortcuts; a stuck F1 opens Help.
+# Windows logs nothing about it and the keyboard driver is fine, so the keyboard itself is watched for a few seconds
+# while nobody touches it. Found keys can be switched off with the Windows "Scancode Map" (after a restart, with Undo).
+if (-not ('Sanjeevani.KeyProbe' -as [type])) {
+    try {
+        Add-Type -Namespace Sanjeevani -Name KeyProbe -ErrorAction Stop -MemberDefinition @'
+[DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vKey);
+[DllImport("user32.dll")] public static extern uint MapVirtualKey(uint uCode, uint uMapType);
+'@
+    } catch { }
+}
+$script:KeyNames = @{ 0x08 = 'Backspace'; 0x09 = 'Tab'; 0x0D = 'Enter'; 0x13 = 'Pause'; 0x14 = 'Caps Lock'; 0x1B = 'Esc'; 0x20 = 'Space'
+    0x21 = 'Page Up'; 0x22 = 'Page Down'; 0x23 = 'End'; 0x24 = 'Home'; 0x25 = 'Left'; 0x26 = 'Up'; 0x27 = 'Right'; 0x28 = 'Down'
+    0x2C = 'Print Screen'; 0x2D = 'Insert'; 0x2E = 'Delete'; 0x5B = 'Windows (left)'; 0x5C = 'Windows (right)'; 0x5D = 'Menu'
+    0x90 = 'Num Lock'; 0x91 = 'Scroll Lock'; 0xA0 = 'Shift (left)'; 0xA1 = 'Shift (right)'; 0xA2 = 'Ctrl (left)'; 0xA3 = 'Ctrl (right)'
+    0xA4 = 'Alt (left)'; 0xA5 = 'Alt (right)' }
+function Get-TSKeyName([int]$Vk) {
+    if ($script:KeyNames.ContainsKey($Vk)) { return $script:KeyNames[$Vk] }
+    if ($Vk -ge 0x70 -and $Vk -le 0x87) { return 'F' + ($Vk - 0x6F) }
+    if (($Vk -ge 0x30 -and $Vk -le 0x39) -or ($Vk -ge 0x41 -and $Vk -le 0x5A)) { return [string][char]$Vk }
+    if ($Vk -ge 0x60 -and $Vk -le 0x69) { return 'Num ' + ($Vk - 0x60) }
+    return ('key 0x{0:X2}' -f $Vk)
+}
+# Watches every key for $Seconds. Stuck = held down nearly all the time; Flicker = pressed now and then by itself.
+# Returns $null when the keyboard cannot be read (no desktop session).
+function Get-TSStuckKeys([double]$Seconds = 5, [int]$SettleMs = 1500) {
+    if (-not ('Sanjeevani.KeyProbe' -as [type])) { return $null }
+    # mouse buttons, the generic Shift / Ctrl / Alt codes (their left / right codes are checked) and IME codes
+    $skip = @(0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x10, 0x11, 0x12, 0x15, 0x17, 0x18, 0x19, 0x1C, 0x1D, 0x1E, 0x1F, 0xE5)
+    $vks = @(0x08..0xFE | Where-Object { $skip -notcontains $_ })
+    Start-Sleep -Milliseconds $SettleMs      # the Enter / click that started the check is released first
+    $hits = @{}; $polls = 0
+    $end = (Get-Date).AddSeconds($Seconds)
+    while ((Get-Date) -lt $end) {
+        foreach ($vk in $vks) { if ([Sanjeevani.KeyProbe]::GetAsyncKeyState($vk) -band 0x8000) { $hits[$vk] = 1 + [int]$hits[$vk] } }
+        $polls++
+        Start-Sleep -Milliseconds 40
+    }
+    $stuck = @(); $flicker = @()
+    foreach ($vk in @($hits.Keys | Sort-Object)) {
+        if ($hits[$vk] -ge [math]::Max(2, $polls * 0.6)) { $stuck += [int]$vk } elseif ($hits[$vk] -ge 2) { $flicker += [int]$vk }
+    }
+    return [pscustomobject]@{ Stuck = $stuck; Flicker = $flicker; Polls = $polls }
+}
+# Builds a Windows "Scancode Map" value: keeps the existing remaps and maps each scancode in $Disable to nothing.
+# Layout: 8 zero bytes, DWORD entry count (+1 for the terminator), DWORD per entry (low word = new code, high word = old code), 4 zero bytes.
+function New-TSScancodeMap([byte[]]$Old, [int[]]$Disable) {
+    $map = @{}
+    if ($Old -and $Old.Length -ge 16) {
+        $n = [BitConverter]::ToInt32($Old, 8) - 1
+        for ($i = 0; $i -lt $n; $i++) {
+            $o = 12 + 4 * $i
+            if ($o + 4 -gt $Old.Length) { break }
+            $to = [int][BitConverter]::ToUInt16($Old, $o); $from = [int][BitConverter]::ToUInt16($Old, $o + 2)
+            if ($from) { $map[$from] = $to }
+        }
+    }
+    foreach ($sc in $Disable) { if ($sc) { $map[[int]$sc] = 0 } }
+    $out = New-Object 'System.Collections.Generic.List[byte]'
+    $out.AddRange([byte[]](0, 0, 0, 0, 0, 0, 0, 0))
+    $out.AddRange([BitConverter]::GetBytes([int]($map.Count + 1)))
+    foreach ($from in @($map.Keys | Sort-Object)) {
+        $out.AddRange([BitConverter]::GetBytes([uint16]$map[$from]))
+        $out.AddRange([BitConverter]::GetBytes([uint16]$from))
+    }
+    $out.AddRange([byte[]](0, 0, 0, 0))
+    return , $out.ToArray()
+}
+$script:D['stuck-key'] = @{
+    Check = {
+        Step 'Watching the keyboard for 5 seconds - please do not touch it' 'Keyboard 5 सेकंद तपासत आहे - keyboard ला हात लावू नका' 'Keyboard 5 सेकंड जाँच रहे हैं - keyboard को हाथ न लगाएँ'
+        $k = Get-TSStuckKeys 5
+        if ($null -eq $k) { return (New-TSCheck $null (TT 'The keyboard could not be watched on this PC; use the Keyboard test in the Tools guide.' 'या PC वर keyboard तपासता आला नाही; Tools मार्गदर्शक मधील Keyboard test वापरा.' 'इस PC पर keyboard जाँचा नहीं जा सका; Tools गाइड का Keyboard test इस्तेमाल करें।')) }
+        $all = @(@($k.Stuck) + @($k.Flicker) | Select-Object -Unique)
+        if (-not $all.Count) {
+            return (New-TSCheck $false (TT 'No key pressed by itself in 5 seconds. If it happens only now and then, open the Keyboard test in the Tools guide and watch for a key that lights up by itself.' '5 सेकंदात कोणतीही key आपोआप दाबली गेली नाही. अधूनमधून होत असेल तर Tools मार्गदर्शक मधील Keyboard test उघडा आणि कोणती key स्वतःहून उजळते ते पाहा.' '5 सेकंड में कोई key अपने आप नहीं दबी। कभी-कभी होता हो तो Tools गाइड का Keyboard test खोलें और देखें कौन सी key अपने आप जलती है।'))
+        }
+        $names = ($all | ForEach-Object { Get-TSKeyName $_ }) -join ', '
+        $hint = @()
+        if ($all -contains 0x5B -or $all -contains 0x5C) { $hint += TT 'a stuck Windows key makes L lock the PC and other letters open Windows shortcuts' 'अडकलेल्या Windows key मुळे L दाबले की PC lock होतो आणि इतर अक्षरांनी Windows shortcuts उघडतात' 'अटकी Windows key से L दबाते ही PC lock होता है और दूसरे अक्षरों से Windows shortcuts खुलते हैं' }
+        if ($all -contains 0x70) { $hint += TT 'a stuck F1 keeps opening Help' 'अडकलेल्या F1 मुळे Help page उघडत राहते' 'अटकी F1 से Help page खुलता रहता है' }
+        if (@($all | Where-Object { $_ -in 0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5 }).Count) { $hint += TT 'a stuck Shift / Ctrl / Alt changes what every key does' 'अडकलेल्या Shift / Ctrl / Alt मुळे प्रत्येक key चे काम बदलते' 'अटकी Shift / Ctrl / Alt से हर key का काम बदल जाता है' }
+        $txt = TT "These keys press by themselves: $names" "या keys आपोआप दाबल्या जात आहेत: $names" "ये keys अपने आप दब रही हैं: $names"
+        if ($hint.Count) { $txt = Add-TT $txt (Join-TT $hint '; ') ' - ' }
+        return (New-TSCheck $true $txt @{ Keys = $all })
+    }
+    Fix = {
+        param($chk)
+        $man = TT 'This is a keyboard fault: clean the keyboard or replace it (use a USB keyboard meanwhile). The switched-off keys also do nothing on a USB keyboard; turn them back on with "Speed Up → Undo all changes".' 'हा keyboard चा दोष आहे: keyboard साफ करा किंवा बदला (तोपर्यंत USB keyboard वापरा). बंद केलेल्या keys USB keyboard वरही चालणार नाहीत; परत चालू करण्यासाठी "वेग वाढवा → सर्व बदल Undo करा".' 'यह keyboard की खराबी है: keyboard साफ़ करें या बदलें (तब तक USB keyboard इस्तेमाल करें)। बंद की गई keys USB keyboard पर भी नहीं चलेंगी; फिर चालू करने के लिए "स्पीड बढ़ाएँ → सभी बदलाव Undo करें"।'
+        $codes = @(); $names = @()
+        foreach ($vk in @($chk.Data.Keys)) {
+            $sc = 0
+            try { $sc = [int][Sanjeevani.KeyProbe]::MapVirtualKey([uint32]$vk, 4) } catch { }      # 4 = virtual key -> scancode (with the E0 prefix)
+            if ($sc) { $codes += $sc; $names += (Get-TSKeyName $vk) }
+        }
+        if (-not $codes.Count) { return (New-TSFix $false (TT 'These keys cannot be switched off from Windows.' 'या keys Windows मधून बंद करता येत नाहीत.' 'ये keys Windows से बंद नहीं की जा सकतीं।') -Manual $man) }
+        New-TSRestorePointOnce
+        Step 'Switching off the keys that press by themselves' 'आपोआप दाबल्या जाणाऱ्या keys बंद करत आहे' 'अपने आप दबने वाली keys बंद कर रहे हैं'
+        $kl = 'HKLM:\SYSTEM\CurrentControlSet\Control\Keyboard Layout'
+        $old = (Get-ItemProperty -Path $kl -Name 'Scancode Map' -ErrorAction SilentlyContinue).'Scancode Map'
+        try {
+            Set-PDRegValue -Path $kl -Name 'Scancode Map' -Value (New-TSScancodeMap $old $codes) -Type Binary
+        } catch {
+            return (New-TSFix $false (TT "Could not switch the keys off: $($_.Exception.Message)" "Keys बंद करता आल्या नाहीत: $($_.Exception.Message)" "Keys बंद नहीं हो सकीं: $($_.Exception.Message)") -Manual $man)
+        }
+        $n = $names -join ', '
+        return (New-TSFix $true (TT "I switched off $n. After a restart these keys do nothing and the rest of the keyboard works normally." "$n बंद केल्या. Restart नंतर या keys काहीही करणार नाहीत आणि बाकी keyboard नेहमीसारखा चालेल." "$n बंद कीं। Restart के बाद ये keys कुछ नहीं करेंगी और बाकी keyboard सामान्य चलेगा।") -Restart -Manual $man)
+    }
+    NoVerify = $true
+}
+
+# ------------------------------------------------------------------ programs that will not uninstall
+# Lists installed programs whose uninstaller is missing (the usual reason "Uninstall" does nothing) and opens
+# Bulk Crap Uninstaller from the USB for a force uninstall. Nothing is removed automatically.
+function Get-TSBrokenUninstallers {
+    $roots = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall', 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall', 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall'
+    $bad = @()
+    foreach ($r in $roots) {
+        foreach ($e in @(Get-ChildItem -LiteralPath $r -ErrorAction SilentlyContinue | ForEach-Object { Get-ItemProperty -LiteralPath $_.PSPath -ErrorAction SilentlyContinue })) {
+            if (-not $e.DisplayName -or $e.SystemComponent -eq 1 -or $e.ParentKeyName) { continue }
+            $u = [string]$e.UninstallString
+            if (-not $u -or $u -match '(?i)msiexec') { continue }
+            $exe = if ($u -match '^\s*"([^"]+)"') { $Matches[1] } elseif ($u -match '^\s*(.+?\.exe)\b') { $Matches[1] } else { $null }
+            if (-not $exe) { continue }
+            $exe = [Environment]::ExpandEnvironmentVariables($exe)
+            if (-not (Test-Path -LiteralPath $exe)) { $bad += [pscustomobject]@{ Name = [string]$e.DisplayName; Uninstaller = $exe } }
+        }
+    }
+    return @($bad | Sort-Object Name -Unique)
+}
+$script:D['app-uninstall'] = @{
+    Check = {
+        Step 'Looking for programs whose uninstaller is missing' 'Uninstaller हरवलेले programs शोधत आहे' 'जिनका uninstaller गायब है ऐसे programs खोज रहे हैं'
+        $bad = @(Get-TSBrokenUninstallers)
+        if ($bad.Count) {
+            $n = ($bad | Select-Object -First 4 | ForEach-Object Name) -join ', '
+            return (New-TSCheck $true (TT "$($bad.Count) programs cannot be uninstalled normally - their uninstaller is missing ($n)." "$($bad.Count) programs नेहमीच्या पद्धतीने uninstall होऊ शकत नाहीत - त्यांचा uninstaller हरवला आहे ($n)." "$($bad.Count) programs सामान्य तरीके से uninstall नहीं हो सकते - उनका uninstaller गायब है ($n)।") @{ Bad = $bad })
+        }
+        return (New-TSCheck $null (TT 'Every installed program still has its uninstaller; a program that will not go is usually running or is adware.' 'सगळ्या installed programs चे uninstaller जागेवर आहेत; न निघणारा program बहुतेक चालू असतो किंवा adware असतो.' 'सभी installed programs के uninstaller मौजूद हैं; न हटने वाला program अक्सर चालू होता है या adware होता है।'))
+    }
+    Fix = {
+        param($chk)
+        $bcu = $null
+        try { if ($global:PDCtx -and $global:PDCtx.UsbRoot) { $bcu = Find-TGTool -UsbRoot $global:PDCtx.UsbRoot -Id 'bcu' } } catch { }
+        $how = TT 'In Bulk Crap Uninstaller select the program → Uninstall; if it fails, right-click → "Force uninstall" (removes the leftover files and registry too). If it keeps coming back, run the virus / adware check.' 'Bulk Crap Uninstaller मध्ये program निवडा → Uninstall; न निघाल्यास right-click → "Force uninstall" (उरलेल्या files आणि registry सकट). पुन्हा पुन्हा परत येत असेल तर virus / adware तपासणी चालवा.' 'Bulk Crap Uninstaller में program चुनें → Uninstall; न हटे तो right-click → "Force uninstall" (बची files और registry समेत)। बार-बार वापस आए तो virus / adware जाँच चलाएँ।'
+        if ($bcu) {
+            try { Start-Process -FilePath (Get-TGRunPath $bcu) -ErrorAction Stop } catch { $bcu = $null }
+        }
+        if ($bcu) { return (New-TSFix $null (TT 'I opened Bulk Crap Uninstaller.' 'Bulk Crap Uninstaller उघडला.' 'Bulk Crap Uninstaller खोला।') -Manual $how) }
+        return (New-TSFix $false (TT 'Bulk Crap Uninstaller is not on this USB yet.' 'Bulk Crap Uninstaller अजून या USB वर नाही.' 'Bulk Crap Uninstaller अभी इस USB पर नहीं है।') -Manual (Add-TT (TT 'Download it from the Tools guide (Bulk Crap Uninstaller), then:' 'Tools मार्गदर्शक मधून (Bulk Crap Uninstaller) download करा, मग:' 'Tools गाइड से (Bulk Crap Uninstaller) download करें, फिर:') $how))
+    }
+    NoVerify = $true
+}
+
+# more checks (Windows, apps, hardware / storage, India) live in their own file, sharing $script:D
+. (Join-Path $PSScriptRoot 'Troubleshoot.More.ps1')
+
 # ------------------------------------------------------------------ runner
 function Get-PDTroubleshootable { return @($script:D.Keys) }
 

@@ -22,6 +22,16 @@ A bootable technician pendrive to check, repair and speed up Windows PCs - built
 
 Full guide: [`kit/Sanjeevani/Docs/guide-en.html`](kit/Sanjeevani/Docs/guide-en.html) ([मराठी](kit/Sanjeevani/Docs/guide-mr.html), [हिन्दी](kit/Sanjeevani/Docs/guide-hi.html)) - Setup also copies it to the USB in the chosen language.
 
+## Start PC Doctor without the USB
+
+On any Windows 10 / 11 PC with internet, open **PowerShell as Administrator** and paste:
+
+```powershell
+irm https://raw.githubusercontent.com/Salvitalathi/sanjeevani-usb/main/run.ps1 | iex
+```
+
+It downloads the latest PC Doctor (about 2 MB) to `%LOCALAPPDATA%\Sanjeevani-Web` and starts it. Tools are fetched from their official sites when needed. Works only while this repository is public.
+
 ## What is on the USB
 
 | Part | What it does |
