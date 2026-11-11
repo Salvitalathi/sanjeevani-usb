@@ -973,7 +973,7 @@ $script:D['pirated-kms'] = @{
         if ($lp) {
             if ($lp.LicenseStatus -ne 1) { $why += TT 'Windows is not activated' 'Windows activate नाही' 'Windows activate नहीं है'; $data.Unlicensed = $true }
             $kms = "$($lp.KeyManagementServiceMachine) $($lp.DiscoveredKeyManagementServiceMachineName)".Trim()
-            if ($lp.Description -match 'VOLUME_KMSCLIENT' -and -not $domain) { $why += TT "Windows uses KMS activation$(if ($kms) { " ($kms)" }) on a home / shop PC - this is how pirate activators work" "घरच्या / दुकानाच्या PC वर Windows KMS activation$(if ($kms) { " ($kms)" }) वापरते - pirate activators असेच चालतात" "घर / दुकान के PC पर Windows KMS activation$(if ($kms) { " ($kms)" }) इस्तेमाल करता है - pirate activators ऐसे ही चलते हैं"; $data.Kms = $true }
+            if ($lp.Description -match 'VOLUME_KMSCLIENT' -and -not $domain -and $kms -notmatch '(?i)\.core\.windows\.net|\.microsoft\.com') { $why += TT "Windows uses KMS activation$(if ($kms) { " ($kms)" }) on a home / shop PC - this is how pirate activators work" "घरच्या / दुकानाच्या PC वर Windows KMS activation$(if ($kms) { " ($kms)" }) वापरते - pirate activators असेच चालतात" "घर / दुकान के PC पर Windows KMS activation$(if ($kms) { " ($kms)" }) इस्तेमाल करता है - pirate activators ऐसे ही चलते हैं"; $data.Kms = $true }
         }
         $art = @()
         $art += @(Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object { $_.TaskName -match '(?i)kms|autopico|activat(or|ion).*(auto|renew)' } | ForEach-Object TaskName)
